@@ -1,0 +1,9 @@
+#!/usr/bin/env zsh
+
+ROOTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+
+export ZPLUG_HOME=${ROOTDIR}/.installed/zplug
+
+source $ZPLUG_HOME/init.zsh
+source ${ROOTDIR}/lists/zplug-plugins.list
+zplug load
