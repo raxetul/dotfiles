@@ -7,7 +7,7 @@ My dotenv project with package installations. Feel free to contribute.
 | folder   |      Purpose      | 
 |----------|:-------------:|
 | list | place your lists for installation and login startup loadings in here |
-| settings | settings scripts which are run at every login startup loadings |
+| settings | settings scripts which are run at each login startup loading |
 | setups | place your one time setup scripts in here |
 
 ## Contributing
