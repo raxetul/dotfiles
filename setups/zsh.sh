@@ -9,6 +9,8 @@ AUTO_INSTALLED_USER_LINES_END="### AUTO ADDED USER LINES ############### END"
 #PLUGINS=`perl -pe "s/^/\t/" ${ROOTDIR}/lists/oh-my-zsh-plugins.list`
 #perl -i -pe "BEGIN{undef $/;} s/^plugins=.*\)/plugins=(\n$PLUGINS\n)/smg" ~/.zshrc
 
+[[ ! -d "${HOME}/.oh-my-zsh" ]] && sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+
 export ZPLUG_HOME=${ROOTDIR}/.installed/zplug
 [[ ! -d "${ZPLUG_HOME}" ]] && git clone https://github.com/zplug/zplug $ZPLUG_HOME
 
