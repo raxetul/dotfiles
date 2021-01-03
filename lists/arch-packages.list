@@ -1,0 +1,27 @@
+alacritty
+arp-scan
+asciinema
+base-devel
+bandwhich
+bind
+clang
+discord
+docker
+docker-compose
+fzf
+go
+git
+hdparm
+jdk-openjdk jre-openjdk openjdk-doc openjdk-src
+jq
+kdiff3
+llvm llvm-libs
+nodejs-lts-erbium npm npm-check-updates
+qtcreator
+smplayer
+terminology
+tldr
+tmux
+veracrypt
+vim
+zsh
