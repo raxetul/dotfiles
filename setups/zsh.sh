@@ -42,3 +42,4 @@ source $ZPLUG_HOME/init.zsh
 
 source ${ROOTDIR}/lists/zplug-plugins.list
 zplug install 
+zplug load
