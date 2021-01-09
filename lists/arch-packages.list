@@ -8,6 +8,7 @@ clang
 discord
 docker
 docker-compose
+fluxbox artwork-fluxbox fluxbox-theme-manjaro fluxbox-theme-vertex-maia menumaker xdgmenumaker
 fzf
 go
 git
