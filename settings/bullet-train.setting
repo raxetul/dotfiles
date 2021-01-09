@@ -1,0 +1,13 @@
+BULLETTRAIN_PROMPT_ORDER=(
+  context
+  time
+  dir
+  git
+)
+
+export TERM="xterm-256color"
+
+BULLETTRAIN_CONTEXT_BG=cyan
+BULLETTRAIN_TIME_BG=red
+BULLETTRAIN_DIR_FG=black
+BULLETTRAIN_CONTEXT_FG=black
