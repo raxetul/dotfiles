@@ -8,6 +8,7 @@ clang
 discord
 docker
 docker-compose
+flameshot
 fzf
 go
 git
@@ -16,12 +17,13 @@ jdk-openjdk jre-openjdk openjdk-doc openjdk-src
 jq
 kdiff3
 llvm llvm-libs
-nodejs-lts-erbium npm npm-check-updates
+nodejs npm npm-check-updates
 qtcreator
 smplayer
 terminology
 tldr
 tmux
+ttf-jetbrains-mono
 veracrypt
 vim
 zsh
