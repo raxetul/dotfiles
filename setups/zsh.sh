@@ -24,6 +24,8 @@ do
     source \${SETTING_FILE}
 done
 
+chsh -s /usr/bin/zsh $USER
+
 $AUTO_INSTALLED_USER_LINES_END"
 
 SETTINGS=${SETTINGS//\//\\\/}
