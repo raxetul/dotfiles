@@ -1,13 +1,27 @@
+# Custom
+
+prompt_new_line() {
+  echo
+  CURRENT_BG='NONE'
+}
+prompt_seg_seperator() {
+  SEGMENT_SEPARATOR=''
+}
+
 BULLETTRAIN_PROMPT_ORDER=(
   context
   time
   dir
+  end
+  new_line
   git
+  seg_seperator
 )
 
 export TERM="xterm-256color"
 
-BULLETTRAIN_CONTEXT_BG=cyan
+BULLETTRAIN_CONTEXT_BG=yellow
 BULLETTRAIN_TIME_BG=red
 BULLETTRAIN_DIR_FG=black
 BULLETTRAIN_CONTEXT_FG=black
+BULLETTRAIN_PROMPT_SEPARATE_LINE=true
