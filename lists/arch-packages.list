@@ -1,29 +1,20 @@
-alacritty
 arp-scan
-asciinema
 base-devel
 bandwhich
 bind
 clang
-discord
-docker
-docker-compose
-flameshot
+docker docker-compose
+dstat
 fzf
 go
 git
 hdparm
 jdk-openjdk jre-openjdk openjdk-doc openjdk-src
 jq
-kdiff3
 llvm llvm-libs
 nodejs npm npm-check-updates
-qtcreator
-smplayer
-terminology
+rustup cargo
 tldr
 tmux
-ttf-jetbrains-mono
-veracrypt
 vim
 zsh

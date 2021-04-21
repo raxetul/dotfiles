@@ -2,6 +2,7 @@
 ROOTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )/.."
 ZSH_FILE=${HOME}/.zshrc
 
+zsh
 AUTO_INSTALLED_USER_LINES_START="### AUTO ADDED USER LINES ############### START"
 AUTO_INSTALLED_USER_LINES_END="### AUTO ADDED USER LINES ############### END"
 
@@ -24,9 +25,9 @@ do
     source \${SETTING_FILE}
 done
 
-chsh -s /usr/bin/zsh $USER
-
 $AUTO_INSTALLED_USER_LINES_END"
+
+chsh -s /usr/bin/zsh $USER
 
 SETTINGS=${SETTINGS//\//\\\/}
 SETTINGS=${SETTINGS//\$/\\\$}

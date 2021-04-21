@@ -1,5 +1,7 @@
 zplug "plugins/autojump", from:oh-my-zsh
 zplug "plugins/git", from:oh-my-zsh
+zplug "plugins/aws", from:oh-my-zsh
+
 zplug "b4b4r07/enhancd", use:init.sh
 zplug "larkery/zsh-histdb", from:github
 zplug "djui/alias-tips", from:github
