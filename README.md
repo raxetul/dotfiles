@@ -1,6 +1,6 @@
-# dotenv
+# dotfiles
 
-My dotenv project with package installations. Feel free to contribute.
+My dotfiles project with package installations. Feel free to contribute.
 
 ## Usage
 run setup.sh
