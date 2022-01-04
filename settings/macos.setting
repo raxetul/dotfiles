@@ -1,0 +1,5 @@
+#!/usr/bin/env zsh
+
+export PATH="$PATH:/opt/homebrew/opt/llvm/bin"
+export LDFLAGS="${LDFLAGS} -L/opt/homebrew/opt/llvm/lib -Wl,-rpath,/opt/homebrew/opt/llvm/lib"
+export CPPFLAGS="-I/opt/homebrew/opt/llvm/include"
