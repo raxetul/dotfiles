@@ -2,7 +2,12 @@
 ROOTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )/.."
 ZSH_FILE=${HOME}/.zshrc
 
-zsh
+ZSH_BIN=`which zsh`
+
+if [ $DISTRO != "macos" ]
+then
+    zsh
+fi
 AUTO_INSTALLED_USER_LINES_START="### AUTO ADDED USER LINES ############### START"
 AUTO_INSTALLED_USER_LINES_END="### AUTO ADDED USER LINES ############### END"
 
@@ -22,12 +27,13 @@ source $ROOTDIR/.installed/zplug/init.zsh
 
 for SETTING_FILE in  $ROOTDIR/settings/*.setting;
 do
+    echo "Activating " `basename $SETTING_FILE`
     source \${SETTING_FILE}
 done
 
 $AUTO_INSTALLED_USER_LINES_END"
 
-chsh -s /usr/bin/zsh $USER
+chsh -s ${ZSH_BIN} $USER
 
 SETTINGS=${SETTINGS//\//\\\/}
 SETTINGS=${SETTINGS//\$/\\\$}
@@ -41,7 +47,8 @@ grep -q "${AUTO_INSTALLED_USER_LINES_START}" "${ZSH_FILE}"; test $? -eq 1 && {
 perl -i -pe "BEGIN{undef $/;} s/$AUTO_INSTALLED_USER_LINES_START(.|\n)*$AUTO_INSTALLED_USER_LINES_END/$SETTINGS/smg;" ~/.zshrc
 perl -i -pe "s/ZSH_THEME=\".*\"/ZSH_THEME=\"agnoster\"/g;" ~/.zshrc
 
-echo $ZPLUG_HOME
+echo "ZPLUG_HOME is: ${ZPLUG_HOME}"
+
 source $ZPLUG_HOME/init.zsh
 
 
