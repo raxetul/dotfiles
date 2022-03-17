@@ -3,8 +3,8 @@ ROOTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )/.."
 ZSH_FILE=${HOME}/.zshrc
 
 ZSH_BIN=`which zsh`
-
-if [ $DISTRO != "macos" ]
+echo $DISTRO
+if [[ "$DISTRO" != "Darwin" ]];
 then
     zsh
 fi
@@ -27,8 +27,11 @@ source $ROOTDIR/.installed/zplug/init.zsh
 
 for SETTING_FILE in  $ROOTDIR/settings/*.setting;
 do
-    echo "Activating " `basename $SETTING_FILE`
+    START_TIME=\$(python3 -c 'import time; print(int(time.time() * 1000))')
     source \${SETTING_FILE}
+    END_TIME=\$(python3 -c 'import time; print(int(time.time() * 1000))')
+    ELAPSED_TIME=\$((END_TIME - START_TIME))
+    echo \"Activated \" \`basename \$SETTING_FILE\` \" in \" \$ELAPSED_TIME \" ms\"
 done
 
 $AUTO_INSTALLED_USER_LINES_END"
