@@ -12,7 +12,7 @@ else
 fi
 
 
-echo $DISTRO
+echo "Distro is" $DISTRO
 
 case $DISTRO in
     debian)
@@ -29,10 +29,12 @@ case $DISTRO in
         ;;
 
     Darwin)
-        DISTRO="macos"
         /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-        INSTALL_COMMAND="brew install "
-        REMOVE_COMMAND="brew uninstall "
+        echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> $HOME/.zprofile
+        eval "$(/opt/homebrew/bin/brew shellenv)"
+
+        INSTALL_COMMAND="/opt/homebrew/bin/brew install "
+        REMOVE_COMMAND="/opt/homebrew/bin/brew uninstall "
         ;;
     *)
         echo "Your distro(${DISTRO}) is not found, please open an issue in or contribute to https://github.com/raxetul/dotenv"

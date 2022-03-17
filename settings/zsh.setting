@@ -2,3 +2,17 @@
 
 setopt prompt_subst 
 zle_highlight=(bold)
+
+# CHANGE THIS TO YOUR ENCODING
+export LANG=tr_TR.UTF-8
+export LC_COLLATE=C
+
+export HISTORY_IGNORE="(ls|cat|AWS|SECRET|PASSWORD|TOKEN|API|KEY|PASS|SECRETS|SECRET_KEY|SECRET_TOKEN|SECRET_KEY_BASE|SECRET_TOKEN_BASE)"
+
+zshaddhistory() {
+  emulate -L zsh
+  ## uncomment if HISTORY_IGNORE
+  ## should use EXTENDED_GLOB syntax
+  # setopt extendedglob
+  [[ $1 != ${~HISTORY_IGNORE} ]]
+}

@@ -1,7 +1,7 @@
 #!/bin/sh
 
 ACTUAL_USER=$USER
-if [ $DISTRO != "macos" ]
+if [[ $DISTRO != "Darwin" ]];
 then
     echo "OS is a GNU-Linux distro, setting up user"
     ### General

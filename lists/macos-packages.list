@@ -2,6 +2,7 @@ arp-scan
 bandwhich
 bind
 clang-format
+coreutils
 docker docker-compose
 fzf
 go
@@ -13,4 +14,5 @@ rustup
 tldr
 tmux
 vim
+wget
 zsh
