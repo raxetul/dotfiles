@@ -1,5 +1,7 @@
 #!/bin/sh
 
+echo C
+
 ACTUAL_USER=$USER
 if [[ $DISTRO != "Darwin" ]];
 then

@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env sh
 DIR=$(dirname "$0")
 
 DISTRO="Unknown"
@@ -12,7 +12,7 @@ else
 fi
 
 
-echo "Distro is" $DISTRO
+echo "Installing for distro: $DISTRO"
 
 case $DISTRO in
     debian)
@@ -44,4 +44,6 @@ esac
 
 export DISTRO
 echo "Distro/OS is: ${DISTRO}"
-$INSTALL_COMMAND `cat $DIR/lists/$DISTRO-packages.list`
+
+sudo $INSTALL_COMMAND $(cat $DIR/lists/$DISTRO-packages.list | tr '\n' ' ')
+[ ! -z "$SECONDARY_INSTALL_COMMAND" ] && sudo su - $USER -c "$SECONDARY_INSTALL_COMMAND $(cat $DIR/lists/arch-aur-packages.list  | tr '\n' ' ')"
