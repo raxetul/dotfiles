@@ -12,9 +12,11 @@ hdparm
 jdk-openjdk jre-openjdk openjdk-doc openjdk-src
 jq
 llvm llvm-libs
-nodejs npm npm-check-updates
+nodejs-lts-gallium npm npm-check-updates
 rustup cargo
 tldr
 tmux
 vim
+zip
 zsh
+qemu qemu-arch-extra libvirt bridge-utils
