@@ -2,7 +2,6 @@
 
 ROOTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )/.."
 ZSH_FILE=${HOME}/.zshrc
-echo E
 
 # [[ "$(command -v zsh)" ]] && zsh
 
@@ -14,22 +13,28 @@ then
     # This part may be irrelevant, shebang should guarantee the shell is being zsh
 fi
 
-AUTO_INSTALLED_USER_LINES_START="### AUTO ADDED USER LINES ############### START"
-AUTO_INSTALLED_USER_LINES_END="### AUTO ADDED USER LINES ############### END"
-# Activate oh-my-zsh plugins
-PLUGINS=`perl -pe "s/^/\t/" ${ROOTDIR}/lists/zplug-plugins.list`
-perl -i -pe "BEGIN{undef $/;} s/^plugins=.*\)/plugins=(\n$PLUGINS\n)/smg" ~/.zshrc
-
-echo EE
+echo $SHELL
 [[ ! -d "${HOME}/.oh-my-zsh" ]] && sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 
 export ZPLUG_HOME=${ROOTDIR}/.installed/zplug
 echo "Zplug installation directory: $ZPLUG_HOME"
+
 [[ ! -d "${ZPLUG_HOME}" ]] && git clone https://github.com/zplug/zplug $ZPLUG_HOME
+
+[[ ! -d "${HOME}/.zsh" ]]  && mkdir -p "${HOME}/.zsh"
+
+
+AUTO_INSTALLED_USER_LINES_START="### AUTO ADDED USER LINES ############### START"
+AUTO_INSTALLED_USER_LINES_END="### AUTO ADDED USER LINES ############### END"
+# Activate oh-my-zsh plugins
+
+
+
 
 SETTINGS="$AUTO_INSTALLED_USER_LINES_START
 # Don not modifiy this block, add your lines after END line.
-source $ROOTDIR/.installed/zplug/init.zsh
+
+
 
 for SETTING_FILE in  $ROOTDIR/settings/*.setting;
 do
@@ -42,7 +47,11 @@ done
 fpath+=~/.zsh
 $AUTO_INSTALLED_USER_LINES_END"
 
-chsh -s ${ZSH_BIN} $USER
+export USER_ACTIVE_SHELL=$(awk -F: -v user=$USER '$1 == user {print $NF}' /etc/passwd)
+echo  "User's active shell is:  $USER_ACTIVE_SHELL"
+
+[[ "$(sed 's#.*/##' <<<  $USER_ACTIVE_SHELL)" != "zsh" ]] && chsh -s ${ZSH_BIN} $USER
+
 
 SETTINGS=${SETTINGS//\//\\\/}
 SETTINGS=${SETTINGS//\$/\\\$}
@@ -56,14 +65,23 @@ grep -q "${AUTO_INSTALLED_USER_LINES_START}" "${ZSH_FILE}"; test $? -eq 1 && {
 perl -i -pe "BEGIN{undef $/;} s/$AUTO_INSTALLED_USER_LINES_START(.|\n)*$AUTO_INSTALLED_USER_LINES_END/$SETTINGS/smg;" ~/.zshrc
 perl -i -pe "s/ZSH_THEME=\".*\"/ZSH_THEME=\"agnoster\"/g;" ~/.zshrc
 
-echo "ZPLUG_HOME is: ${ZPLUG_HOME}"
 
-source $ZPLUG_HOME/init.zsh
 
-source ${ROOTDIR}/lists/zplug-plugins.list
 
-zplug install 
-zplug load
+PLUGINS=`perl -pe "s/^/\t/" ${ROOTDIR}/lists/zplug-plugins.list`
+
+echo $PLUGINS
+
+perl -i -pe "BEGIN{undef $/;} s/^plugins=.*\)/plugins=(\n$PLUGINS\n)/smg" ~/.zshrc
+
+
+# source ${ROOTDIR}/lists/zplug-plugins.list
+
+# zplug install 
+# zplug load
 echo F
 
-[[ ! -d "${HOME}/.oh-my-zsh" ]]  && mkdir -p "${HOME}/.zsh" && flamegraph --completions zsh > "${HOME}/.zsh/.flamegraph-completion.zsh" && 
+# chmod +x $ZPLUG_HOME/init.zsh
+# zsh $ZPLUG_HOME/init.zsh
+
+# echo "ZPLUG is in"  $(which zplug)
