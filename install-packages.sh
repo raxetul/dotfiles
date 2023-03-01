@@ -45,5 +45,5 @@ esac
 export DISTRO
 echo "Distro/OS is: ${DISTRO}"
 
-sudo $INSTALL_COMMAND $(cat $DIR/lists/$DISTRO-packages.list | tr '\n' ' ')
+$INSTALL_COMMAND $(cat $DIR/lists/$DISTRO-packages.list | tr '\n' ' ')
 [ ! -z "$SECONDARY_INSTALL_COMMAND" ] && sudo su - $USER -c "$SECONDARY_INSTALL_COMMAND $(cat $DIR/lists/arch-aur-packages.list  | tr '\n' ' ')"
