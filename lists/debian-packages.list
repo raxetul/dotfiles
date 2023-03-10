@@ -1,7 +1,6 @@
 arp-scan
-base-devel
-bandwhich
 bind9
+build-essential
 clang
 docker docker-compose
 dstat
