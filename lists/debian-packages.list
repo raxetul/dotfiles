@@ -2,6 +2,7 @@ arp-scan
 bind9
 build-essential
 clang
+curl
 docker docker-compose
 dstat
 fzf
