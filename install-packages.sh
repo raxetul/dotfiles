@@ -2,9 +2,10 @@
 DIR=$(dirname "$0")
 
 DISTRO="Unknown"
-if [[ -f /etc/os-release ]] 
+
+if [ -f "/etc/os-release" ]
 then
-    source /etc/os-release
+    . /etc/os-release
     DISTRO=${ID_LIKE}
     [ -z "${DISTRO}" ] && DISTRO=${ID}
 else

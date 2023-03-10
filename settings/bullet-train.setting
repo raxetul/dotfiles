@@ -1,3 +1,4 @@
+#!/usr/bin/env zsh
 # Custom
 
 prompt_new_line() {
