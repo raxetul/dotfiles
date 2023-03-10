@@ -1,13 +1,11 @@
-#!/bin/sh
-
-echo C
+#!/usr/bin/env sh
 
 ACTUAL_USER=$USER
-if [[ $DISTRO != "Darwin" ]];
+if [ $DISTRO != "Darwin" ];
 then
     echo "OS is a GNU-Linux distro, setting up user"
     ### General
-    sudo usermod -aG adbusers,disk,ftp,git,kmem,kvm,network,tty,usbmux,uucp $ACTUAL_USER
+    sudo usermod -aG adbusers,disk,ftp,git,kmem,kvm,network,tty,usbmux,uucp,docker $ACTUAL_USER
 
     ### Docker
     sudo gpasswd -a $ACTUAL_USER docker
