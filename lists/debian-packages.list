@@ -1,22 +1,22 @@
 arp-scan
 base-devel
 bandwhich
-bind
+bind9
 clang
 docker docker-compose
 dstat
 fzf
-go
+golang
 git
 hdparm
-jdk-openjdk jre-openjdk openjdk-doc openjdk-src
+openjdk-17-jdk openjdk-17-jre openjdk-17-source openjdk-17-doc 
 jq
-llvm llvm-libs
-nodejs-lts-gallium npm npm-check-updates
-rustup cargo
+llvm
+nodejs
+rustc cargo
 tldr
 tmux
 vim
 zip
 zsh
-qemu qemu-arch-extra libvirt bridge-utils
+qemu qemu-efi-aarch64 qemu-efi-arm qemu-utils
