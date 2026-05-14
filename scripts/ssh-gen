@@ -1,0 +1,24 @@
+#!/bin/sh
+set -eu
+
+usage() {
+    printf 'Usage: %s <keyname>\n\n' "$(basename "$0")" >&2
+    printf '  keyname  Name for the SSH key file (stored in ~/.ssh/)\n' >&2
+    exit 1
+}
+
+if [ $# -lt 1 ] || [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+    usage
+fi
+
+KEY_FILE="$HOME/.ssh/$1"
+
+mkdir -p "$HOME/.ssh"
+chmod 700 "$HOME/.ssh"
+
+if [ -f "$KEY_FILE" ]; then
+    printf 'Key "%s" already exists, skipping generation.\n' "$KEY_FILE"
+    exit 0
+fi
+
+ssh-keygen -t ed25519 -a 100 -f "$KEY_FILE"

@@ -1,0 +1,62 @@
+#!/bin/sh
+set -eu
+
+CONFIG_FILE="$HOME/.ssh/config"
+
+usage() {
+    printf 'Usage: %s <hostname> [user] [host-alias]\n\n' "$(basename "$0")" >&2
+    printf '  hostname    IP address or hostname (used as HostName)\n' >&2
+    printf '  user        SSH username (optional)\n' >&2
+    printf '  host-alias  Alias for Host directive (defaults to hostname)\n' >&2
+    exit 1
+}
+
+if [ $# -lt 1 ] || [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+    usage
+fi
+
+HOSTNAME="$1"
+USER="${2:-}"
+HOST_ALIAS="${3:-$HOSTNAME}"
+KEY_FILE="$HOST_ALIAS"
+
+# setup ssh directory and config
+mkdir -p "$HOME/.ssh"
+chmod 700 "$HOME/.ssh"
+touch "$CONFIG_FILE"
+chmod 600 "$CONFIG_FILE"
+
+# skip if host already configured
+if grep -Fxq "Host ${HOST_ALIAS}" "$CONFIG_FILE" 2>/dev/null; then
+    printf 'Host alias "%s" already exists in %s, skipping.\n' "$HOST_ALIAS" "$CONFIG_FILE"
+    exit 0
+fi
+
+# generate ssh key
+if ! command -v ssh-gen >/dev/null 2>&1; then
+    printf 'Error: ssh-gen not found in PATH.\n' >&2
+    exit 1
+fi
+
+if ! ssh-gen "$KEY_FILE"; then
+    printf 'Error: ssh-gen failed for key "%s".\n' "$KEY_FILE" >&2
+    exit 1
+fi
+
+# append host block to ssh config
+if [ -s "$CONFIG_FILE" ] && [ "$(tail -c 1 "$CONFIG_FILE")" != "" ]; then
+    printf '\n' >> "$CONFIG_FILE"
+fi
+
+{
+    if [ -s "$CONFIG_FILE" ]; then
+        printf '\nHost %s\n' "$HOST_ALIAS"
+    else
+        printf 'Host %s\n' "$HOST_ALIAS"
+    fi
+    printf '\tHostName %s\n' "$HOSTNAME"
+    printf '\tIdentityFile ~/.ssh/%s\n' "$KEY_FILE"
+    if [ -n "$USER" ]; then
+        printf '\tUser %s\n' "$USER"
+    fi
+} >> "$CONFIG_FILE"

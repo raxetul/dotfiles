@@ -1,0 +1,21 @@
+#!/bin/sh
+set -eu
+
+usage() {
+    printf 'Usage: %s <keyname>\n\n' "$(basename "$0")" >&2
+    printf '  keyname  Name of the SSH key in ~/.ssh/ (without .pub suffix)\n' >&2
+    exit 1
+}
+
+if [ $# -lt 1 ] || [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+    usage
+fi
+
+PUB_FILE="$HOME/.ssh/$1.pub"
+
+if [ ! -f "$PUB_FILE" ]; then
+    printf 'Error: public key "%s" not found.\n' "$PUB_FILE" >&2
+    exit 1
+fi
+
+cat "$PUB_FILE"
