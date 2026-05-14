@@ -1,10 +1,20 @@
 #!/usr/bin/env bash
-# 1. Install Nix in multi-user (daemon) mode if it isn't already present.
-# 2. Activate Home Manager for the current $USER / $HOME / system.
+# Install / re-apply / update this repo's user environment.
+#
+# What this script will and will not do:
+#   - WILL install Nix the first time, then never touches it again.
+#   - WILL (re)apply packages and configuration on every run — this is
+#     how you reinstall or reconfigure.
+#   - WILL bump upstream package versions ONLY when --update is passed
+#     (otherwise flake.lock pins everything, so re-runs are reproducible).
 #
 # Profile selection (Linux only — macOS always installs darwin.nix):
 #   ./setup.sh             → server profile (CLI + dev only)
 #   ./setup.sh --desktop   → desktop profile (also installs sway + GUI apps)
+#
+# Bumping packages to newer upstream versions:
+#   ./setup.sh --update            → nix flake update (all inputs), then switch
+#   ./setup.sh --update --desktop  → same, with desktop bucket
 #
 # Every step is idempotent: re-running this script is safe and only does
 # the work that's actually missing.
@@ -13,12 +23,14 @@ set -euo pipefail
 DIR=$(cd "$(dirname "$0")" && pwd)
 
 PROFILE="server"
+UPDATE=0
 for arg in "$@"; do
     case "${arg}" in
         --desktop) PROFILE="desktop" ;;
         --server)  PROFILE="server"  ;;
+        --update)  UPDATE=1 ;;
         -h|--help)
-            sed -n '2,11p' "$0"
+            sed -n '2,20p' "$0"
             exit 0
             ;;
         *)
@@ -73,7 +85,18 @@ mkdir -p "${HOME}/.config/nix"
 grep -qs 'experimental-features.*flakes' "${HOME}/.config/nix/nix.conf" 2>/dev/null \
     || echo "experimental-features = nix-command flakes" >> "${HOME}/.config/nix/nix.conf"
 
-# Step 3 — home-manager switch.
+# Step 3 — (optional) bump flake inputs to their latest upstream versions.
+#
+# Without --update, re-runs are reproducible: every package is pinned by
+# flake.lock and rebuilds give identical store paths. Passing --update
+# rewrites flake.lock to track the latest nixpkgs / home-manager, which
+# is how you actually pull in newer versions of installed packages.
+if [ "${UPDATE}" -eq 1 ]; then
+    echo "==> nix flake update (bumping nixpkgs, home-manager, …)"
+    nix flake update --flake "${DIR}"
+fi
+
+# Step 4 — home-manager switch.
 #
 # home-manager backs up clashing dotfiles (e.g. ~/.zshrc, ~/.bashrc,
 # ~/.config/...) by appending the suffix passed via -b. A static suffix
@@ -94,7 +117,7 @@ echo "==> backup suffix=${BACKUP_SUFFIX}"
 nix run --impure home-manager/master -- \
     switch --impure --flake "${DIR}#default" -b "${BACKUP_SUFFIX}"
 
-# Step 4 — make zsh the login shell (idempotent).
+# Step 5 — make zsh the login shell (idempotent).
 #
 # home-manager installs zsh into ~/.nix-profile but doesn't touch the
 # system user record. chsh refuses shells that aren't listed in
