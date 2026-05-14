@@ -1,10 +1,12 @@
-{ pkgs, lib, ... }:
+{ pkgs, ... }:
 
+# Cross-platform packages — installed on every host (Linux or macOS,
+# server or desktop). Anything platform-specific lives in linux.nix,
+# linux-desktop.nix, or darwin.nix.
 {
   fonts.fontconfig.enable = true;
 
   home.packages = with pkgs; [
-    # ---- Cross-platform CLI ---------------------------------------------
     # Networking / sysadmin
     arp-scan
     bandwhich
@@ -17,10 +19,10 @@
     llvm
     go
     rustup
-    nodejs_22
+    nodejs_24
 
-    # Containers — CLI works on both OSes; on macOS see darwin.nix for
-    # the daemon (colima).
+    # Containers — CLI on both OSes; on macOS the daemon comes from
+    # colima/lima in darwin.nix.
     docker
     docker-compose
 
@@ -31,48 +33,8 @@
     zip
     unzip
 
-    # Fonts (used by sway / waybar / terminals)
+    # Fonts (terminals on either OS pick them up).
     font-awesome
     jetbrains-mono
-  ] ++ lib.optionals stdenv.isLinux [
-    # ---- Linux-only system tools ----------------------------------------
-    # Binaries only — `dockerd`, `libvirtd`, group membership still need
-    # root via your distro on non-NixOS hosts.
-    qemu
-    libvirt
-    bridge-utils
-    hdparm
-    dstat
-
-    # ---- Linux desktop / GUI --------------------------------------------
-    # Terminals
-    alacritty
-    wezterm
-
-    # Wayland / sway stack
-    sway
-    swaybg
-    swayidle
-    swaylock
-    waybar
-    dmenu
-    dunst
-    polybar
-    qtile        # X11 tiling WM (alt to sway)
-    xdotool
-
-    # Apps
-    flameshot
-    kdiff3
-    nautilus
-    obs-studio
-    smplayer
-    telegram-desktop
-    discord
-    veracrypt
-    qtcreator
-
-    # Recording / misc
-    asciinema
   ];
 }
