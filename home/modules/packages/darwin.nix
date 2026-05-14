@@ -5,6 +5,9 @@
 # desktop split here).
 {
   home.packages = with pkgs; [
+    # Terminals
+    ghostty
+
     # Container daemon — pkgs.docker on Darwin is CLI-only; colima + lima
     # provide the daemon backend. Run `colima start` once after install.
     colima

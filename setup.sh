@@ -93,3 +93,34 @@ echo "==> profile=${DOTFILES_PROFILE}"
 echo "==> backup suffix=${BACKUP_SUFFIX}"
 nix run --impure home-manager/master -- \
     switch --impure --flake "${DIR}#default" -b "${BACKUP_SUFFIX}"
+
+# Step 4 — make zsh the login shell (idempotent).
+#
+# home-manager installs zsh into ~/.nix-profile but doesn't touch the
+# system user record. chsh refuses shells that aren't listed in
+# /etc/shells, so add it there first, then switch the login shell via
+# sudo (avoids the interactive password prompt of plain `chsh`).
+ZSH_BIN="$(command -v zsh || true)"
+current_login_shell() {
+    if command -v getent >/dev/null 2>&1; then
+        getent passwd "${USER}" | awk -F: '{print $NF}'
+    elif [ "$(uname)" = "Darwin" ]; then
+        dscl . -read "/Users/${USER}" UserShell 2>/dev/null | awk '{print $2}'
+    else
+        awk -F: -v u="${USER}" '$1==u {print $NF}' /etc/passwd
+    fi
+}
+
+if [ -z "${ZSH_BIN}" ]; then
+    echo "WARN: zsh not found on PATH after home-manager switch; skipping shell change" >&2
+elif [ "$(current_login_shell)" = "${ZSH_BIN}" ]; then
+    echo "==> login shell already ${ZSH_BIN}, skipping"
+else
+    if ! grep -qxF "${ZSH_BIN}" /etc/shells 2>/dev/null; then
+        echo "==> registering ${ZSH_BIN} in /etc/shells (sudo)"
+        echo "${ZSH_BIN}" | sudo tee -a /etc/shells >/dev/null
+    fi
+    echo "==> setting login shell to ${ZSH_BIN} for ${USER} (sudo)"
+    sudo chsh -s "${ZSH_BIN}" "${USER}"
+    echo "==> log out and back in (or start a new login session) for the shell change to take effect"
+fi

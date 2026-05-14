@@ -20,6 +20,7 @@
     go
     rustup
     nodejs_24
+    sqlite-interactive  # provides the `sqlite3` CLI, with readline support
 
     # Containers — CLI on both OSes; on macOS the daemon comes from
     # colima/lima in darwin.nix.
@@ -36,5 +37,6 @@
     # Fonts (terminals on either OS pick them up).
     font-awesome
     jetbrains-mono
+    nerd-fonts.jetbrains-mono
   ];
 }

@@ -6,6 +6,7 @@
   home.packages = with pkgs; [
     # Terminals
     alacritty
+    ghostty
     wezterm
 
     # Wayland / sway stack

@@ -15,8 +15,8 @@ assert lib.elem profile [ "server" "desktop" ];
 
     ./modules/packages/common.nix
     ./modules/scripts.nix
-    ./modules/zsh.nix
-    ./modules/starship.nix
+    ./modules/zsh/zsh.nix
+    ./modules/zsh/starship.nix
     ./modules/git.nix
     ./modules/vim.nix
     ./modules/tmux.nix
