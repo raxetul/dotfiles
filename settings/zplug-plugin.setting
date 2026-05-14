@@ -1,9 +1,0 @@
-#!/usr/bin/env zsh
-
-ROOTDIR=$(dirname "$0")/..
-
-export ZPLUG_HOME=${ROOTDIR}/.installed/zplug
-
-source $ZPLUG_HOME/init.zsh
-source ${ROOTDIR}/lists/zplug-plugins.list
-zplug load

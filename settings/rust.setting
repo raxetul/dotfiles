@@ -1,6 +1,0 @@
-#!/usr/bin/env zsh
-
-export CARGO_HOME=${HOME}/gel-ort/cargo
-export RUSTUP_HOME=${HOME}/gel-ort/rustup
-
-export PATH="$PATH:$CARGO_HOME/bin"
