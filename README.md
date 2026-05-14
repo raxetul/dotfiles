@@ -94,12 +94,6 @@ sudo usermod -aG docker,kvm,libvirt "$USER"
 sessions also need a working seat/login stack (`greetd` / `gdm` / …) —
 that lives outside the user profile.
 
-## Third-party zsh plugins
-
-`home/modules/zsh.nix` pulls `enhancd`, `zsh-histdb`, and `alias-tips`
-from GitHub. The `sha256` for each is `lib.fakeSha256` until you build
-once — Nix will print the correct hash; paste it in and rebuild.
-
 ## Adding packages
 
 - Cross-platform CLI tool → `home/modules/common.nix`.

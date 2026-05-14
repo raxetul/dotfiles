@@ -25,37 +25,16 @@
       ];
     };
 
-    # Third-party plugins. On first build, Nix will report the correct
-    # `sha256` for each placeholder — replace lib.fakeSha256 with the value
-    # it prints. Pin to a specific rev when you do.
     plugins = [
       {
-        name = "enhancd";
-        src = pkgs.fetchFromGitHub {
-          owner = "babarot";
-          repo = "enhancd";
-          rev = "v2.5.1";
-          sha256 = pkgs.lib.fakeSha256;
-        };
-        file = "init.sh";
-      }
-      {
         name = "zsh-histdb";
-        src = pkgs.fetchFromGitHub {
-          owner = "larkery";
-          repo = "zsh-histdb";
-          rev = "main";
-          sha256 = pkgs.lib.fakeSha256;
-        };
+        src = pkgs.zsh-histdb;
+        file = "share/zsh-histdb/sqlite-history.zsh";
       }
       {
-        name = "alias-tips";
-        src = pkgs.fetchFromGitHub {
-          owner = "djui";
-          repo = "alias-tips";
-          rev = "master";
-          sha256 = pkgs.lib.fakeSha256;
-        };
+        name = "you-should-use";
+        src = pkgs.zsh-you-should-use;
+        file = "share/zsh/plugins/you-should-use/you-should-use.plugin.zsh";
       }
     ];
 
@@ -71,8 +50,6 @@
       }
 
       ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE="fg=#666611,bg=black,bold,underline"
-
-      export ENHANCD_FILTER="fzf --height 40%:fzy"
     '';
   };
 }
