@@ -1,4 +1,4 @@
-{ pkgs, lib, profile ? "server", ... }:
+{ lib, system, profile ? "server", ... }:
 
 # Four-bucket package layout:
 #   common.nix         — every host (CLI + dev toolchain + fonts)
@@ -22,9 +22,9 @@ assert lib.elem profile [ "server" "desktop" ];
     ./modules/tmux.nix
     ./modules/fzf.nix
     ./modules/zoxide.nix
-  ] ++ lib.optional pkgs.stdenv.isDarwin ./modules/packages/darwin.nix
-    ++ lib.optional pkgs.stdenv.isLinux  ./modules/packages/linux.nix
-    ++ lib.optional (profile == "desktop" && pkgs.stdenv.isLinux) ./modules/packages/linux-desktop.nix;
+  ] ++ lib.optional (lib.hasSuffix "darwin" system) ./modules/packages/darwin.nix
+    ++ lib.optional (lib.hasSuffix "linux"  system) ./modules/packages/linux.nix
+    ++ lib.optional (profile == "desktop" && lib.hasSuffix "linux" system) ./modules/packages/linux-desktop.nix;
 
   programs.home-manager.enable = true;
 

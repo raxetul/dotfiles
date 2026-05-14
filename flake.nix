@@ -19,7 +19,7 @@
             inherit system;
             config.allowUnfree = true;
           };
-          extraSpecialArgs = { inherit profile; };
+          extraSpecialArgs = { inherit profile system; };
           modules = [
             ./home
             {
