@@ -30,14 +30,43 @@ done
 export DOTFILES_PROFILE="${PROFILE}"
 
 # Step 1 — Nix (skip if already installed).
-if ! command -v nix >/dev/null 2>&1; then
-    curl -L https://nixos.org/nix/install | sh -s -- --daemon --yes
+#
+# Idempotency: the official installer aborts if `/nix` exists, so we
+# can't just retry `curl | sh` blindly. Detect Nix through several
+# layers and only invoke the installer when it really is missing.
+NIX_DAEMON_PROFILE=/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+
+# Source the daemon script first so an already-installed Nix becomes
+# visible in this shell (covers the "PATH not yet set" case after a
+# fresh install or in a non-login shell).
+if [ -e "${NIX_DAEMON_PROFILE}" ]; then
+    # shellcheck source=/dev/null
+    . "${NIX_DAEMON_PROFILE}"
 fi
 
-if [ -e /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh ]; then
-    # shellcheck source=/dev/null
-    . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+nix_present() {
+    command -v nix >/dev/null 2>&1 \
+        || [ -x /nix/var/nix/profiles/default/bin/nix ] \
+        || [ -d /nix/store ]
+}
+
+if nix_present; then
+    echo "==> nix already installed, skipping installer"
+else
+    echo "==> installing nix (multi-user / daemon)"
+    curl -L https://nixos.org/nix/install | sh -s -- --daemon --yes
+    # Re-source so this shell can see the freshly-installed nix.
+    if [ -e "${NIX_DAEMON_PROFILE}" ]; then
+        # shellcheck source=/dev/null
+        . "${NIX_DAEMON_PROFILE}"
+    fi
 fi
+
+command -v nix >/dev/null 2>&1 || {
+    echo "ERROR: nix not on PATH after install. Source manually:" >&2
+    echo "  . ${NIX_DAEMON_PROFILE}" >&2
+    exit 1
+}
 
 # Step 2 — enable flakes (idempotent: only appends if missing).
 mkdir -p "${HOME}/.config/nix"

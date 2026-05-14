@@ -1,13 +1,13 @@
 { lib, system, profile ? "server", ... }:
 
-# Four-bucket package layout:
+# Five-bucket package layout:
 #   common.nix         — every host (CLI + dev toolchain + fonts)
-#   linux.nix          — every Linux host (CLI + system tools)
-#   linux-desktop.nix  — Linux hosts when profile == "desktop"
+#   linux.nix          — every Linux host (env + baseline shared by both profiles)
+#   linux-server.nix   — Linux hosts when profile == "server"  (qemu, libvirt, …)
+#   linux-desktop.nix  — Linux hosts when profile == "desktop" (sway, GUI apps, …)
 #   darwin.nix         — every macOS host (CLI + GUI; macOS is always graphical)
 #
-# The `profile` arg only gates the Linux desktop bucket and is wired up
-# from setup.sh (--desktop flag).
+# The `profile` arg is wired up from setup.sh (--desktop flag).
 assert lib.elem profile [ "server" "desktop" ];
 
 {
@@ -24,6 +24,7 @@ assert lib.elem profile [ "server" "desktop" ];
     ./modules/zoxide.nix
   ] ++ lib.optional (lib.hasSuffix "darwin" system) ./modules/packages/darwin.nix
     ++ lib.optional (lib.hasSuffix "linux"  system) ./modules/packages/linux.nix
+    ++ lib.optional (profile == "server"  && lib.hasSuffix "linux" system) ./modules/packages/linux-server.nix
     ++ lib.optional (profile == "desktop" && lib.hasSuffix "linux" system) ./modules/packages/linux-desktop.nix;
 
   programs.home-manager.enable = true;
