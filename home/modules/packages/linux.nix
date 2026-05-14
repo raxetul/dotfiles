@@ -11,7 +11,11 @@
   };
 
   home.packages = with pkgs; [
-    qemu
+    # qemu_full bundles the firmware blobs (edk2-aarch64-code.fd,
+    # edk2-arm-code.fd, OVMF, …) that on Debian/Ubuntu live in separate
+    # `qemu-efi-arm` / `qemu-efi-aarch64` packages. Single Nix package =
+    # same install on every distro.
+    qemu_full
     libvirt
     bridge-utils
     hdparm

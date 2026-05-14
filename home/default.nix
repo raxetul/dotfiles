@@ -12,6 +12,7 @@ assert lib.elem profile [ "server" "desktop" ];
 
 {
   imports = [
+
     ./modules/common.nix
     ./modules/scripts.nix
     ./modules/zsh.nix
@@ -21,9 +22,9 @@ assert lib.elem profile [ "server" "desktop" ];
     ./modules/tmux.nix
     ./modules/fzf.nix
     ./modules/zoxide.nix
-  ] ++ lib.optional pkgs.stdenv.isDarwin ./modules/darwin.nix
-    ++ lib.optional pkgs.stdenv.isLinux  ./modules/linux.nix
-    ++ lib.optional (profile == "desktop" && pkgs.stdenv.isLinux) ./modules/linux-desktop.nix;
+  ] ++ lib.optional pkgs.stdenv.isDarwin ./modules/packages/darwin.nix
+    ++ lib.optional pkgs.stdenv.isLinux  ./modules/packages/linux.nix
+    ++ lib.optional (profile == "desktop" && pkgs.stdenv.isLinux) ./modules/packages/linux-desktop.nix;
 
   programs.home-manager.enable = true;
 

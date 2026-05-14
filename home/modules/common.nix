@@ -10,7 +10,7 @@
     # Networking / sysadmin
     arp-scan
     bandwhich
-    bind        # dig, nslookup, host
+    bind.dnsutils   # dig, nslookup, host (client tools only — not the BIND server)
     wget
     curl
 
@@ -29,7 +29,7 @@
     # Misc CLI
     jq
     tldr
-    coreutils
+    coreutils-full  # GNU coreutils incl. arch, realpath, prefixed variants
     zip
     unzip
 
