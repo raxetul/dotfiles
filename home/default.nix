@@ -13,7 +13,7 @@ assert lib.elem profile [ "server" "desktop" ];
 {
   imports = [
 
-    ./modules/common.nix
+    ./modules/packages/common.nix
     ./modules/scripts.nix
     ./modules/zsh.nix
     ./modules/starship.nix

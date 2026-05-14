@@ -17,7 +17,6 @@
     dmenu
     dunst
     polybar
-    qtile        # X11 tiling WM (alt to sway)
     xdotool
 
     # Apps
