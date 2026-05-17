@@ -85,6 +85,30 @@ mkdir -p "${HOME}/.config/nix"
 grep -qs 'experimental-features.*flakes' "${HOME}/.config/nix/nix.conf" 2>/dev/null \
     || echo "experimental-features = nix-command flakes" >> "${HOME}/.config/nix/nix.conf"
 
+# Step 2b — install Homebrew on macOS (idempotent).
+#
+# Nixpkgs' ghostty derivation excludes Darwin, and several GUI casks
+# (karabiner-elements, rectangle, …) ship only through Homebrew. We
+# install brew here so the home-manager activation can replay
+# configurations/brew/Brewfile in step 4.
+if [ "$(uname)" = "Darwin" ]; then
+    if ! command -v brew >/dev/null 2>&1; then
+        echo "==> installing Homebrew (multi-user; will prompt for sudo)"
+        /bin/bash -c \
+            "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    else
+        echo "==> homebrew already installed, skipping installer"
+    fi
+
+    # Apple-silicon brew lives under /opt/homebrew; Intel under /usr/local.
+    # `brew shellenv` exports the right paths for the current shell.
+    if [ -x /opt/homebrew/bin/brew ]; then
+        eval "$(/opt/homebrew/bin/brew shellenv)"
+    elif [ -x /usr/local/bin/brew ]; then
+        eval "$(/usr/local/bin/brew shellenv)"
+    fi
+fi
+
 # Step 3 — (optional) bump flake inputs to their latest upstream versions.
 #
 # Without --update, re-runs are reproducible: every package is pinned by
@@ -146,6 +170,47 @@ else
     echo "==> setting login shell to ${ZSH_BIN} for ${USER} (sudo)"
     sudo chsh -s "${ZSH_BIN}" "${USER}"
     echo "==> log out and back in (or start a new login session) for the shell change to take effect"
+fi
+
+# Step 5b — install distro-native packages on Linux (idempotent).
+#
+# Anything declared in configurations/native/<pkgmgr>.list is installed
+# via the host's package manager. Reserved for things Nix shouldn't own:
+# kernel modules, distro GUI tooling, NVIDIA drivers, etc.
+if [ "$(uname)" = "Linux" ] && [ -f /etc/os-release ]; then
+    # shellcheck source=/dev/null
+    . /etc/os-release
+    NATIVE_LIST=""
+    INSTALL_CMD=""
+    case "${ID:-}" in
+        debian|ubuntu|pop|linuxmint)
+            NATIVE_LIST="${DIR}/configurations/native/apt.list"
+            INSTALL_CMD="sudo apt-get install -y"
+            ;;
+        arch|manjaro|endeavouros)
+            NATIVE_LIST="${DIR}/configurations/native/pacman.list"
+            INSTALL_CMD="sudo pacman -S --needed --noconfirm"
+            ;;
+        fedora|rhel|centos|almalinux|rocky)
+            NATIVE_LIST="${DIR}/configurations/native/dnf.list"
+            INSTALL_CMD="sudo dnf install -y"
+            ;;
+        *)
+            echo "==> distro ${ID:-unknown} not mapped; skipping native install"
+            ;;
+    esac
+
+    if [ -n "${NATIVE_LIST}" ] && [ -f "${NATIVE_LIST}" ]; then
+        # Skip blank lines and comments; collapse multi-line list into args.
+        pkgs="$(grep -vE '^\s*(#|$)' "${NATIVE_LIST}" | tr '\n' ' ')"
+        if [ -n "${pkgs}" ]; then
+            echo "==> installing native packages from ${NATIVE_LIST##*/}: ${pkgs}"
+            # shellcheck disable=SC2086
+            ${INSTALL_CMD} ${pkgs}
+        else
+            echo "==> ${NATIVE_LIST##*/} empty, no native packages to install"
+        fi
+    fi
 fi
 
 # Step 6 — install lefthook hooks for this repo.

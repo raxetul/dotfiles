@@ -1,0 +1,27 @@
+# Brewfile — macOS GUI bridge. Driven from home/darwin.nix on every
+# `home-manager switch` via home.activation.brewBundle. Per A2/A3 of the
+# v2 roadmap: Nix carries cross-platform CLI; Homebrew carries the GUI
+# apps that ship as macOS-native bundles (and the Ghostty cask, because
+# nixpkgs' ghostty derivation excludes Darwin).
+
+# Terminal
+cask "ghostty"
+
+# Window management + key remapping
+cask "karabiner-elements"
+cask "rectangle"
+
+# Communications
+cask "discord"
+cask "telegram"
+
+# Media + recording
+cask "obs"
+cask "flameshot"
+
+# Dev tooling
+cask "qt-creator"
+cask "kdiff3"
+
+# Disk / encryption
+cask "veracrypt"

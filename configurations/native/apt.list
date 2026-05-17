@@ -1,0 +1,6 @@
+# apt.list — Debian / Ubuntu packages installed natively (not via Nix).
+# One package per line; blank lines and lines starting with # are
+# skipped. setup.sh installs only this list when the host runs apt.
+#
+# Reserve this file for packages that don't make sense as user-scoped
+# Nix installs (kernel modules, distro GUI tooling, NVIDIA drivers, …).
