@@ -1,0 +1,24 @@
+# Ghostty — terminal emulator. Same config on macOS and Linux.
+#
+# On macOS, Ghostty also checks ~/Library/Application Support/com.mitchellh.ghostty/config,
+# but prefers ~/.config/ghostty/config (XDG) when both exist. This repo
+# only manages the XDG path — the Library one is deliberately untouched.
+
+theme = catppuccin-mocha
+
+font-family = JetBrainsMono Nerd Font
+font-size = 13
+
+window-padding-x = 8
+window-padding-y = 8
+
+cursor-style = bar
+mouse-hide-while-typing = true
+
+# macOS-only — silently ignored on Linux.
+macos-titlebar-style = tabs
+
+# Shell integration: Ghostty injects its own integration into bash/zsh
+# unless told otherwise. Leaving it on enables cursor reporting and
+# OSC 133 prompt marks, which Catppuccin Mocha and starship both expect.
+shell-integration = detect

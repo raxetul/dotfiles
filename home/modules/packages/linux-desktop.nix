@@ -7,10 +7,9 @@ let
 in
 {
   home.packages = with pkgs; [
-    # Terminals
-    alacritty
+    # Terminal — Ghostty is the default. (Phase 8 dropped alacritty and
+    # wezterm; Phase 9 trims the bar/launcher stack.)
     ghostty
-    wezterm
 
     # Wayland / sway stack
     sway
