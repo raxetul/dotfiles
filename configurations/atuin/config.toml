@@ -1,0 +1,27 @@
+## atuin — encrypted, fuzzy shell history.
+## Replaces the old zsh-histdb + HISTORY_IGNORE regex setup.
+
+## Sync is off — atuin runs as a local-only store unless explicitly turned on.
+auto_sync = false
+update_check = false
+
+## fzf-style ctrl-r search.
+filter_mode = "global"
+filter_mode_shell_up_key_binding = "session"
+style = "compact"
+
+## history_filter — regex patterns excluded from recording.
+## Leading-token guards catch the common shapes for secrets, plus the
+## two noisiest commands (`ls`, `cat`) so they don't drown out signal.
+history_filter = [
+  "^aws ",
+  "^secret",
+  "^password",
+  "^token",
+  "^api[-_]?key",
+  "^export .*(SECRET|TOKEN|API|KEY|PASSWORD|PASS)=",
+  "^pass ",
+  "^cat ",
+  "^ls$",
+  "^ls .*"
+]

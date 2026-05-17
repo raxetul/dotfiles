@@ -1,5 +1,16 @@
-{ pkgs, ... }:
+{ config, pkgs, ... }:
 
+# Zsh — no oh-my-zsh. Plugin coverage is provided by a much shorter list:
+#   * autosuggestion / syntaxHighlighting / completion / historySubstringSearch
+#     come from Home Manager's built-in zsh options.
+#   * `you-should-use` reminds you when an alias would have saved keystrokes.
+#   * History recall is delegated to atuin (see ./atuin.nix), which replaces
+#     the old zsh-histdb plugin and the HISTORY_IGNORE regex.
+#   * Day-to-day aliases (g/gst/k/d/…) live in configurations/aliases/ so
+#     bash and zsh always see the same set.
+let
+  dotfilesDir = "${config.home.homeDirectory}/gel-ort/dotfiles";
+in
 {
   programs.zsh = {
     enable = true;
@@ -15,22 +26,7 @@
       share = true;
     };
 
-    oh-my-zsh = {
-      enable = true;
-      plugins = [
-        "git"
-        "aws"
-        "kubectl"
-        "nodenv"
-      ];
-    };
-
     plugins = [
-      {
-        name = "zsh-histdb";
-        src = pkgs.zsh-histdb;
-        file = "share/zsh-histdb/sqlite-history.zsh";
-      }
       {
         name = "you-should-use";
         src = pkgs.zsh-you-should-use;
@@ -42,14 +38,15 @@
       setopt prompt_subst
       zle_highlight=(bold)
 
-      export HISTORY_IGNORE="(ls|cat|AWS|SECRET|PASSWORD|TOKEN|API|KEY|PASS|SECRETS|SECRET_KEY|SECRET_TOKEN|SECRET_KEY_BASE|SECRET_TOKEN_BASE)"
+      # Autosuggest highlight uses the terminal's bright-black slot (fg=8)
+      # so it tracks the active palette (Catppuccin Mocha) instead of
+      # being pinned to a hard-coded hex value.
+      ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE="fg=8"
 
-      zshaddhistory() {
-        emulate -L zsh
-        [[ $1 != ''${~HISTORY_IGNORE} ]]
-      }
-
-      ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE="fg=#666611,bg=black,bold,underline"
+      # Aliases live in the repo so bash and zsh share the same set.
+      for f in ${dotfilesDir}/configurations/aliases/*.sh; do
+        [ -r "$f" ] && source "$f"
+      done
     '';
   };
 }

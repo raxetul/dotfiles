@@ -8,6 +8,8 @@
     ./modules/packages/common.nix
     ./modules/scripts.nix
     ./modules/zsh.nix
+    ./modules/bash.nix
+    ./modules/atuin.nix
     ./modules/starship.nix
     ./modules/git.nix
     ./modules/editor.nix
