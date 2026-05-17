@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# pre-commit hook — delegates to lefthook when the repo has a config.
+# No-op otherwise, so new repos that don't use lefthook aren't blocked.
+set -eu
+
+if command -v lefthook >/dev/null 2>&1 \
+   && [ -f "$(git rev-parse --show-toplevel 2>/dev/null)/lefthook.yml" ]; then
+    exec lefthook run --no-tty pre-commit "$@"
+fi
+
+exit 0

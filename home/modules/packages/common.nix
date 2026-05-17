@@ -39,6 +39,11 @@
     fd
     bat
 
+    # Commit hooks + linters — driven by configurations/lefthook.yml.
+    lefthook
+    nixpkgs-fmt
+    shellcheck
+
     # Fonts (terminals on either OS pick them up).
     font-awesome
     jetbrains-mono

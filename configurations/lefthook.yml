@@ -1,0 +1,27 @@
+# lefthook.yml — repository-level pre-commit and commit-msg checks for
+# this dotfiles repo. Installed by `lefthook install`, run automatically
+# at the end of setup.sh.
+#
+# Bypass everything: `LEFTHOOK=0 git commit ...` (don't make a habit of it).
+
+commit-msg:
+  commands:
+    conventional-commits:
+      run: |
+        PATTERN='^(feat|fix|refactor|chore|docs|style|perf|build|ci|test|revert)(\([a-z0-9_/.-]+\))?!?: .+'
+        first_line="$(grep -v '^#' {1} | head -n1)"
+        if ! printf '%s' "${first_line}" | grep -qE "${PATTERN}"; then
+          echo "ERROR: not a Conventional Commit: ${first_line}" >&2
+          echo "Format: type(scope): subject" >&2
+          exit 1
+        fi
+
+pre-commit:
+  parallel: true
+  commands:
+    nixpkgs-fmt:
+      glob: "*.nix"
+      run: nixpkgs-fmt --check {staged_files}
+    shellcheck:
+      glob: "scripts/*.sh"
+      run: shellcheck {staged_files}

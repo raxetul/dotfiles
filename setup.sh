@@ -147,3 +147,16 @@ else
     sudo chsh -s "${ZSH_BIN}" "${USER}"
     echo "==> log out and back in (or start a new login session) for the shell change to take effect"
 fi
+
+# Step 6 — install lefthook hooks for this repo.
+#
+# home-manager has just installed `lefthook` into ~/.nix-profile/bin, so
+# it's on PATH for the rest of this script. `lefthook install` writes
+# .git/hooks/{pre-commit,commit-msg,…} pointed at the lefthook binary;
+# safe to re-run on every setup.sh invocation.
+if command -v lefthook >/dev/null 2>&1; then
+    echo "==> installing lefthook git hooks"
+    (cd "${DIR}" && lefthook install)
+else
+    echo "WARN: lefthook not on PATH; skipping hook install" >&2
+fi

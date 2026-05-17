@@ -1,0 +1,22 @@
+# <type>(<scope>): <subject>
+#
+# <body — explain WHY, not WHAT; wrap at 72 chars>
+#
+# <footer>
+#
+# ----------------------------------------------------------------------
+# Conventional Commits cheat sheet:
+#
+#   types:    feat | fix | refactor | chore | docs | style |
+#             perf | build | ci | test | revert
+#   scope:    optional, lowercase, kebab-case (e.g. (auth), (linux-desktop))
+#   subject:  imperative mood, lowercase, NO trailing period
+#             "add foo" not "added foo" / "Adds foo." / "Add foo."
+#   body:     explain motivation, side-effects, follow-ups
+#   footer:   BREAKING CHANGE: <details>
+#             Refs: #123, ABC-456
+#             Co-Authored-By: Name <email>
+#
+# Mark a breaking change with `!` after type/scope, e.g.
+#   refactor(api)!: drop /v1 endpoints
+# ----------------------------------------------------------------------

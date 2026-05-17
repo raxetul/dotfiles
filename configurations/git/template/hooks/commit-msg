@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# commit-msg hook — installed automatically by git from
+# $XDG_CONFIG_HOME/git/template/ on every `git init` / `git clone`.
+#
+# If the repo already has a lefthook.yml, hand off to lefthook so its
+# config wins; otherwise run the bash regex below so even non-lefthook
+# repos still get the Conventional Commits guard.
+#
+# Bypass everything for an emergency commit:  LEFTHOOK=0 git commit ...
+set -eu
+
+COMMIT_MSG_FILE="$1"
+
+if command -v lefthook >/dev/null 2>&1 \
+   && [ -f "$(git rev-parse --show-toplevel 2>/dev/null)/lefthook.yml" ]; then
+    exec lefthook run --no-tty commit-msg "${COMMIT_MSG_FILE}"
+fi
+
+PATTERN='^(feat|fix|refactor|chore|docs|style|perf|build|ci|test|revert)(\([a-z0-9_/.-]+\))?!?: .+'
+first_line="$(grep -v '^#' "${COMMIT_MSG_FILE}" | head -n1)"
+
+if ! printf '%s' "${first_line}" | grep -qE "${PATTERN}"; then
+    cat >&2 <<EOM
+ERROR: commit message does not follow Conventional Commits.
+
+  expected: type(scope): subject
+  types:    feat fix refactor chore docs style perf build ci test revert
+  scope:    optional, lowercase
+
+  got:      ${first_line}
+EOM
+    exit 1
+fi
