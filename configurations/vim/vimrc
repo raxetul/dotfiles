@@ -1,0 +1,118 @@
+" =============================================================================
+" Shared rc for Vim and Neovim. Loaded directly by Vim as ~/.vimrc and sourced
+" by ~/.config/nvim/init.vim from Neovim. Neovim-only overrides live in that
+" stub; Vim-only branches use `if !has('nvim')`.
+" =============================================================================
+
+let mapleader = " "
+let maplocalleader = ","
+
+" --- core --------------------------------------------------------------------
+filetype plugin indent on
+syntax on
+
+set number relativenumber
+set expandtab shiftwidth=4 tabstop=4 softtabstop=4
+set hidden
+set mouse=a
+set clipboard^=unnamed,unnamedplus
+set ignorecase smartcase incsearch hlsearch
+set splitright splitbelow
+set termguicolors
+set background=dark
+set updatetime=300
+set signcolumn=yes
+set scrolloff=8 sidescrolloff=8
+set wildmenu
+set wildignore+=*/.git/*,*/node_modules/*,*/result,*/result-*
+
+" persistent undo — separate dirs per editor so they never clobber each other
+if has('nvim')
+  let &undodir = expand('~/.local/state/nvim/undo')
+else
+  let &undodir = expand('~/.local/state/vim/undo')
+endif
+silent! call mkdir(&undodir, 'p', 0700)
+set undofile
+
+" --- colorscheme (Catppuccin Mocha — unified terminal identity) -------------
+silent! colorscheme catppuccin_mocha
+
+" --- airline ----------------------------------------------------------------
+let g:airline_theme = 'catppuccin_mocha'
+let g:airline_powerline_fonts = 1
+let g:airline#extensions#tabline#enabled = 1
+let g:airline#extensions#tabline#buffer_nr_show = 1
+
+" --- nerdtree ---------------------------------------------------------------
+let g:NERDTreeShowHidden = 1
+let g:NERDTreeMinimalUI = 1
+let g:NERDTreeDirArrows = 1
+let g:NERDTreeIgnore = ['\.git$', 'node_modules$', 'result$', 'result-.*$']
+
+" --- fzf --------------------------------------------------------------------
+if executable('rg')
+  let $FZF_DEFAULT_COMMAND = 'rg --files --hidden --follow --glob "!.git/*"'
+endif
+let g:fzf_layout = { 'window': { 'width': 0.9, 'height': 0.85 } }
+
+" --- gitgutter --------------------------------------------------------------
+let g:gitgutter_sign_priority = 100
+
+" --- ale --------------------------------------------------------------------
+let g:ale_fix_on_save = 0
+let g:ale_lint_on_text_changed = 'never'
+let g:ale_lint_on_insert_leave = 1
+let g:ale_completion_enabled = 0
+let g:ale_sign_column_always = 1
+
+" --- indentLine -------------------------------------------------------------
+let g:indentLine_char = '│'
+let g:indentLine_fileTypeExclude = ['nerdtree', 'help', 'startify', 'fzf']
+
+" --- ultisnips --------------------------------------------------------------
+let g:UltiSnipsExpandTrigger = '<tab>'
+let g:UltiSnipsJumpForwardTrigger = '<c-j>'
+let g:UltiSnipsJumpBackwardTrigger = '<c-k>'
+
+" =============================================================================
+" Keymaps
+" =============================================================================
+
+" NERDTree
+nnoremap <Leader>e :NERDTreeToggle<CR>
+nnoremap <Leader>f :NERDTreeFind<CR>
+
+" fzf
+nnoremap <Leader>p :Files<CR>
+nnoremap <Leader>b :Buffers<CR>
+nnoremap <Leader>g :Rg<CR>
+nnoremap <Leader>l :BLines<CR>
+nnoremap <Leader>h :History<CR>
+
+" git (fugitive)
+nnoremap <Leader>gs :G<CR>
+nnoremap <Leader>gb :G blame<CR>
+nnoremap <Leader>gd :Gdiffsplit<CR>
+nnoremap <Leader>gp :G push<CR>
+
+" buffers
+nnoremap <S-l> :bnext<CR>
+nnoremap <S-h> :bprevious<CR>
+nnoremap <Leader>x :bdelete<CR>
+nnoremap <Leader>be :BufExplorer<CR>
+
+" windows
+nnoremap <C-h> <C-w>h
+nnoremap <C-j> <C-w>j
+nnoremap <C-k> <C-w>k
+nnoremap <C-l> <C-w>l
+
+" easymotion
+map <Leader><Leader>w <Plug>(easymotion-bd-w)
+map <Leader><Leader>f <Plug>(easymotion-bd-f)
+
+" misc
+nnoremap <Leader>w :w<CR>
+nnoremap <Leader>q :q<CR>
+nnoremap <Esc> :nohlsearch<CR><Esc>

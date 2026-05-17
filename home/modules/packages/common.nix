@@ -34,6 +34,11 @@
     zip
     unzip
 
+    # Search + view CLI — used by both fzf.vim (:Rg) and day-to-day shell.
+    ripgrep
+    fd
+    bat
+
     # Fonts (terminals on either OS pick them up).
     font-awesome
     jetbrains-mono
