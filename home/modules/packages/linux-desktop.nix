@@ -11,15 +11,14 @@ in
     # wezterm; Phase 9 trims the bar/launcher stack.)
     ghostty
 
-    # Wayland / sway stack
+    # Wayland / sway stack — Waybar replaces polybar; wofi replaces dmenu.
     sway
     swaybg
     swayidle
     swaylock
     waybar
-    dmenu
+    wofi
     dunst
-    polybar
     xdotool
 
     # Apps
@@ -37,8 +36,16 @@ in
     asciinema
   ];
 
+  programs.waybar.enable = true;
+
   # Catppuccin Mocha notification daemon — edits to dunstrc take effect on
   # the next `dunst --reload` without a home-manager switch.
   xdg.configFile."dunst/dunstrc".source =
     config.lib.file.mkOutOfStoreSymlink "${dotfilesDir}/configurations/dunst/dunstrc";
+
+  # Waybar config + style — same edit-without-rebuild pattern.
+  xdg.configFile."waybar/config.jsonc".source =
+    config.lib.file.mkOutOfStoreSymlink "${dotfilesDir}/configurations/waybar/config.jsonc";
+  xdg.configFile."waybar/style.css".source =
+    config.lib.file.mkOutOfStoreSymlink "${dotfilesDir}/configurations/waybar/style.css";
 }

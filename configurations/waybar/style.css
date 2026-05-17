@@ -1,0 +1,75 @@
+/* Waybar — Catppuccin Mocha. Color names map to the palette in
+ * doc/theming.md. Edit and `pkill -SIGUSR2 waybar` to reload. */
+
+@define-color base       #1e1e2e;
+@define-color mantle     #181825;
+@define-color crust      #11111b;
+@define-color surface0   #313244;
+@define-color surface1   #45475a;
+@define-color overlay0   #6c7086;
+@define-color text       #cdd6f4;
+@define-color subtext0   #a6adc8;
+@define-color red        #f38ba8;
+@define-color peach      #fab387;
+@define-color yellow     #f9e2af;
+@define-color green      #a6e3a1;
+@define-color sapphire   #74c7ec;
+@define-color lavender   #b4befe;
+@define-color mauve      #cba6f7;
+
+* {
+    font-family: "JetBrainsMono Nerd Font", monospace;
+    font-size: 13px;
+    min-height: 0;
+}
+
+window#waybar {
+    background-color: @base;
+    color: @text;
+    border-bottom: 2px solid @surface0;
+}
+
+#workspaces button {
+    padding: 0 8px;
+    color: @subtext0;
+    background-color: transparent;
+    border-bottom: 2px solid transparent;
+}
+
+#workspaces button:hover {
+    background-color: @surface0;
+    color: @text;
+}
+
+#workspaces button.focused,
+#workspaces button.active {
+    color: @lavender;
+    border-bottom: 2px solid @lavender;
+}
+
+#workspaces button.urgent {
+    color: @red;
+    border-bottom: 2px solid @red;
+}
+
+#mode,
+#clock,
+#battery,
+#network,
+#pulseaudio,
+#tray {
+    padding: 0 12px;
+    color: @text;
+    background-color: transparent;
+}
+
+#clock           { color: @lavender; }
+#battery         { color: @green; }
+#battery.warning { color: @yellow; }
+#battery.critical{ color: @red; }
+#network         { color: @sapphire; }
+#network.disconnected { color: @red; }
+#pulseaudio      { color: @peach; }
+#pulseaudio.muted{ color: @overlay0; }
+
+#tray > .needs-attention { -gtk-icon-effect: highlight; }
