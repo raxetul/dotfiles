@@ -13,6 +13,10 @@ in
       for f in ${dotfilesDir}/configurations/aliases/*.sh; do
         [ -r "$f" ] && . "$f"
       done
+
+      if [ -r ${dotfilesDir}/configurations/themes/fzf/catppuccin-mocha.sh ]; then
+        . ${dotfilesDir}/configurations/themes/fzf/catppuccin-mocha.sh
+      fi
     '';
   };
 }
