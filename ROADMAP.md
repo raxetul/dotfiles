@@ -4,6 +4,35 @@ A phased plan to turn this repo into a clean, agentic-friendly, hybrid Nix + nat
 
 ---
 
+## Status at a glance
+
+Branch: `refactor/v2` (base tag `v1-final`). Tick state of each phase reflects what's
+actually landed on this branch — keep this table in sync when shipping a phase.
+
+| Phase | Title                                          | Status      | Commit                                                       |
+| ----- | ---------------------------------------------- | ----------- | ------------------------------------------------------------ |
+| 0     | Safety net                                     | ✅ shipped   | `8e31035 chore(phase-0): add ROADMAP and scripts/cleanup.sh safety net` |
+| 1     | Repo skeleton + dispatcher refactor            | ✅ shipped   | `be053df refactor(home): split default.nix into platform dispatchers` |
+| 2     | `configurations/` + scoped symlink scheme      | ✅ shipped   | `2418866 feat(configurations): add scoped backup-configs.sh` |
+| 3     | Zsh: drop OMZ, aliases, atuin                  | ✅ shipped   | `05f3587 refactor(zsh): drop OMZ, add shared aliases/, replace histdb with atuin` |
+| 4     | Starship slim-down                             | ✅ shipped   | `261fe2f refactor(starship): trim language modules, externalize toml` |
+| 5     | Vim + Neovim shared rc                         | ✅ shipped   | `f3c74bc feat(editor): vim + neovim with shared rc and full plugin suite` |
+| 6     | Tmux + Catppuccin Mocha everywhere             | ✅ shipped   | `7d223db feat(theme): tmux + unified Catppuccin Mocha across terminal stack` |
+| 7     | Git + conventional commits + lefthook          | ✅ shipped   | `1eacae1 feat(git,commits): delta, conventional commits enforcement, lefthook` |
+| 7.1   | GPG signing follow-up (reverses old Q4)        | ✅ shipped   | `9400c98 feat(gpg): signing wizard + HM module, reverses Q4` |
+| 8     | Ghostty as default terminal (XDG path)         | ✅ shipped   | `979f5e1 feat(ghostty): default terminal across platforms via XDG path` |
+| 9     | Linux desktop: Waybar only                     | ✅ shipped   | `35b83f9 feat(linux-desktop): waybar-only, drop polybar`     |
+| 10    | Hybrid native package strategy                 | ✅ shipped   | `974f6af feat(packages): hybrid native+nix install paths`    |
+| 11    | `scripts/update.sh` — packages + configurations | ⏳ next      | —                                                            |
+| 12    | Agentic conversion (`.claude/` tree)           | ⏳ pending   | —                                                            |
+| 13    | Documentation (per-module / per-command docs)  | ⏳ pending   | —                                                            |
+| 14    | Polish (`.editorconfig`, `.gitignore`, cleanup) | ⏳ pending   | —                                                            |
+
+Phase-7-deferred docs (`doc/commands/*.md`, `doc/hooks/*.md`) live inside the Phase 7
+checklist below but actually ship as part of Phase 13 — Phase 12 has to land first.
+
+---
+
 ## Decisions (locked)
 
 | #  | Decision                                                                                                                 | Notes              |
@@ -196,16 +225,16 @@ flowchart TD
 
 ## Phase 0 — Safety net
 
-- [ ] **Goal**: ability to roll back at any moment.
-- [ ] Create branch `refactor/v2`.
-- [ ] Tag current commit as `v1-final` so we can return to the OMZ era if needed.
-- [ ] Write `scripts/cleanup.sh` (temporary; deleted in Phase 14):
-    - [ ] Lists every file currently managed by Home Manager (`home-manager generations`, current symlinks under `~`).
-    - [ ] Optional `home-manager switch --rollback` to the previous generation.
-    - [ ] Removes the current HM generation's symlinks leaving real backups in place.
-    - [ ] Moves `~/.zshrc`, `~/.config/starship.toml`, `~/.tmux.conf`, `~/.gitconfig`, `~/.config/nvim/`, etc. to `~/.dotfiles-backup-<timestamp>/` **before** removal.
-    - [ ] Prints a final report of what it moved and what remains.
-    - [ ] Hard `--dry-run` default; needs `--apply` to actually do anything.
+- [x] **Goal**: ability to roll back at any moment.
+- [x] Create branch `refactor/v2`.
+- [x] Tag current commit as `v1-final` so we can return to the OMZ era if needed.
+- [x] Write `scripts/cleanup.sh` (temporary; deleted in Phase 14):
+    - [x] Lists every file currently managed by Home Manager (`home-manager generations`, current symlinks under `~`).
+    - [x] Optional `home-manager switch --rollback` to the previous generation.
+    - [x] Removes the current HM generation's symlinks leaving real backups in place.
+    - [x] Moves `~/.zshrc`, `~/.config/starship.toml`, `~/.tmux.conf`, `~/.gitconfig`, `~/.config/nvim/`, etc. to `~/.dotfiles-backup-<timestamp>/` **before** removal.
+    - [x] Prints a final report of what it moved and what remains.
+    - [x] Hard `--dry-run` default; needs `--apply` to actually do anything.
 
 **Deliverable**: `scripts/cleanup.sh`, branch, tag.
 
@@ -213,8 +242,8 @@ flowchart TD
 
 ## Phase 1 — Repo skeleton + dispatcher refactor
 
-- [ ] Create the new directory tree from the "Target structure" section (empty placeholders).
-- [ ] Rewrite `home/default.nix` as a **pure dispatcher** using string-suffix OS detection:
+- [x] Create the new directory tree from the "Target structure" section (empty placeholders).
+- [x] Rewrite `home/default.nix` as a **pure dispatcher** using string-suffix OS detection:
 
     ```nix
     { lib, system, profile, ... }:
@@ -229,7 +258,7 @@ flowchart TD
     }
     ```
 
-- [ ] `home/linux.nix` applies the same trick on `profile`:
+- [x] `home/linux.nix` applies the same trick on `profile`:
 
     ```nix
     { lib, profile, ... }: {
@@ -239,37 +268,37 @@ flowchart TD
     }
     ```
 
-- [ ] Create `home/common.nix` and `home/darwin.nix` that import the module list + matching `packages/*.nix`.
-- [ ] Move existing modules into the new tree (relocation only — no behavior changes yet).
-- [ ] Update `flake.nix` to pass `system` and `profile` through `specialArgs`.
-- [ ] Commit: `refactor(home): split default.nix into platform dispatchers`.
+- [x] Create `home/common.nix` and `home/darwin.nix` that import the module list + matching `packages/*.nix`.
+- [x] Move existing modules into the new tree (relocation only — no behavior changes yet).
+- [x] Update `flake.nix` to pass `system` and `profile` through `specialArgs`.
+- [x] Commit: `refactor(home): split default.nix into platform dispatchers`.
 
 ---
 
 ## Phase 2 — `configurations/` folder + scoped symlink scheme
 
-- [ ] For each app config currently inline in a `.nix` file, extract it to `configurations/<app>/<file>`.
-- [ ] In its module, replace the inline string with `mkOutOfStoreSymlink`:
+- [x] For each app config currently inline in a `.nix` file, extract it to `configurations/<app>/<file>`.
+- [x] In its module, replace the inline string with `mkOutOfStoreSymlink`:
 
     ```nix
     xdg.configFile."<app>/<file>".source =
       config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/dotfiles/configurations/<app>/<file>";
     ```
 
-- [ ] Write `scripts/backup-configs.sh` — **scoped, not blanket**:
-    - [ ] Read the directory list under `configurations/` (e.g. `ghostty`, `tmux`, `vim`, `nvim`, `starship`, `waybar`, `sway`, `dunst`, `git`, `aliases`).
-    - [ ] For each, if `~/.config/<name>` (or app-specific path like `~/.tmux.conf`, `~/.vimrc`, `~/.gitconfig`) exists **and is not already a symlink into this repo**, move it to `~/.dotfiles-backup-<timestamp>/<name>/`.
-    - [ ] Skip everything else under `~/.config/` (Slack, Code, browsers, etc.).
-    - [ ] Dry-run by default; `--apply` to actually move.
-    - [ ] Emit a manifest (`~/.dotfiles-backup-<timestamp>/MANIFEST.txt`) listing what was moved and from where.
-- [ ] Commit: `feat(configurations): externalize app configs and scoped backup`.
+- [x] Write `scripts/backup-configs.sh` — **scoped, not blanket**:
+    - [x] Read the directory list under `configurations/` (e.g. `ghostty`, `tmux`, `vim`, `nvim`, `starship`, `waybar`, `sway`, `dunst`, `git`, `aliases`).
+    - [x] For each, if `~/.config/<name>` (or app-specific path like `~/.tmux.conf`, `~/.vimrc`, `~/.gitconfig`) exists **and is not already a symlink into this repo**, move it to `~/.dotfiles-backup-<timestamp>/<name>/`.
+    - [x] Skip everything else under `~/.config/` (Slack, Code, browsers, etc.).
+    - [x] Dry-run by default; `--apply` to actually move.
+    - [x] Emit a manifest (`~/.dotfiles-backup-<timestamp>/MANIFEST.txt`) listing what was moved and from where.
+- [x] Commit: `feat(configurations): externalize app configs and scoped backup`.
 
 ---
 
 ## Phase 3 — Zsh: drop OMZ, aliases folder, atuin
 
-- [ ] Remove the `programs.zsh.oh-my-zsh` block from `home/modules/zsh.nix`.
-- [ ] Aliases — folder-based, sourced cross-shell:
+- [x] Remove the `programs.zsh.oh-my-zsh` block from `home/modules/zsh.nix`.
+- [x] Aliases — folder-based, sourced cross-shell:
 
     ```text
     configurations/aliases/
@@ -281,8 +310,8 @@ flowchart TD
     └── system.sh         # OS-aware: brew on darwin, systemctl on linux
     ```
 
-- [ ] Each file uses portable `alias name='cmd'` syntax (zsh + bash compatible).
-- [ ] `home/modules/zsh.nix` sources them all:
+- [x] Each file uses portable `alias name='cmd'` syntax (zsh + bash compatible).
+- [x] `home/modules/zsh.nix` sources them all:
 
     ```nix
     programs.zsh.initContent = ''
@@ -292,32 +321,32 @@ flowchart TD
     '';
     ```
 
-- [ ] `home/modules/bash.nix` (new) — `programs.bash.bashrcExtra` sources the same folder.
-- [ ] Drop the OMZ plugins entirely:
-    - [ ] `git` plugin → covered by `git.sh`.
-    - [ ] `kubectl` plugin → covered by `kubectl.sh`.
-    - [ ] `aws` plugin → drop (completion already covered by `enableCompletion`).
-    - [ ] `nodenv` plugin → drop unless still actively used; if yes, switch to `mise`.
-- [ ] Keep HM-managed zsh features: `autosuggestion`, `syntaxHighlighting`, `enableCompletion`, `historySubstringSearch`.
-- [ ] **Replace `zsh-histdb` with `atuin`**:
-    - [ ] New module `home/modules/atuin.nix` (`programs.atuin.enable = true; enableZshIntegration = true;`).
-    - [ ] `Ctrl-R` → fuzzy history search; `Up` → optional prefix mode.
-    - [ ] `configurations/atuin/config.toml` carries filter rules (replaces the old `HISTORY_IGNORE` regex). Patterns target leading tokens: `aws`, `secret`, `password`, `token`, `api`, `key`, `pass`, plus noisy `cat`/`ls`.
-    - [ ] Sync off by default (`auto_sync = false`).
-    - [ ] Remove the `zsh-histdb` plugin entry and the `zshaddhistory` regex function.
-- [ ] Quote-review autosuggest color: change `fg=#666611,bg=black,bold,underline` → `fg=8` so it adapts to the terminal palette.
-- [ ] Commit: `refactor(zsh): drop OMZ, aliases/ folder, replace histdb with atuin`.
+- [x] `home/modules/bash.nix` (new) — `programs.bash.bashrcExtra` sources the same folder.
+- [x] Drop the OMZ plugins entirely:
+    - [x] `git` plugin → covered by `git.sh`.
+    - [x] `kubectl` plugin → covered by `kubectl.sh`.
+    - [x] `aws` plugin → drop (completion already covered by `enableCompletion`).
+    - [x] `nodenv` plugin → drop unless still actively used; if yes, switch to `mise`.
+- [x] Keep HM-managed zsh features: `autosuggestion`, `syntaxHighlighting`, `enableCompletion`, `historySubstringSearch`.
+- [x] **Replace `zsh-histdb` with `atuin`**:
+    - [x] New module `home/modules/atuin.nix` (`programs.atuin.enable = true; enableZshIntegration = true;`).
+    - [x] `Ctrl-R` → fuzzy history search; `Up` → optional prefix mode.
+    - [x] `configurations/atuin/config.toml` carries filter rules (replaces the old `HISTORY_IGNORE` regex). Patterns target leading tokens: `aws`, `secret`, `password`, `token`, `api`, `key`, `pass`, plus noisy `cat`/`ls`.
+    - [x] Sync off by default (`auto_sync = false`).
+    - [x] Remove the `zsh-histdb` plugin entry and the `zshaddhistory` regex function.
+- [x] Quote-review autosuggest color: change `fg=#666611,bg=black,bold,underline` → `fg=8` so it adapts to the terminal palette.
+- [x] Commit: `refactor(zsh): drop OMZ, aliases/ folder, replace histdb with atuin`.
 
 ---
 
 ## Phase 4 — Starship slim-down
 
-- [ ] Move `home/modules/zsh/starship.toml` → `configurations/starship/starship.toml`.
-- [ ] Keep `add_newline = true` (per your instruction).
-- [ ] **Disable** rarely-used language modules (`java`, `kotlin`, `php`, `conda`, `haskell` if present) by adding `disabled = true` to each.
-- [ ] Drop Catppuccin variants you don't switch between; keep only `catppuccin_mocha`.
-- [ ] Add transient prompt (Starship ≥ 1.16) so old prompts collapse to a single `❯` in scrollback.
-- [ ] Commit: `refactor(starship): trim language modules, externalize toml`.
+- [x] Move `home/modules/zsh/starship.toml` → `configurations/starship/starship.toml`.
+- [x] Keep `add_newline = true` (per your instruction).
+- [x] **Disable** rarely-used language modules (`java`, `kotlin`, `php`, `conda`, `haskell` if present) by adding `disabled = true` to each.
+- [x] Drop Catppuccin variants you don't switch between; keep only `catppuccin_mocha`.
+- [x] Add transient prompt (Starship ≥ 1.16) so old prompts collapse to a single `❯` in scrollback.
+- [x] Commit: `refactor(starship): trim language modules, externalize toml`.
 
 ---
 
@@ -325,9 +354,9 @@ flowchart TD
 
 Both editors installed; **single shared rc file** so muscle memory carries over.
 
-- [ ] `~/.vimrc` → symlink to `configurations/vim/vimrc`.
-- [ ] `~/.config/nvim/init.vim` → tiny stub that does `set runtimepath^=~/.vim runtimepath+=~/.vim/after` then `source ~/.vimrc`, then adds Neovim-only extras (`inccommand=split`, terminal-mode mappings).
-- [ ] Divergent settings in the shared vimrc are guarded with `if has('nvim')` / `if !has('nvim')`.
+- [x] `~/.vimrc` → symlink to `configurations/vim/vimrc`.
+- [x] `~/.config/nvim/init.vim` → tiny stub that does `set runtimepath^=~/.vim runtimepath+=~/.vim/after` then `source ~/.vimrc`, then adds Neovim-only extras (`inccommand=split`, terminal-mode mappings).
+- [x] Divergent settings in the shared vimrc are guarded with `if has('nvim')` / `if !has('nvim')`.
 
 ### Plugins (grouped by purpose)
 
@@ -410,20 +439,20 @@ nnoremap <Esc> :nohlsearch<CR>
 
 ### Implementation steps
 
-- [ ] New module `home/modules/editor.nix` enables **both** editors:
-    - [ ] `programs.vim.enable = true;` with `plugins = with pkgs.vimPlugins; [ ... ];` from the table above.
-    - [ ] `programs.neovim.enable = true;` with `vimAlias = true; viAlias = true; defaultEditor = true;` and the same `plugins` list.
-    - [ ] Symlink the rc file from this repo via `mkOutOfStoreSymlink` to **both** locations:
-        - [ ] `home.file.".vimrc".source = …configurations/vim/vimrc`
-        - [ ] `xdg.configFile."nvim/init.vim".source = …configurations/nvim/init.vim`
-- [ ] Add `configurations/vim/vimrc` — shared rc with the shortcuts and settings above. Use `if has('nvim')` guards for divergent behavior.
-- [ ] Add `configurations/nvim/init.vim` — three-line stub: extend runtimepath, source `~/.vimrc`, set Neovim-only options.
-- [ ] Add `configurations/vim/ftplugin/{nix,go,yaml,python}.vim` for per-filetype indent rules.
-- [ ] Add `ripgrep`, `fd`, `bat` to `packages/common.nix` (fzf-vim needs ripgrep for `:Rg`).
-- [ ] Smoke test on **both** binaries:
-    - [ ] `vim some-file.go` → `<Space>p`, `<Space>e`, `<Space>gs`, airline icons.
-    - [ ] `nvim some-file.go` → same shortcuts; `:checkhealth` is clean.
-- [ ] Commit: `feat(editor): vim + neovim with shared rc and full plugin suite`.
+- [x] New module `home/modules/editor.nix` enables **both** editors:
+    - [x] `programs.vim.enable = true;` with `plugins = with pkgs.vimPlugins; [ ... ];` from the table above.
+    - [x] `programs.neovim.enable = true;` with `vimAlias = true; viAlias = true; defaultEditor = true;` and the same `plugins` list.
+    - [x] Symlink the rc file from this repo via `mkOutOfStoreSymlink` to **both** locations:
+        - [x] `home.file.".vimrc".source = …configurations/vim/vimrc`
+        - [x] `xdg.configFile."nvim/init.vim".source = …configurations/nvim/init.vim`
+- [x] Add `configurations/vim/vimrc` — shared rc with the shortcuts and settings above. Use `if has('nvim')` guards for divergent behavior.
+- [x] Add `configurations/nvim/init.vim` — three-line stub: extend runtimepath, source `~/.vimrc`, set Neovim-only options.
+- [x] Add `configurations/vim/ftplugin/{nix,go,yaml,python}.vim` for per-filetype indent rules.
+- [x] Add `ripgrep`, `fd`, `bat` to `packages/common.nix` (fzf-vim needs ripgrep for `:Rg`).
+- [x] Smoke test on **both** binaries:
+    - [x] `vim some-file.go` → `<Space>p`, `<Space>e`, `<Space>gs`, airline icons.
+    - [x] `nvim some-file.go` → same shortcuts; `:checkhealth` is clean.
+- [x] Commit: `feat(editor): vim + neovim with shared rc and full plugin suite`.
 
 ---
 
@@ -433,36 +462,36 @@ nnoremap <Esc> :nohlsearch<CR>
 
 ### Tmux config
 
-- [ ] Write `configurations/tmux/tmux.conf`:
-    - [ ] Prefix `C-a`.
-    - [ ] `mouse on`, `focus-events on`, `renumber-windows on`.
-    - [ ] Splits inherit CWD.
-    - [ ] Vim-style pane navigation; integrate `christoomey/vim-tmux-navigator`.
-    - [ ] `tmux-256color` + truecolor: `set -ag terminal-overrides ",*:RGB"`.
-    - [ ] Status bar uses the Catppuccin Mocha tmux plugin (see below).
-- [ ] Plugins via `programs.tmux.plugins`: `sensible`, `resurrect`, `continuum`, `catppuccin/tmux`, `tmux-yank`, `vim-tmux-navigator`.
+- [x] Write `configurations/tmux/tmux.conf`:
+    - [x] Prefix `C-a`.
+    - [x] `mouse on`, `focus-events on`, `renumber-windows on`.
+    - [x] Splits inherit CWD.
+    - [x] Vim-style pane navigation; integrate `christoomey/vim-tmux-navigator`.
+    - [x] `tmux-256color` + truecolor: `set -ag terminal-overrides ",*:RGB"`.
+    - [x] Status bar uses the Catppuccin Mocha tmux plugin (see below).
+- [x] Plugins via `programs.tmux.plugins`: `sensible`, `resurrect`, `continuum`, `catppuccin/tmux`, `tmux-yank`, `vim-tmux-navigator`.
 
 ### Cross-app theming
 
-- [ ] `configurations/themes/` directory holds palette files where an app needs a file:
-    - [ ] `themes/bat/Catppuccin-mocha.tmTheme` (downloaded from `catppuccin/bat`).
-    - [ ] `themes/fzf/catppuccin-mocha.sh` (exports `FZF_DEFAULT_OPTS` color flags).
-    - [ ] `themes/eza/catppuccin-mocha.yml` (sets `EZA_COLORS`).
-    - [ ] `themes/delta/catppuccin.gitconfig` (included by `git.nix`).
-    - [ ] `themes/tmux/catppuccin-mocha.conf` (sourced from `tmux.conf`).
-- [ ] **Ghostty** (`configurations/ghostty/config`): `theme = catppuccin-mocha`. Ghostty ships the palette in-tree.
-- [ ] **Tmux**: Catppuccin/tmux plugin with `set -g @catppuccin_flavour 'mocha'`.
-- [ ] **Vim + Neovim**: `colorscheme catppuccin_mocha` in the shared vimrc (replaces `onedark`).
-- [ ] **bat** (`home/modules/bat.nix`): `programs.bat.config.theme = "Catppuccin-mocha"` + drop the theme file into `~/.config/bat/themes/` via `xdg.configFile` then run `bat cache --build` in a `home.activation` step.
-- [ ] **delta** (in `git.nix`): include `themes/delta/catppuccin.gitconfig` so the pager picks up palette-aware syntax colors.
-- [ ] **fzf** (`home/modules/fzf.nix`): set `programs.fzf.defaultOptions = [ "--color=…" ];` from `themes/fzf/catppuccin-mocha.sh`. The same file is sourced from `aliases/00-general.sh` so non-fzf scripts that read `FZF_DEFAULT_OPTS` see the same palette.
-- [ ] **eza** (`home/modules/eza.nix`): export `EZA_COLORS` from `themes/eza/catppuccin-mocha.yml`.
-- [ ] **less / man pages**: `MANPAGER="sh -c 'col -bx | bat -l man -p'"` so man uses the same bat palette. Set `LESS="-R --use-color -Dd+r$Du+b"` for color sanity.
-- [ ] **zsh syntax highlighting**: set `ZSH_HIGHLIGHT_STYLES` overrides to Catppuccin Mocha hexes in `zsh.nix`.
-- [ ] **starship**: already Catppuccin Mocha post-Phase 4.
-- [ ] **dunst** (Linux desktop): `configurations/dunst/dunstrc` uses Catppuccin Mocha colors.
-- [ ] Document the whole scheme in `doc/theming.md` with a palette table and one screenshot per app.
-- [ ] Commit: `feat(theme): tmux + unified Catppuccin Mocha across terminal stack`.
+- [x] `configurations/themes/` directory holds palette files where an app needs a file:
+    - [x] `themes/bat/Catppuccin-mocha.tmTheme` (downloaded from `catppuccin/bat`).
+    - [x] `themes/fzf/catppuccin-mocha.sh` (exports `FZF_DEFAULT_OPTS` color flags).
+    - [x] `themes/eza/catppuccin-mocha.yml` (sets `EZA_COLORS`).
+    - [x] `themes/delta/catppuccin.gitconfig` (included by `git.nix`).
+    - [x] `themes/tmux/catppuccin-mocha.conf` (sourced from `tmux.conf`).
+- [x] **Ghostty** (`configurations/ghostty/config`): `theme = catppuccin-mocha`. Ghostty ships the palette in-tree.
+- [x] **Tmux**: Catppuccin/tmux plugin with `set -g @catppuccin_flavour 'mocha'`.
+- [x] **Vim + Neovim**: `colorscheme catppuccin_mocha` in the shared vimrc (replaces `onedark`).
+- [x] **bat** (`home/modules/bat.nix`): `programs.bat.config.theme = "Catppuccin-mocha"` + drop the theme file into `~/.config/bat/themes/` via `xdg.configFile` then run `bat cache --build` in a `home.activation` step.
+- [x] **delta** (in `git.nix`): include `themes/delta/catppuccin.gitconfig` so the pager picks up palette-aware syntax colors.
+- [x] **fzf** (`home/modules/fzf.nix`): set `programs.fzf.defaultOptions = [ "--color=…" ];` from `themes/fzf/catppuccin-mocha.sh`. The same file is sourced from `aliases/00-general.sh` so non-fzf scripts that read `FZF_DEFAULT_OPTS` see the same palette.
+- [x] **eza** (`home/modules/eza.nix`): export `EZA_COLORS` from `themes/eza/catppuccin-mocha.yml`.
+- [x] **less / man pages**: `MANPAGER="sh -c 'col -bx | bat -l man -p'"` so man uses the same bat palette. Set `LESS="-R --use-color -Dd+r$Du+b"` for color sanity.
+- [x] **zsh syntax highlighting**: set `ZSH_HIGHLIGHT_STYLES` overrides to Catppuccin Mocha hexes in `zsh.nix`.
+- [x] **starship**: already Catppuccin Mocha post-Phase 4.
+- [x] **dunst** (Linux desktop): `configurations/dunst/dunstrc` uses Catppuccin Mocha colors.
+- [x] Document the whole scheme in `doc/theming.md` with a palette table and one screenshot per app.
+- [x] Commit: `feat(theme): tmux + unified Catppuccin Mocha across terminal stack`.
 
 ---
 
@@ -472,7 +501,7 @@ This phase covers git ergonomics, conventional commits, and the hook runner. GPG
 
 ### Git config
 
-- [ ] **`home/modules/git.nix`** additions on top of the existing dual-email setup (signing is wired up in the Phase 7 follow-up below; the base module only `include`s the wizard-written file):
+- [x] **`home/modules/git.nix`** additions on top of the existing dual-email setup (signing is wired up in the Phase 7 follow-up below; the base module only `include`s the wizard-written file):
 
     ```text
     core.pager = delta
@@ -488,7 +517,7 @@ This phase covers git ergonomics, conventional commits, and the hook runner. GPG
     commit.verbose = true
     ```
 
-- [ ] Include the delta theme file so the pager picks up Catppuccin Mocha:
+- [x] Include the delta theme file so the pager picks up Catppuccin Mocha:
 
     ```text
     [include]
@@ -497,16 +526,20 @@ This phase covers git ergonomics, conventional commits, and the hook runner. GPG
 
 ### Conventional commits
 
-- [ ] `configurations/git/commit-template` — pre-filled with `type(scope): subject` skeleton + footer hints.
-- [ ] `configurations/git/commitlint.config.cjs` with the standard rule set (`@commitlint/config-conventional`).
-- [ ] `configurations/lefthook.yml`:
-    - [ ] `commit-msg` → `commitlint --edit {1}`
-    - [ ] `pre-commit` → `nixpkgs-fmt --check`, `shellcheck scripts/*`, `markdownlint-cli2 doc/**/*.md`
-- [ ] Add `lefthook` to `packages/common.nix`.
-- [ ] `setup.sh` runs `lefthook install` inside this repo as the last bootstrap step.
-- [ ] Global git template directory: `init.templateDir = ~/.config/git/template` with the lefthook hook pre-installed so **every new repo on this machine inherits** the conventional-commit guard.
+- [x] `configurations/git/commit-template` — pre-filled with `type(scope): subject` skeleton + footer hints.
+- [x] `configurations/git/commitlint.config.cjs` with the standard rule set (`@commitlint/config-conventional`).
+- [x] `configurations/lefthook.yml`:
+    - [x] `commit-msg` → `commitlint --edit {1}`
+    - [x] `pre-commit` → `nixpkgs-fmt --check`, `shellcheck scripts/*`, `markdownlint-cli2 doc/**/*.md`
+- [x] Add `lefthook` to `packages/common.nix`.
+- [x] `setup.sh` runs `lefthook install` inside this repo as the last bootstrap step.
+- [x] Global git template directory: `init.templateDir = ~/.config/git/template` with the lefthook hook pre-installed so **every new repo on this machine inherits** the conventional-commit guard.
 
 ### Per-command and per-hook docs
+
+> **Deferred to Phase 13** (Documentation). These docs describe the slash commands and
+> hooks introduced by Phase 12, so they can't be written until Phase 12 lands. Phase 7
+> itself shipped without them; commit `1eacae1` covers everything else in this section.
 
 - [ ] `doc/commands/apply.md` — purpose, args, what `setup.sh` does in each mode, failure modes.
 - [ ] `doc/commands/update.md` — packages + configurations refresh flow (mirrors Phase 11).
@@ -516,38 +549,38 @@ This phase covers git ergonomics, conventional commits, and the hook runner. GPG
 - [ ] `doc/hooks/pre-commit.md` — lefthook stages, how to skip safely (`LEFTHOOK=0`), what each check guards against.
 - [ ] `doc/hooks/commit-msg.md` — conventional commits regex, type/scope list, common rejections + how to fix.
 - [ ] `doc/hooks/post-tool-use.md` — when the agent edits `home/modules/*.nix`, this hook flags `doc/modules-<name>.md` as stale.
-- [ ] Commit: `feat(git,commits): delta, conventional commits enforcement, lefthook`.
+- [x] Commit: `feat(git,commits): delta, conventional commits enforcement, lefthook`.
 
 ### Phase 7 follow-up — GPG signing (reverses old Q4)
 
-- [ ] `home/modules/gpg.nix` — declarative `programs.gpg` settings (long key-IDs, SHA-512, AES-256) + inline `~/.gnupg/gpg-agent.conf` with `pinentry-program /opt/homebrew/bin/pinentry-mac` on macOS only. OS detection via `lib.hasSuffix "darwin" system`, never `pkgs.stdenv.isDarwin`.
-- [ ] `home/modules/git.nix` — add a fourth `includes.path` entry pointing at `~/.config/git/signing.gitconfig`. No top-level `commit.gpgsign` / `user.signingkey` — git's `include.path` is silent on missing files, so unprovisioned hosts still commit cleanly.
-- [ ] `scripts/gpg-setup.sh` — idempotent wizard: ed25519 sign + cv25519 encr subkey, 2y expiry, writes `~/.config/git/signing.gitconfig`. Flags: `--batch`, `--rotate`, `--print-pubkey`.
-- [ ] `configurations/brew/Brewfile` — add `brew "pinentry-mac"` so the macOS pinentry program exists at the path gpg-agent.conf references.
-- [ ] Commit: `feat(gpg): signing wizard + HM module, reverses Q4`.
+- [x] `home/modules/gpg.nix` — declarative `programs.gpg` settings (long key-IDs, SHA-512, AES-256) + inline `~/.gnupg/gpg-agent.conf` with `pinentry-program /opt/homebrew/bin/pinentry-mac` on macOS only. OS detection via `lib.hasSuffix "darwin" system`, never `pkgs.stdenv.isDarwin`.
+- [x] `home/modules/git.nix` — add a fourth `includes.path` entry pointing at `~/.config/git/signing.gitconfig`. No top-level `commit.gpgsign` / `user.signingkey` — git's `include.path` is silent on missing files, so unprovisioned hosts still commit cleanly.
+- [x] `scripts/gpg-setup.sh` — idempotent wizard: ed25519 sign + cv25519 encr subkey, 2y expiry, writes `~/.config/git/signing.gitconfig`. Flags: `--batch`, `--rotate`, `--print-pubkey`.
+- [x] `configurations/brew/Brewfile` — add `brew "pinentry-mac"` so the macOS pinentry program exists at the path gpg-agent.conf references.
+- [x] Commit: `feat(gpg): signing wizard + HM module, reverses Q4`.
 
 ---
 
 ## Phase 8 — Ghostty as default terminal (XDG path only)
 
-- [ ] `configurations/ghostty/config` — single file, used identically on macOS and Linux.
-- [ ] macOS: install via Homebrew cask (`brew install --cask ghostty`) from the Brewfile bridge — nixpkgs Ghostty is Linux-only.
-- [ ] Linux desktop: install via Nix in `packages/linux-desktop.nix`; remove `alacritty` and `wezterm` from that file.
-- [ ] **Single symlink target on every platform**: `~/.config/ghostty/config` (Ghostty reads `$XDG_CONFIG_HOME/ghostty/config` on macOS too — confirmed in Ghostty docs).
-    - [ ] **Do NOT touch** `~/Library/Application Support/com.mitchellh.ghostty/config`. The app owns that path; if both exist, Ghostty prefers the XDG path when present, which is exactly what we want.
-    - [ ] `darwin.nix` activation step: if `~/Library/Application Support/com.mitchellh.ghostty/config` is a *regular file* (not a symlink), leave it alone but print a one-line notice telling the user it's now superseded by `~/.config/ghostty/config`.
-- [ ] Config contents: `theme = catppuccin-mocha`, `font-family = JetBrainsMono Nerd Font`, `font-size = 13`, `window-padding-x = 8`, `window-padding-y = 8`, `cursor-style = bar`, `mouse-hide-while-typing = true`, `macos-titlebar-style = tabs` (macOS-only — harmless on Linux).
-- [ ] Commit: `feat(ghostty): default terminal across platforms via XDG path`.
+- [x] `configurations/ghostty/config` — single file, used identically on macOS and Linux.
+- [x] macOS: install via Homebrew cask (`brew install --cask ghostty`) from the Brewfile bridge — nixpkgs Ghostty is Linux-only.
+- [x] Linux desktop: install via Nix in `packages/linux-desktop.nix`; remove `alacritty` and `wezterm` from that file.
+- [x] **Single symlink target on every platform**: `~/.config/ghostty/config` (Ghostty reads `$XDG_CONFIG_HOME/ghostty/config` on macOS too — confirmed in Ghostty docs).
+    - [x] **Do NOT touch** `~/Library/Application Support/com.mitchellh.ghostty/config`. The app owns that path; if both exist, Ghostty prefers the XDG path when present, which is exactly what we want.
+    - [x] `darwin.nix` activation step: if `~/Library/Application Support/com.mitchellh.ghostty/config` is a *regular file* (not a symlink), leave it alone but print a one-line notice telling the user it's now superseded by `~/.config/ghostty/config`.
+- [x] Config contents: `theme = catppuccin-mocha`, `font-family = JetBrainsMono Nerd Font`, `font-size = 13`, `window-padding-x = 8`, `window-padding-y = 8`, `cursor-style = bar`, `mouse-hide-while-typing = true`, `macos-titlebar-style = tabs` (macOS-only — harmless on Linux).
+- [x] Commit: `feat(ghostty): default terminal across platforms via XDG path`.
 
 ---
 
 ## Phase 9 — Linux desktop: Waybar only
 
-- [ ] Remove `polybar` from `home/modules/packages/linux-desktop.nix`.
-- [ ] Add `programs.waybar.enable = true`.
-- [ ] `configurations/waybar/config.jsonc` + `style.css` — Catppuccin Mocha theme; modules: workspaces, window title, clock, battery, network, pulseaudio, tray.
-- [ ] Keep Sway, Swaylock, Swayidle, Dunst — drop the duplicate dmenu (replace with `wofi` or `fuzzel`).
-- [ ] Commit: `feat(linux-desktop): waybar-only, drop polybar`.
+- [x] Remove `polybar` from `home/modules/packages/linux-desktop.nix`.
+- [x] Add `programs.waybar.enable = true`.
+- [x] `configurations/waybar/config.jsonc` + `style.css` — Catppuccin Mocha theme; modules: workspaces, window title, clock, battery, network, pulseaudio, tray.
+- [x] Keep Sway, Swaylock, Swayidle, Dunst — drop the duplicate dmenu (replace with `wofi` or `fuzzel`).
+- [x] Commit: `feat(linux-desktop): waybar-only, drop polybar`.
 
 ---
 
@@ -557,15 +590,15 @@ Per A2: Nix where it's pure; native for OS-integrated apps.
 
 ### macOS (`home/darwin.nix` + Brewfile)
 
-- [ ] `configurations/brew/Brewfile` lists casks: `ghostty`, `karabiner-elements`, `rectangle` (or `aerospace`), `obs`, `discord`, `telegram`, `kdiff3`, `veracrypt`, `flameshot`, `qt-creator`.
-- [ ] `home/darwin.nix` runs a `home.activation` step that calls `brew bundle --file ~/dotfiles/configurations/brew/Brewfile --no-lock` on every `home-manager switch`.
-- [ ] Install Homebrew itself in `setup.sh` (idempotent: skip if `command -v brew`).
+- [x] `configurations/brew/Brewfile` lists casks: `ghostty`, `karabiner-elements`, `rectangle` (or `aerospace`), `obs`, `discord`, `telegram`, `kdiff3`, `veracrypt`, `flameshot`, `qt-creator`.
+- [x] `home/darwin.nix` runs a `home.activation` step that calls `brew bundle --file ~/dotfiles/configurations/brew/Brewfile --no-lock` on every `home-manager switch`.
+- [x] Install Homebrew itself in `setup.sh` (idempotent: skip if `command -v brew`).
 
 ### Linux (`home/linux.nix`)
 
-- [ ] Detect distro in `setup.sh` (`/etc/os-release`).
-- [ ] Maintain `configurations/native/{apt,pacman,dnf}.list`. `setup.sh` runs only the matching install for packages we explicitly mark as native (e.g., NVIDIA drivers, distro-specific GUI tooling). Default remains Nix.
-- [ ] Commit: `feat(packages): hybrid native+nix install paths`.
+- [x] Detect distro in `setup.sh` (`/etc/os-release`).
+- [x] Maintain `configurations/native/{apt,pacman,dnf}.list`. `setup.sh` runs only the matching install for packages we explicitly mark as native (e.g., NVIDIA drivers, distro-specific GUI tooling). Default remains Nix.
+- [x] Commit: `feat(packages): hybrid native+nix install paths`.
 
 ---
 
