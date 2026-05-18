@@ -16,7 +16,7 @@ Procedure:
    - **feat**: net-new functionality or a wholly new feature file.
    - **fix**: a bug fix (something previously broken).
    - **refactor**: behavior preserved, structure changed.
-   - **docs**: only `doc/`, `README.md`, `ROADMAP.md`, or comment-
+   - **docs**: only `doc/`, `README.md`, `CLAUDE.md`, or comment-
      only edits.
    - **chore**: tooling, ignore files, dep version bumps without
      behavior change.

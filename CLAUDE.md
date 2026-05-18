@@ -3,8 +3,7 @@
 Scope: this file applies to any work an agent does inside this repo
 (`raxetul/dotfiles`). Repo-local; nothing here is promoted to
 `~/.claude/`. If you want to lift a rule out of this repo into a
-global one, follow Appendix B of `ROADMAP.md` ("Moving the agentic
-config from repo-local to global").
+global one, see [doc/agentic-promotion.md](doc/agentic-promotion.md).
 
 ## Hard rules
 
@@ -18,10 +17,11 @@ config from repo-local to global").
    `configurations/` take effect without a `home-manager switch`,
    which is the whole point of the symlink layer.
 3. **Every new `.nix` file in `home/modules/`** needs a matching
-   `doc/modules-<name>.md` (see Phase 13 of `ROADMAP.md` for the
-   frontmatter template). The `post-tool-use.sh` hook will flag a
-   `Write`/`Edit` to a module that didn't touch its doc in the same
-   turn.
+   `doc/modules-<name>.md` (see
+   [`.claude/skills/doc-author/SKILL.md`](.claude/skills/doc-author/SKILL.md)
+   for the frontmatter template). The `post-tool-use.sh` hook will
+   flag a `Write`/`Edit` to a module that didn't touch its doc in
+   the same turn.
 4. **Commit messages follow Conventional Commits.** Types: `feat`,
    `fix`, `refactor`, `chore`, `docs`, `style`, `perf`, `build`,
    `ci`, `test`, `revert`. Scope is optional but encouraged

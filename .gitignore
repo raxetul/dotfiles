@@ -1,2 +1,7 @@
+.direnv/
+result
+result-*
+.DS_Store
+*.swp
 .history
 .installed

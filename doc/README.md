@@ -85,6 +85,7 @@ graph TD
 
 ## Cross-cutting
 
-| Topic    | Doc                              |
-| -------- | -------------------------------- |
-| Theming  | [theming.md](theming.md) — Catppuccin Mocha palette + per-app mapping. |
+| Topic              | Doc                                                                 |
+| ------------------ | ------------------------------------------------------------------- |
+| Theming            | [theming.md](theming.md) — Catppuccin Mocha palette + per-app mapping. |
+| Agentic promotion  | [agentic-promotion.md](agentic-promotion.md) — lifting rules from repo-local `.claude/` to global `~/.claude/`. |
