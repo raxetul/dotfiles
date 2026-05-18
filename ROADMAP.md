@@ -23,8 +23,8 @@ actually landed on this branch — keep this table in sync when shipping a phase
 | 8     | Ghostty as default terminal (XDG path)         | ✅ shipped   | `979f5e1 feat(ghostty): default terminal across platforms via XDG path` |
 | 9     | Linux desktop: Waybar only                     | ✅ shipped   | `35b83f9 feat(linux-desktop): waybar-only, drop polybar`     |
 | 10    | Hybrid native package strategy                 | ✅ shipped   | `974f6af feat(packages): hybrid native+nix install paths`    |
-| 11    | `scripts/update.sh` — packages + configurations | ⏳ next      | —                                                            |
-| 12    | Agentic conversion (`.claude/` tree)           | ⏳ pending   | —                                                            |
+| 11    | `scripts/update.sh` — packages + configurations | ✅ shipped   | (this commit)                                                |
+| 12    | Agentic conversion (`.claude/` tree)           | ⏳ next      | —                                                            |
 | 13    | Documentation (per-module / per-command docs)  | ⏳ pending   | —                                                            |
 | 14    | Polish (`.editorconfig`, `.gitignore`, cleanup) | ⏳ pending   | —                                                            |
 
@@ -608,31 +608,31 @@ Per A2: Nix where it's pure; native for OS-integrated apps.
 
 ### Packages
 
-- [ ] `cd "$(git rev-parse --show-toplevel)"`.
-- [ ] `git pull --rebase` (with confirmation prompt unless `--yes`).
-- [ ] `nix flake update` (skip with `--no-flake`).
-- [ ] `home-manager switch --flake .#default -b backup-$(date +%F---%s)`.
-- [ ] On macOS: `brew update && brew bundle --file configurations/brew/Brewfile && brew cleanup`.
-- [ ] On Linux: re-run the distro-specific install list from Phase 10 if it changed since last update.
+- [x] `cd "$(git rev-parse --show-toplevel)"`.
+- [x] `git pull --rebase` (with confirmation prompt unless `--yes`).
+- [x] `nix flake update` (skip with `--no-flake`).
+- [x] `home-manager switch --flake .#default -b backup-$(date +%F---%s)`.
+- [x] On macOS: `brew update && brew bundle --file configurations/brew/Brewfile && brew cleanup`.
+- [x] On Linux: re-run the distro-specific install list from Phase 10 if it changed since last update.
 
 ### Configurations
 
-- [ ] Re-run `scripts/backup-configs.sh --apply` in *check-only* mode — confirms every managed config is still a symlink into this repo and warns if anything regressed to a regular file.
-- [ ] `lefthook install` — refreshes git hooks in case `lefthook.yml` changed.
-- [ ] `lefthook run pre-commit --all-files` — verifies the new hook set still passes against the working tree.
-- [ ] `bat cache --build` — refreshes the bat theme cache after any change to `configurations/themes/bat/`.
-- [ ] `tmux source-file ~/.config/tmux/tmux.conf` if a tmux server is running (best-effort; ignore failures).
-- [ ] Reload tpm plugins headless: `~/.config/tmux/plugins/tpm/bin/install_plugins` if `~/.config/tmux/plugins/tpm` exists.
-- [ ] `nvim --headless "+Lazy! sync" +qa` if Neovim chosen (best-effort; ignore failures).
-- [ ] `atuin daemon restart` if atuin is configured for sync.
+- [x] Re-run `scripts/backup-configs.sh --apply` in *check-only* mode — confirms every managed config is still a symlink into this repo and warns if anything regressed to a regular file.
+- [x] `lefthook install` — refreshes git hooks in case `lefthook.yml` changed.
+- [x] `lefthook run pre-commit --all-files` — verifies the new hook set still passes against the working tree.
+- [x] `bat cache --build` — refreshes the bat theme cache after any change to `configurations/themes/bat/`.
+- [x] `tmux source-file ~/.config/tmux/tmux.conf` if a tmux server is running (best-effort; ignore failures).
+- [x] Reload tpm plugins headless: `~/.config/tmux/plugins/tpm/bin/install_plugins` if `~/.config/tmux/plugins/tpm` exists.
+- [x] `nvim --headless "+Lazy! sync" +qa` if Neovim chosen (best-effort; ignore failures).
+- [x] `atuin daemon restart` if atuin is configured for sync.
 
 ### Behavior
 
-- [ ] Idempotent + safe to interrupt.
-- [ ] Exits non-zero on any failure; prints which stage failed.
-- [ ] `--dry-run` flag walks every step and prints the command it *would* run.
-- [ ] `--only=packages` / `--only=configurations` to scope the run.
-- [ ] Commit: `feat(scripts): update.sh refreshes packages and configurations`.
+- [x] Idempotent + safe to interrupt.
+- [x] Exits non-zero on any failure; prints which stage failed.
+- [x] `--dry-run` flag walks every step and prints the command it *would* run.
+- [x] `--only=packages` / `--only=configurations` to scope the run.
+- [x] Commit: `feat(scripts): update.sh refreshes packages and configurations`.
 
 ---
 
