@@ -1,6 +1,7 @@
 { config, ... }:
 
-# Git — daily-driver ergonomics, no signing (GPG is out of scope per Q4).
+# Git — daily-driver ergonomics, with GPG signing turned on iff a key
+# has been provisioned by scripts/gpg-setup.sh (see home/modules/gpg.nix).
 #
 # * delta is enabled as the pager so diffs/log/blame pick up the
 #   Catppuccin Mocha palette via the included gitconfig.
@@ -11,6 +12,12 @@
 #   format on every new repo this host clones.
 # * Identity is selected by directory: personal under ~/personal/,
 #   work under ~/workspace/ (existing behavior, kept intact).
+# * Signing: this module does NOT set commit.gpgsign at the top level.
+#   scripts/gpg-setup.sh generates a key and writes
+#   ~/.config/git/signing.gitconfig with [user] signingkey + [commit]
+#   gpgsign = true. That file is `include`d below, so signing turns on
+#   only once a key actually exists — and the include is silent if the
+#   file is missing, so a fresh host still commits cleanly.
 let
   dotfilesDir = "${config.home.homeDirectory}/gel-ort/dotfiles";
   homeDir     = config.home.homeDirectory;
@@ -67,6 +74,13 @@ in
         # Delta's Catppuccin Mocha palette — kept in configurations/ so it
         # can be edited without a home-manager switch.
         path = "${dotfilesDir}/configurations/themes/delta/catppuccin.gitconfig";
+      }
+      {
+        # GPG signing config — written by scripts/gpg-setup.sh once a key
+        # exists for this host's git email. Git's `include.path` is
+        # silent on missing files, so this is safe to declare even before
+        # the wizard has run.
+        path = "${homeDir}/.config/git/signing.gitconfig";
       }
     ];
   };

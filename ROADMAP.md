@@ -16,7 +16,7 @@ A phased plan to turn this repo into a clean, agentic-friendly, hybrid Nix + nat
 | Q1 | **Both Vim and Neovim** installed, sharing a single vimrc.                                                                | Phase 5.            |
 | Q2 | **atuin** replaces `zsh-histdb`. Encrypted, fuzzy, sync-capable.                                                          | Phase 3.            |
 | Q3 | **lefthook** (single Go binary) for commit/pre-commit hooks.                                                              | Phase 7.            |
-| Q4 | **Skip GPG scope.** No `gpg-setup.sh`, no `home/modules/gpg.nix`, no signing changes to git. Brief usage doc only.        | Phase 7 trimmed.    |
+| Q4 | **GPG signing IS in scope** (reversed). Declarative agent/profile in `home/modules/gpg.nix`; runtime key creation via `scripts/gpg-setup.sh`; signing config pulled into git via an `include` so unprovisioned hosts stay clean. | Phase 7 follow-up.  |
 | Q5 | **Repo-local `.claude/` only.** `~/.claude/` is untouched. Brief "promote to global" guide at end of this file.           | Phase 12.           |
 
 Additional locked refinements:
@@ -466,13 +466,13 @@ nnoremap <Esc> :nohlsearch<CR>
 
 ---
 
-## Phase 7 — Git + conventional commits + lefthook (no GPG)
+## Phase 7 — Git + conventional commits + lefthook
 
-GPG is out of scope per Q4. This phase covers git ergonomics, conventional commits, and the hook runner.
+This phase covers git ergonomics, conventional commits, and the hook runner. GPG signing was originally out of scope (old Q4); the decision was reversed and signing now ships as a Phase 7 follow-up — see `home/modules/gpg.nix` and `scripts/gpg-setup.sh`.
 
 ### Git config
 
-- [ ] **`home/modules/git.nix`** additions on top of the existing dual-email setup (no signing options):
+- [ ] **`home/modules/git.nix`** additions on top of the existing dual-email setup (signing is wired up in the Phase 7 follow-up below; the base module only `include`s the wizard-written file):
 
     ```text
     core.pager = delta
@@ -517,6 +517,14 @@ GPG is out of scope per Q4. This phase covers git ergonomics, conventional commi
 - [ ] `doc/hooks/commit-msg.md` — conventional commits regex, type/scope list, common rejections + how to fix.
 - [ ] `doc/hooks/post-tool-use.md` — when the agent edits `home/modules/*.nix`, this hook flags `doc/modules-<name>.md` as stale.
 - [ ] Commit: `feat(git,commits): delta, conventional commits enforcement, lefthook`.
+
+### Phase 7 follow-up — GPG signing (reverses old Q4)
+
+- [ ] `home/modules/gpg.nix` — declarative `programs.gpg` settings (long key-IDs, SHA-512, AES-256) + inline `~/.gnupg/gpg-agent.conf` with `pinentry-program /opt/homebrew/bin/pinentry-mac` on macOS only. OS detection via `lib.hasSuffix "darwin" system`, never `pkgs.stdenv.isDarwin`.
+- [ ] `home/modules/git.nix` — add a fourth `includes.path` entry pointing at `~/.config/git/signing.gitconfig`. No top-level `commit.gpgsign` / `user.signingkey` — git's `include.path` is silent on missing files, so unprovisioned hosts still commit cleanly.
+- [ ] `scripts/gpg-setup.sh` — idempotent wizard: ed25519 sign + cv25519 encr subkey, 2y expiry, writes `~/.config/git/signing.gitconfig`. Flags: `--batch`, `--rotate`, `--print-pubkey`.
+- [ ] `configurations/brew/Brewfile` — add `brew "pinentry-mac"` so the macOS pinentry program exists at the path gpg-agent.conf references.
+- [ ] Commit: `feat(gpg): signing wizard + HM module, reverses Q4`.
 
 ---
 

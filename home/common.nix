@@ -12,6 +12,7 @@
     ./modules/atuin.nix
     ./modules/starship.nix
     ./modules/git.nix
+    ./modules/gpg.nix
     ./modules/editor.nix
     ./modules/tmux.nix
     ./modules/fzf.nix

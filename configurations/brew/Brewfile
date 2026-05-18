@@ -25,3 +25,8 @@ cask "kdiff3"
 
 # Disk / encryption
 cask "veracrypt"
+
+# GPG pinentry — Cocoa dialog driven by gpg-agent on macOS. Wired up from
+# home/modules/gpg.nix (`pinentry-program /opt/homebrew/bin/pinentry-mac`).
+# Linux uses pinentry-curses from Nix instead; see home/modules/gpg.nix.
+brew "pinentry-mac"
