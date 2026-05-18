@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(nix*)",
+      "Bash(home-manager*)",
+      "Bash(brew*)",
+      "Bash(lefthook*)",
+      "Bash(nixpkgs-fmt*)",
+      "Bash(shellcheck*)",
+      "Bash(commitlint*)",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git show*)",
+      "Bash(git branch*)",
+      "Bash(git config*)",
+      "Bash(git add*)",
+      "Bash(git restore*)",
+      "Bash(git rm*)",
+      "Bash(git mv*)",
+      "Bash(git stash*)",
+      "Bash(git rebase*)",
+      "Bash(git pull*)",
+      "Bash(git fetch*)",
+      "Bash(git tag*)",
+      "Bash(git commit*)",
+      "Bash(./setup.sh*)",
+      "Bash(./scripts/*)",
+      "Bash(scripts/*)",
+      "Bash(ls*)",
+      "Bash(cat*)",
+      "Bash(grep*)",
+      "Bash(rg*)",
+      "Bash(find*)",
+      "Bash(file*)",
+      "Bash(stat*)",
+      "Bash(readlink*)",
+      "Bash(realpath*)",
+      "Bash(which*)",
+      "Bash(command -v*)"
+    ],
+    "deny": [
+      "Bash(rm -rf*)",
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "Bash(git reset --hard*)",
+      "Bash(git clean -f*)",
+      "Bash(sudo rm*)"
+    ]
+  },
+  "env": {
+    "DOTFILES_REPO": "${HOME}/gel-ort/dotfiles",
+    "EDITOR": "nvim"
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "./.claude/hooks/post-tool-use.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

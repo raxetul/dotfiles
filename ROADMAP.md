@@ -24,8 +24,8 @@ actually landed on this branch — keep this table in sync when shipping a phase
 | 9     | Linux desktop: Waybar only                     | ✅ shipped   | `35b83f9 feat(linux-desktop): waybar-only, drop polybar`     |
 | 10    | Hybrid native package strategy                 | ✅ shipped   | `974f6af feat(packages): hybrid native+nix install paths`    |
 | 11    | `scripts/update.sh` — packages + configurations | ✅ shipped   | (this commit)                                                |
-| 12    | Agentic conversion (`.claude/` tree)           | ⏳ next      | —                                                            |
-| 13    | Documentation (per-module / per-command docs)  | ⏳ pending   | —                                                            |
+| 12    | Agentic conversion (`.claude/` tree)           | ✅ shipped   | (this commit)                                                |
+| 13    | Documentation (per-module / per-command docs)  | ⏳ next      | —                                                            |
 | 14    | Polish (`.editorconfig`, `.gitignore`, cleanup) | ⏳ pending   | —                                                            |
 
 Phase-7-deferred docs (`doc/commands/*.md`, `doc/hooks/*.md`) live inside the Phase 7
@@ -638,27 +638,27 @@ Per A2: Nix where it's pure; native for OS-integrated apps.
 
 ## Phase 12 — Agentic conversion
 
-- [ ] **Root `CLAUDE.md`** scoped to dotfiles tasks:
-    - [ ] "Never edit `flake.lock` by hand; use `nix flake update`."
-    - [ ] "Any new app config goes under `configurations/<app>/` and is symlinked via `xdg.configFile`."
-    - [ ] "Every new `.nix` file in `home/modules/` needs a matching `doc/modules-<name>.md` entry."
-    - [ ] "Commit messages follow Conventional Commits — types: `feat`, `fix`, `refactor`, `chore`, `docs`, `style`, `perf`, `build`, `ci`, `test`."
-    - [ ] "Line length 120 cols; never collapse multi-line constructs."
-- [ ] **`.claude/settings.json`** — permissions allowlist (`Bash(nix*)`, `Bash(home-manager*)`, `Bash(git*)`, `Bash(brew*)`, `Bash(lefthook*)`, …), env vars, hook wiring.
-- [ ] **`.claude/commands/`** slash commands (each gets a matching `doc/commands/<name>.md`):
-    - [ ] `/apply` — runs `setup.sh` in dry-run mode then asks for confirmation.
-    - [ ] `/update` — runs `scripts/update.sh`.
-    - [ ] `/new-module <name>` — scaffolds `home/modules/<name>.nix` + `doc/modules-<name>.md` + entry in `home/common.nix` + entry in `README.md`.
-    - [ ] `/commit` — builds a Conventional Commit message from staged diff.
-    - [ ] `/check` — runs `nix flake check`, `nixpkgs-fmt --check`, `shellcheck scripts/*`, `commitlint --from origin/main`.
-- [ ] **`.claude/skills/`**:
-    - [ ] `nix-module-author/SKILL.md` — the right way to add a HM module.
-    - [ ] `doc-author/SKILL.md` — keeps `doc/*.md` and nix files in lockstep.
-- [ ] **`.claude/hooks/`** (each gets a matching `doc/hooks/<name>.md`):
-    - [ ] `pre-commit.sh` — runs lefthook checks.
-    - [ ] `commit-msg.sh` — validates conventional commits.
-    - [ ] `post-tool-use.sh` — `PostToolUse` on `Write|Edit` of `home/modules/*.nix` warns when `doc/modules-<name>.md` wasn't touched in the same edit.
-- [ ] Commit: `feat(agentic): claude commands, skills, hooks`.
+- [x] **Root `CLAUDE.md`** scoped to dotfiles tasks:
+    - [x] "Never edit `flake.lock` by hand; use `nix flake update`."
+    - [x] "Any new app config goes under `configurations/<app>/` and is symlinked via `xdg.configFile`."
+    - [x] "Every new `.nix` file in `home/modules/` needs a matching `doc/modules-<name>.md` entry."
+    - [x] "Commit messages follow Conventional Commits — types: `feat`, `fix`, `refactor`, `chore`, `docs`, `style`, `perf`, `build`, `ci`, `test`."
+    - [x] "Line length 120 cols; never collapse multi-line constructs."
+- [x] **`.claude/settings.json`** — permissions allowlist (`Bash(nix*)`, `Bash(home-manager*)`, `Bash(git*)`, `Bash(brew*)`, `Bash(lefthook*)`, …), env vars, hook wiring.
+- [x] **`.claude/commands/`** slash commands (each gets a matching `doc/commands/<name>.md`):
+    - [x] `/apply` — runs `setup.sh` in dry-run mode then asks for confirmation.
+    - [x] `/update` — runs `scripts/update.sh`.
+    - [x] `/new-module <name>` — scaffolds `home/modules/<name>.nix` + `doc/modules-<name>.md` + entry in `home/common.nix` + entry in `README.md`.
+    - [x] `/commit` — builds a Conventional Commit message from staged diff.
+    - [x] `/check` — runs `nix flake check`, `nixpkgs-fmt --check`, `shellcheck scripts/*`, `commitlint --from origin/main`.
+- [x] **`.claude/skills/`**:
+    - [x] `nix-module-author/SKILL.md` — the right way to add a HM module.
+    - [x] `doc-author/SKILL.md` — keeps `doc/*.md` and nix files in lockstep.
+- [x] **`.claude/hooks/`** (each gets a matching `doc/hooks/<name>.md`):
+    - [x] `pre-commit.sh` — runs lefthook checks.
+    - [x] `commit-msg.sh` — validates conventional commits.
+    - [x] `post-tool-use.sh` — `PostToolUse` on `Write|Edit` of `home/modules/*.nix` warns when `doc/modules-<name>.md` wasn't touched in the same edit.
+- [x] Commit: `feat(agentic): claude commands, skills, hooks`.
 
 ---
 
