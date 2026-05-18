@@ -25,11 +25,11 @@ actually landed on this branch — keep this table in sync when shipping a phase
 | 10    | Hybrid native package strategy                 | ✅ shipped   | `974f6af feat(packages): hybrid native+nix install paths`    |
 | 11    | `scripts/update.sh` — packages + configurations | ✅ shipped   | (this commit)                                                |
 | 12    | Agentic conversion (`.claude/` tree)           | ✅ shipped   | (this commit)                                                |
-| 13    | Documentation (per-module / per-command docs)  | ⏳ next      | —                                                            |
-| 14    | Polish (`.editorconfig`, `.gitignore`, cleanup) | ⏳ pending   | —                                                            |
+| 13    | Documentation (per-module / per-command docs)  | ✅ shipped   | (this commit)                                                |
+| 14    | Polish (`.editorconfig`, `.gitignore`, cleanup) | ⏳ next      | —                                                            |
 
-Phase-7-deferred docs (`doc/commands/*.md`, `doc/hooks/*.md`) live inside the Phase 7
-checklist below but actually ship as part of Phase 13 — Phase 12 has to land first.
+Phase-7-deferred docs (`doc/commands/*.md`, `doc/hooks/*.md`) shipped here with the
+rest of Phase 13, after the Phase 12 `.claude/` tree they document was in place.
 
 ---
 
@@ -537,18 +537,18 @@ This phase covers git ergonomics, conventional commits, and the hook runner. GPG
 
 ### Per-command and per-hook docs
 
-> **Deferred to Phase 13** (Documentation). These docs describe the slash commands and
-> hooks introduced by Phase 12, so they can't be written until Phase 12 lands. Phase 7
-> itself shipped without them; commit `1eacae1` covers everything else in this section.
+> Shipped as part of Phase 13 (Documentation), after the Phase 12 `.claude/` tree
+> they document was in place. Phase 7 itself shipped without them; commit `1eacae1`
+> covered everything else in this section.
 
-- [ ] `doc/commands/apply.md` — purpose, args, what `setup.sh` does in each mode, failure modes.
-- [ ] `doc/commands/update.md` — packages + configurations refresh flow (mirrors Phase 11).
-- [ ] `doc/commands/new-module.md` — files it scaffolds, where it edits `home/common.nix`, how it back-fills the `doc/` entry.
-- [ ] `doc/commands/commit.md` — how the assistant inspects the staged diff and which Conventional Commits types it picks from.
-- [ ] `doc/commands/check.md` — every linter/formatter it runs and how to interpret failures.
-- [ ] `doc/hooks/pre-commit.md` — lefthook stages, how to skip safely (`LEFTHOOK=0`), what each check guards against.
-- [ ] `doc/hooks/commit-msg.md` — conventional commits regex, type/scope list, common rejections + how to fix.
-- [ ] `doc/hooks/post-tool-use.md` — when the agent edits `home/modules/*.nix`, this hook flags `doc/modules-<name>.md` as stale.
+- [x] `doc/commands/apply.md` — purpose, args, what `setup.sh` does in each mode, failure modes.
+- [x] `doc/commands/update.md` — packages + configurations refresh flow (mirrors Phase 11).
+- [x] `doc/commands/new-module.md` — files it scaffolds, where it edits `home/common.nix`, how it back-fills the `doc/` entry.
+- [x] `doc/commands/commit.md` — how the assistant inspects the staged diff and which Conventional Commits types it picks from.
+- [x] `doc/commands/check.md` — every linter/formatter it runs and how to interpret failures.
+- [x] `doc/hooks/pre-commit.md` — lefthook stages, how to skip safely (`LEFTHOOK=0`), what each check guards against.
+- [x] `doc/hooks/commit-msg.md` — conventional commits regex, type/scope list, common rejections + how to fix.
+- [x] `doc/hooks/post-tool-use.md` — when the agent edits `home/modules/*.nix`, this hook flags `doc/modules-<name>.md` as stale.
 - [x] Commit: `feat(git,commits): delta, conventional commits enforcement, lefthook`.
 
 ### Phase 7 follow-up — GPG signing (reverses old Q4)
@@ -664,8 +664,8 @@ Per A2: Nix where it's pure; native for OS-integrated apps.
 
 ## Phase 13 — Documentation
 
-- [ ] `doc/README.md` — index with a single top-level architecture mermaid diagram + a table linking each module / command / hook to its doc.
-- [ ] **Per-nix-file doc convention** — every file uses this frontmatter:
+- [x] `doc/README.md` — index with a single top-level architecture mermaid diagram + a table linking each module / command / hook to its doc.
+- [x] **Per-nix-file doc convention** — every file uses this frontmatter:
 
     ```markdown
     ---
@@ -682,16 +682,16 @@ Per A2: Nix where it's pure; native for OS-integrated apps.
     ## Related
     ```
 
-- [ ] Diagram types per file:
-    - [ ] `flake.md` — input graph.
-    - [ ] `home-default.md` — dispatch diagram.
-    - [ ] `modules-zsh.md` — startup sequence (login → zshenv → zprofile → zshrc → plugins → prompt).
-    - [ ] `modules-git.md` — gitdir-based identity selection.
-    - [ ] `modules-editor.md` — Vim/Neovim shared-rc flow.
-    - [ ] `packages-*.md` — package classification table.
-    - [ ] `theming.md` — Catppuccin Mocha palette table + per-app config mapping.
-- [ ] `README.md` at repo root — short tagline + quick start + a *Documentation* section linking every `doc/**/*.md`.
-- [ ] Commit: `docs: per-module, per-command, per-hook documentation`.
+- [x] Diagram types per file:
+    - [x] `flake.md` — input graph.
+    - [x] `home-default.md` — dispatch diagram.
+    - [x] `modules-zsh.md` — startup sequence (login → zshenv → zprofile → zshrc → plugins → prompt).
+    - [x] `modules-git.md` — gitdir-based identity selection.
+    - [x] `modules-editor.md` — Vim/Neovim shared-rc flow.
+    - [x] `packages-*.md` — package classification table.
+    - [x] `theming.md` — Catppuccin Mocha palette table + per-app config mapping.
+- [x] `README.md` at repo root — short tagline + quick start + a *Documentation* section linking every `doc/**/*.md`.
+- [x] Commit: `docs: per-module, per-command, per-hook documentation`.
 
 ---
 
