@@ -51,8 +51,21 @@ wget
 curl
 
 # Containers
+# Debian ships docker.io (engine) but not docker-compose-v2. Compose v2
+# requires Docker's official APT repo (download.docker.com); without it,
+# the `docker-compose-plugin` line below will fail apt — comment it out
+# until you've added the repo, then re-run setup.sh.
+#
+# Quick setup of Docker's official repo on Debian:
+#   sudo install -m 0755 -d /etc/apt/keyrings
+#   curl -fsSL https://download.docker.com/linux/debian/gpg | \
+#       sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+#   echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
+#       https://download.docker.com/linux/debian $(lsb_release -cs) stable" | \
+#       sudo tee /etc/apt/sources.list.d/docker.list
+#   sudo apt-get update
 docker.io
-docker-compose-v2
+docker-compose-plugin
 
 # VM / virtualization (comment out if you don't need libvirt/qemu)
 libvirt-daemon-system

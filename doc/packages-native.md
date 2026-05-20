@@ -142,7 +142,7 @@ Vim plugins themselves are declared via `Plug` directives in
 | Package | brew | apt | pacman | dnf | Fallback |
 |---|---|---|---|---|---|
 | docker CLI | docker | docker.io | docker | moby-engine | Docker official repo (`docker-ce`) |
-| docker-compose v2 | docker-compose | docker-compose-v2 | docker-compose | docker-compose-plugin | — |
+| docker-compose v2 | docker-compose | docker-compose-plugin (requires Docker's official APT repo on Debian; Universe on Ubuntu 24.04+) | docker-compose | docker-compose-plugin | — |
 | colima (mac docker daemon) | colima | n/a | n/a | n/a | macOS-only |
 | lima (colima backend) | lima | n/a | n/a | n/a | macOS-only |
 | libvirt (Linux server) | n/a | libvirt-daemon-system | libvirt | libvirt | — |
