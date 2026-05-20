@@ -194,6 +194,40 @@ if [ ! -d "${HOME}/.config/zsh-plugins/zsh-you-should-use" ] \
         "${HOME}/.config/zsh-plugins/zsh-you-should-use"
 fi
 
+# starship — not in Debian apt repos; install user-scope release binary
+# into ~/.local/bin if missing. zshrc's PATH addition makes it visible.
+if ! command -v starship >/dev/null 2>&1; then
+    say "  installing starship into ~/.local/bin"
+    mkdir -p "${HOME}/.local/bin"
+    curl -sS https://starship.rs/install.sh \
+        | sh -s -- --bin-dir "${HOME}/.local/bin" --yes
+fi
+
+# atuin — same story on older Debian. Skip on macOS (brew has it).
+if [ "${OS}" = "Linux" ] && ! command -v atuin >/dev/null 2>&1; then
+    say "  installing atuin into ~/.local/bin"
+    mkdir -p "${HOME}/.local/bin"
+    curl -fsSL https://setup.atuin.sh \
+        | env ATUIN_NO_MODIFY_PATH=1 sh
+fi
+
+# lefthook — not in Debian apt repos. Pull the latest release binary
+# from GitHub into ~/.local/bin.
+if ! command -v lefthook >/dev/null 2>&1 && [ "${OS}" = "Linux" ]; then
+    say "  installing lefthook into ~/.local/bin"
+    mkdir -p "${HOME}/.local/bin"
+    arch="$(uname -m)"
+    case "${arch}" in
+        x86_64) arch_tag="x86_64" ;;
+        aarch64|arm64) arch_tag="arm64" ;;
+        *) arch_tag="${arch}" ;;
+    esac
+    latest_url="https://github.com/evilmartians/lefthook/releases/latest/download/lefthook_Linux_${arch_tag}.gz"
+    curl -fsSL "${latest_url}" \
+        | gunzip > "${HOME}/.local/bin/lefthook" \
+        && chmod +x "${HOME}/.local/bin/lefthook"
+fi
+
 # ------------------------------------------------------------------
 # Step 5 — plant symlinks from configurations/ into $HOME.
 # ------------------------------------------------------------------
