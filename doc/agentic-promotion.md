@@ -12,16 +12,17 @@ safely.
 
 ## Repo-local vs global responsibilities
 
-| Concern                                | Belongs in repo-local `.claude/` | Belongs in global `~/.claude/`        |
-| -------------------------------------- | -------------------------------- | ------------------------------------- |
-| "Edit `home/modules/*.nix` only here"  | ✓ (path-specific)                | ✗ (would leak rules to other repos)   |
-| Conventional Commits enforcement       | ✓ for this repo                  | ✓ once you want it everywhere         |
-| Line-length / formatting style         | usually global                   | ✓                                     |
-| Permissions allowlist for Nix commands | ✓ (Nix only matters here)        | optional, narrower scope better       |
-| `/commit` slash command                | ✓ (initial home)                 | ✓ once it works for any repo          |
-| `/new-module` slash command            | ✓ (dotfiles-specific)            | ✗                                     |
-| Hooks that lint `*.nix`                | ✓                                | ✗                                     |
-| Hooks that lint commit messages        | ✓                                | ✓                                     |
+| Concern                                          | Belongs in repo-local `.claude/` | Belongs in global `~/.claude/`        |
+| ------------------------------------------------ | -------------------------------- | ------------------------------------- |
+| "Edit `packages/*.list` only here"               | ✓ (path-specific)                | ✗ (would leak rules to other repos)   |
+| Preserve Nerd Font glyphs (CLAUDE.md §5)         | ✓ (terminal stack only)          | ✓ if you maintain other Nerd-Font configs |
+| Conventional Commits enforcement                 | ✓ for this repo                  | ✓ once you want it everywhere         |
+| Line-length / formatting style                   | usually global                   | ✓                                     |
+| Permissions allowlist for `brew`/`apt`/`pacman`  | ✓ (only matters here)            | optional, narrower scope better       |
+| `/commit` slash command                          | ✓ (initial home)                 | ✓ once it works for any repo          |
+| `/rulefy` slash command                          | optional                          | ✓ (project-agnostic by design)        |
+| Hooks that lint `packages/*.list`                | ✓                                | ✗                                     |
+| Hooks that lint commit messages                  | ✓                                | ✓                                     |
 
 ## Promotion procedure
 
@@ -68,12 +69,12 @@ safely.
 
 ## When to keep things local
 
-- The rule references a path inside the repo
-  (`home/modules/*.nix`, `configurations/<app>/`).
+- The rule references a path inside the repo (`packages/*.list`,
+  `configurations/<app>/`, `scripts/symlinks.sh`).
 - The permission allowlist needs to be narrower than global (e.g.
-  allowing `Bash(home-manager switch*)` everywhere would let the
-  agent rebuild your home from any cloned repo — usually not what
-  you want).
+  allowing `Bash(sudo apt-get install*)` everywhere would let the
+  agent install distro packages from any cloned repo — usually not
+  what you want).
 - Skills that document this repo's architecture — they're useless
   outside it and would only confuse the agent if loaded globally.
 

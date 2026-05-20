@@ -7,9 +7,9 @@ claude-rule: "Update this doc whenever the source changes."
 
 ## Purpose
 
-Run every linter this repo cares about: `nix flake check`,
-`nixpkgs-fmt --check`, `shellcheck`, `commitlint --from origin/main`.
-Read-only — reports, doesn't fix.
+Run every linter this repo cares about: `shellcheck`,
+package-list syntax, `commitlint --from origin/main`. Read-only —
+reports, doesn't fix.
 
 ## Arguments
 
@@ -18,17 +18,15 @@ None.
 ## Behavior
 
 Runs each step in sequence, records exit codes, does **not** stop
-on first failure — reports all four at the end:
+on first failure — reports all three at the end:
 
-1. **`nix flake check`** — schema-validates `flake.nix` and any
-   `checks.*` exports. Uses `--impure` (this repo needs it) and
-   optionally `--no-build` for speed.
-2. **`nixpkgs-fmt --check`** — formatting check across every
-   `.nix` file. Targets:
-   `find . -path ./.git -prune -o -name '*.nix' -print`.
-3. **`shellcheck`** — over `scripts/*.sh` plus `setup.sh`. Skips
+1. **`shellcheck`** — over `scripts/*.sh` plus `setup.sh`. Skips
    `configurations/git/template/hooks/*` (those are bare shims).
-4. **`commitlint --from origin/main`** — validates every commit on
+2. **`packages/*.list` syntax** — each non-comment line must be a
+   single package name (no shell metacharacters, no spaces; the
+   exception is `snap.list`, which allows trailing flags like
+   `--classic`). Walks every `.list` under `packages/`.
+3. **`commitlint --from origin/main`** — validates every commit on
    the current branch against the Conventional Commits ruleset.
    Lists offending hashes but does **not** propose rewriting
    history.
@@ -36,15 +34,14 @@ on first failure — reports all four at the end:
 Final report shape:
 
 ```
-nix flake check      : <ok|fail>
-nixpkgs-fmt --check  : <ok|fail (N files)>
 shellcheck           : <ok|fail (N findings)>
+package-list syntax  : <ok|fail (N bad lines)>
 commitlint           : <ok|fail (N commits)>
 ```
 
 If everything is `ok`, congratulates briefly. If anything fails,
-lists concrete next steps (`nixpkgs-fmt <file>`,
-`shellcheck <file>`, "rebase and reword `<hash>`").
+lists concrete next steps (`shellcheck <file>`, "fix line in
+packages/<file>:LINE", "rebase and reword `<hash>`").
 
 ## Hard rules
 
@@ -55,6 +52,6 @@ lists concrete next steps (`nixpkgs-fmt <file>`,
 ## Related
 
 - [configurations/lefthook.yml](../../configurations/lefthook.yml)
-  — same `nixpkgs-fmt` + `shellcheck` checks at commit time.
-- [home/modules/packages/common.nix](../../home/modules/packages/common.nix)
-  — provides the binaries.
+  — same `shellcheck` check at commit time.
+- [packages/](../../packages/) — the install lists being syntax-
+  checked.

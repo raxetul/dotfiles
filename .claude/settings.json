@@ -2,12 +2,14 @@
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "permissions": {
     "allow": [
-      "Bash(nix*)",
-      "Bash(home-manager*)",
       "Bash(brew*)",
       "Bash(lefthook*)",
-      "Bash(nixpkgs-fmt*)",
       "Bash(shellcheck*)",
+      "Bash(apt-get*)",
+      "Bash(pacman*)",
+      "Bash(dnf*)",
+      "Bash(yay*)",
+      "Bash(snap*)",
       "Bash(commitlint*)",
       "Bash(git status*)",
       "Bash(git diff*)",

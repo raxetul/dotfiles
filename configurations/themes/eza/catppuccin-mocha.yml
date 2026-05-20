@@ -1,5 +1,6 @@
-# Catppuccin Mocha colors for eza. Consumed by home/modules/eza.nix via the
-# EZA_COLORS env var; eza picks up the variable on every invocation.
+# Catppuccin Mocha colors for eza. Reference for the values exported as
+# EZA_COLORS in configurations/zsh/exports.sh; eza picks up the env var
+# on every invocation.
 #
 # Reference for the EZA_COLORS DSL: https://github.com/eza-community/eza/blob/main/man/eza_colors.5.md
 #

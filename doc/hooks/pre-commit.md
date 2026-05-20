@@ -39,6 +39,6 @@ Exit codes:
 ## Related
 
 - [configurations/lefthook.yml](../../configurations/lefthook.yml)
-  — pre-commit pipeline (`nixpkgs-fmt --check`, `shellcheck`).
+  — pre-commit pipeline (`shellcheck`).
 - [.claude/commands/commit.md](../../.claude/commands/commit.md)
   — `/commit` invokes this shim.

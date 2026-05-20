@@ -8,7 +8,7 @@ claude-rule: "Update this doc whenever the source changes."
 ## Purpose
 
 Run `scripts/update.sh`. "Make this host current with what's
-checked in" — refreshes both flake-pinned packages and the
+checked in" — refreshes both native packages and the
 configurations layer (symlinks, hooks, theme caches).
 
 ## Flags
@@ -19,9 +19,9 @@ Forwarded as-is to `scripts/update.sh`:
 | -------------------------- | ------------------------------------------------------------ |
 | `--dry-run`                | Print every command, run none.                               |
 | `--yes`                    | Skip the `git pull --rebase` confirmation prompt.            |
-| `--no-flake`               | Skip `nix flake update`; replay against the current lock.    |
-| `--only=packages`          | Packages layer only (git pull → HM switch → brew/native).    |
-| `--only=configurations`    | Config layer only (backup-check → lefthook → reload caches). |
+| `--desktop`                | Include the Linux desktop list when refreshing packages.     |
+| `--only=packages`          | Packages layer only (git pull → brew/native install + upgrade + AUR/Snap fallback). |
+| `--only=configurations`    | Config layer only (symlinks → lefthook → reload caches).     |
 
 ## Behavior
 

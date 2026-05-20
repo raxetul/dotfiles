@@ -23,9 +23,11 @@ Procedure:
    - **style** / **perf** / **build** / **ci** / **test** / **revert**:
      as named.
 3. Pick a scope from the touched paths (one short word):
-   - `home/modules/zsh.nix` → `zsh`.
-   - `home/modules/gpg.nix` + `scripts/gpg-setup.sh` → `gpg`.
-   - `configurations/themes/*` + multiple modules → `theme`.
+   - `configurations/zsh/zshrc` → `zsh`.
+   - `configurations/gpg/*` + `scripts/gpg-setup.sh` → `gpg`.
+   - `packages/Brewfile` + `packages/*.list` → `packages`.
+   - `scripts/symlinks.sh` + `configurations/<app>/` → `symlinks`.
+   - `configurations/themes/*` → `theme`.
    - Multiple unrelated areas → omit the scope.
 4. Write a subject line ≤ 72 chars, imperative mood, no trailing
    period. Match the regex in `lefthook.yml`:

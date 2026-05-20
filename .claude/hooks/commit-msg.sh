@@ -48,8 +48,8 @@ ERR: not a Conventional Commit subject: '${first_line}'
 Expected:  type(scope): subject     (scope optional)
 Types:     feat fix refactor chore docs style perf build ci test revert
 Examples:
-  feat(gpg): signing wizard + HM module
-  docs(roadmap): tick shipped phases
-  refactor(home): split default.nix into platform dispatchers
+  feat(gpg): signing wizard
+  docs(packages): document AUR fallback chain
+  refactor(symlinks): consolidate per-platform link arrays
 EOF
 exit 1

@@ -9,11 +9,12 @@ claude-rule: "Update this doc whenever the source changes."
 
 Catches doc rot at edit time. Registered as a Claude Code
 `PostToolUse` hook in `.claude/settings.json`, filtered to
-`Write|Edit`. When the agent edits a file under
-`home/modules/*.nix`, this hook checks that the matching
-`doc/modules-<name>.md` was also touched recently. If the doc
-hasn't been edited in the last 5 minutes while the nix file was
-edited in the last 60 seconds, it warns to stderr.
+`Write|Edit`. When the agent edits a file under `packages/`
+(`Brewfile` or `*.list`), this hook checks that
+`doc/packages-native.md` was also touched recently. If the doc
+hasn't been edited in the last 5 minutes while the list was edited
+in the last 60 seconds, it warns to stderr — enforces
+[CLAUDE.md §4](../../CLAUDE.md).
 
 ## Inputs
 
@@ -23,22 +24,19 @@ fields:
 | Field                       | Used for                                                |
 | --------------------------- | ------------------------------------------------------- |
 | `.tool_name`                | Filter to `Write` / `Edit` / `MultiEdit`.               |
-| `.tool_input.file_path`     | Match against `home/modules/*.nix`.                     |
+| `.tool_input.file_path`     | Match against `packages/Brewfile` or `packages/*.list`. |
 | `.cwd`                      | Resolve repo root.                                      |
 
 ## Behavior
 
-1. `jq` parses the JSON payload. Missing `jq` ⇒ exits 0
-   (advisory; never break a tool call over a missing dependency).
+1. `jq` parses the JSON payload. Missing `jq` ⇒ exits 0 (advisory;
+   never break a tool call over a missing dependency).
 2. Filters by tool name (`Write`/`Edit`/`MultiEdit`) and by path
-   suffix (`*/home/modules/*.nix`). Excludes
-   `home/modules/packages/*` (those have separate
-   `doc/packages-*.md` files, not 1:1 with module names).
-3. Computes `doc/modules-<name>.md` from the edited file's
-   basename.
-4. If the doc file is **missing**, prints a `WARN` to stderr
-   suggesting `.claude/skills/doc-author/SKILL.md`.
-5. If the doc exists but **mtime > 5 min old** while the nix file's
+   suffix (`*/packages/Brewfile` or `*/packages/*.list`).
+3. Resolves repo root from `.cwd` or `git rev-parse --show-toplevel`.
+4. If `doc/packages-native.md` is **missing**, prints a `WARN` to
+   stderr citing CLAUDE.md §4.
+5. If the doc exists but **mtime > 5 min old** while the list's
    mtime is **< 60 s old**, prints a `WARN` that the doc looks
    stale.
 
@@ -59,11 +57,11 @@ graph TD
     PT[Claude Code: Write or Edit fires] --> H[post-tool-use.sh]
     H --> JQ{jq installed?}
     JQ -->|no| OK[exit 0]
-    JQ -->|yes| FILT{Write/Edit/MultiEdit<br/>+ home/modules/*.nix?<br/>+ not packages/}
+    JQ -->|yes| FILT{Write/Edit/MultiEdit<br/>+ packages/Brewfile or packages/*.list?}
     FILT -->|no| OK
-    FILT -->|yes| DOC{doc/modules-X.md exists?}
+    FILT -->|yes| DOC{doc/packages-native.md exists?}
     DOC -->|no| WARN1[WARN: doc missing]
-    DOC -->|yes| ST{nix mtime < 60s<br/>doc mtime > 300s}
+    DOC -->|yes| ST{list mtime < 60s<br/>doc mtime > 300s}
     ST -->|yes| WARN2[WARN: doc looks stale]
     ST -->|no| OK
     WARN1 --> OK
@@ -75,4 +73,6 @@ graph TD
 - [.claude/settings.json](../../.claude/settings.json) — registers
   this hook for the `PostToolUse` event with matcher `Write|Edit`.
 - [.claude/skills/doc-author/SKILL.md](../../.claude/skills/doc-author/SKILL.md)
-  — the rules this hook is trying to enforce.
+  — the authoring rules this hook is trying to enforce.
+- [CLAUDE.md §4](../../CLAUDE.md) — the project rule the hook
+  enforces.

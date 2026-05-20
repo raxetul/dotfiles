@@ -203,7 +203,7 @@ install path. The Brewfile is replayed by `setup.sh` on every run.
 
 | Cask | Purpose |
 |---|---|
-| ghostty | Terminal (nixpkgs lacks a Darwin build) |
+| ghostty | Terminal (official Darwin build via cask) |
 | karabiner-elements | Key remapping |
 | rectangle | Window manager |
 | discord | Communications |

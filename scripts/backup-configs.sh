@@ -3,8 +3,7 @@
 #
 # Walks every directory under configurations/ in this repo and, for each
 # one, backs up the corresponding live config in $HOME *if* it's a real
-# file or a foreign symlink (i.e. not already pointing into this repo or
-# the Nix store).
+# file or a foreign symlink (i.e. not already pointing into this repo).
 #
 # Scope is intentionally narrow: only paths this repo manages are
 # touched. Anything else under ~/.config/ (Slack, Code, Firefox, …) is
@@ -84,14 +83,14 @@ do_or_say() {
 }
 
 is_managed_link() {
-    # Returns 0 if $1 is a symlink pointing into this repo or /nix/store,
-    # meaning home-manager already owns it and we should leave it alone.
+    # Returns 0 if $1 is a symlink pointing into this repo, meaning
+    # scripts/symlinks.sh already owns it and we should leave it alone.
     local link="$1"
     [ -L "${link}" ] || return 1
     local target
     target="$(readlink "${link}" 2>/dev/null || true)"
     case "${target}" in
-        "${REPO_ROOT}"/*|/nix/store/*) return 0 ;;
+        "${REPO_ROOT}"/*) return 0 ;;
         *) return 1 ;;
     esac
 }
