@@ -215,7 +215,17 @@ fi
 # from GitHub into ~/.local/bin. GitHub asset names embed the version
 # (lefthook_<ver>_Linux_<arch>.gz), so /releases/latest/download/<name>
 # 404s — we resolve the tag via the API first.
-if ! command -v lefthook >/dev/null 2>&1 && [ "${OS}" = "Linux" ]; then
+# A bare `command -v` returns true for any file in PATH, even 0-byte
+# or non-executable ones — left over from a previous failed install.
+# Treat lefthook as "missing" unless the resolved path is also a real
+# executable file.
+lh_path="$(command -v lefthook 2>/dev/null || true)"
+lh_ok=0
+if [ -n "${lh_path}" ] && [ -x "${lh_path}" ] && [ -s "${lh_path}" ]; then
+    lh_ok=1
+fi
+if [ "${lh_ok}" -eq 0 ] && [ "${OS}" = "Linux" ]; then
+    [ -n "${lh_path}" ] && rm -f "${lh_path}"
     say "  installing lefthook into ~/.local/bin"
     mkdir -p "${HOME}/.local/bin"
     arch="$(uname -m)"
