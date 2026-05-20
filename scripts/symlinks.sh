@@ -26,6 +26,7 @@ COMMON_LINKS=(
   "configurations/atuin/config.toml::.config/atuin/config.toml"
   "configurations/themes/bat/Catppuccin-mocha.tmTheme::.config/bat/themes/Catppuccin-mocha.tmTheme"
   "configurations/git/gitconfig::.config/git/config"
+  "configurations/git/workspace.gitconfig::.config/git/workspace.gitconfig"
   "configurations/git/commit-template::.config/git/commit-template"
   "configurations/git/template/hooks/commit-msg::.config/git/template/hooks/commit-msg"
   "configurations/git/template/hooks/pre-commit::.config/git/template/hooks/pre-commit"

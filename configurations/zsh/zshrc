@@ -106,5 +106,9 @@ command -v zoxide   >/dev/null 2>&1 && eval "$(zoxide init zsh)"
 command -v fzf      >/dev/null 2>&1 && eval "$(fzf --zsh 2>/dev/null)"
 
 # === Debian-only binary renames (apt installs fd as fdfind, bat as batcat) ===
-command -v fdfind >/dev/null 2>&1 && ! command -v fd  >/dev/null 2>&1 && alias fd=fdfind
-command -v batcat >/dev/null 2>&1 && ! command -v bat >/dev/null 2>&1 && alias bat=batcat
+if command -v fdfind >/dev/null 2>&1 && ! command -v fd >/dev/null 2>&1; then
+  alias fd=fdfind
+fi
+if command -v batcat >/dev/null 2>&1 && ! command -v bat >/dev/null 2>&1; then
+  alias bat=batcat
+fi

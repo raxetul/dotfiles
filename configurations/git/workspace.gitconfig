@@ -1,0 +1,7 @@
+# workspace.gitconfig — identity override for work trees under
+# ~/workspace/. Symlinked to ~/.config/git/workspace.gitconfig by
+# scripts/symlinks.sh; loaded via the `[includeIf gitdir:~/workspace/]`
+# clause in the main gitconfig.
+
+[user]
+    email = emrahurhan@buyutech.com.tr

@@ -1,0 +1,81 @@
+# gitconfig — daily-driver ergonomics. Symlinked to ~/.config/git/config
+# by scripts/symlinks.sh.
+#
+# Identity is base-set here; per-tree overrides land via the
+# `includeIf gitdir:` blocks at the bottom. GPG signing turns on only
+# once scripts/gpg-setup.sh has dropped ~/.config/git/signing.gitconfig
+# — the include is silent if the file is missing, so a fresh host
+# without keys still commits cleanly (unsigned).
+
+[user]
+    name = Emrah URHAN
+    email = raxetul@gmail.com
+
+[init]
+    defaultBranch = main
+    # Every `git init` and `git clone` seeds .git/hooks/ from this
+    # directory — so the Conventional Commits guard travels with you.
+    templateDir = ~/.config/git/template
+
+[pull]
+    rebase = true
+
+[push]
+    autoSetupRemote = true
+
+[rebase]
+    autoStash = true
+    autosquash = true
+
+[merge]
+    conflictStyle = zdiff3
+
+[diff]
+    algorithm = histogram
+    colorMoved = default
+
+[fetch]
+    prune = true
+
+[commit]
+    template = ~/.config/git/commit-template
+    verbose = true
+
+# delta as the pager (installed via packages/Brewfile + apt/pacman/dnf
+# lists). The Catppuccin Mocha palette is included via the path below.
+[core]
+    pager = delta
+
+[interactive]
+    diffFilter = delta --color-only
+
+[delta]
+    navigate = true
+    light = false
+    side-by-side = false
+    line-numbers = true
+
+[merge "delta"]
+    conflictStyle = zdiff3
+
+# === Per-tree identity overrides ===
+# Base identity (above) is the personal one — anything under ~/personal/
+# inherits it without an extra include. Work trees under ~/workspace/
+# pick up the buyutech email from the override file below (symlinked
+# from configurations/git/workspace.gitconfig by scripts/symlinks.sh).
+
+[includeIf "gitdir:~/workspace/"]
+    path = ~/.config/git/workspace.gitconfig
+
+# === Themed + opt-in includes ===
+
+# Delta Catppuccin Mocha palette — direct path into the repo so edits
+# in configurations/themes/delta/ take effect immediately.
+[include]
+    path = ~/gel-ort/dotfiles/configurations/themes/delta/catppuccin.gitconfig
+
+# GPG signing config — written by scripts/gpg-setup.sh once a key
+# exists for this host's git email. Missing-file includes are silent
+# in git, so this is safe to declare even before the wizard has run.
+[include]
+    path = ~/.config/git/signing.gitconfig
