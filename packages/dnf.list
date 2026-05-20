@@ -55,9 +55,35 @@ bind-utils
 wget
 curl
 
-# Containers
-moby-engine
-docker-compose-plugin
+# Containers — left commented because Docker on Linux is per-user
+# choice (rooted vs rootless / podman as drop-in). Uncomment what you
+# want:
+#
+# (a) Rooted, Fedora-packaged (moby-engine = open-source build of
+#     docker-engine; system daemon):
+# moby-engine
+# docker-compose-plugin
+#
+# (b) Rooted via Docker's official RPM repo
+#     (https://docs.docker.com/engine/install/fedora/):
+# docker-ce
+# docker-ce-cli
+# containerd.io
+# docker-buildx-plugin
+# docker-compose-plugin
+#
+# (c) Rootless via Docker's official RPM repo (pair with
+#     `dockerd-rootless-setuptool.sh install`):
+# docker-ce-cli
+# docker-ce-rootless-extras
+# docker-buildx-plugin
+# docker-compose-plugin
+# fuse-overlayfs
+# shadow-utils
+#
+# (d) Podman (Fedora's default — daemonless, rootless by default):
+# podman
+# podman-compose
 
 # VM / virtualization (comment out if you don't need libvirt/qemu)
 libvirt

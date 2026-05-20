@@ -139,10 +139,17 @@ Vim plugins themselves are declared via `Plug` directives in
 
 ## Containers / virtualization
 
-| Package | brew | apt | pacman | dnf | Fallback |
-|---|---|---|---|---|---|
-| docker CLI | docker | docker.io | docker | moby-engine | Docker official repo (`docker-ce`) |
-| docker-compose v2 | docker-compose | docker-compose-plugin (requires Docker's official APT repo on Debian; Universe on Ubuntu 24.04+) | docker-compose | docker-compose-plugin | — |
+Docker on Linux is **commented out by default** in `apt.list`,
+`pacman.list`, `dnf.list` — rooted vs rootless vs Docker-Desktop vs
+podman is a per-user choice, and mixing sources causes dpkg / rpm
+file-conflict errors. Each list's "Containers" section shows the
+candidate package sets; uncomment the one matching your install.
+
+| Package | brew | apt (rooted, distro) | apt (rooted, Docker repo) | apt (rootless) | pacman | dnf (rooted, Fedora) | dnf (rooted, Docker repo) | dnf (rootless) |
+|---|---|---|---|---|---|---|---|---|
+| docker engine + CLI | docker (CLI only) | docker.io | docker-ce + docker-ce-cli | docker-ce-cli + docker-ce-rootless-extras | docker | moby-engine | docker-ce + docker-ce-cli | docker-ce-cli + docker-ce-rootless-extras |
+| docker-buildx | (n/a; in CLI) | docker-buildx | docker-buildx-plugin | docker-buildx-plugin | docker-buildx | (n/a) | docker-buildx-plugin | docker-buildx-plugin |
+| docker-compose v2 | docker-compose | (n/a) | docker-compose-plugin | docker-compose-plugin | docker-compose | docker-compose-plugin | docker-compose-plugin | docker-compose-plugin |
 | colima (mac docker daemon) | colima | n/a | n/a | n/a | macOS-only |
 | lima (colima backend) | lima | n/a | n/a | n/a | macOS-only |
 | libvirt (Linux server) | n/a | libvirt-daemon-system | libvirt | libvirt | — |

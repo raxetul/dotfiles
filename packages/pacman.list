@@ -53,9 +53,22 @@ bind
 wget
 curl
 
-# Containers
-docker
-docker-compose
+# Containers — left commented because Docker on Linux is per-user
+# choice (rooted vs rootless). Uncomment the variant you want:
+#
+# (a) Rooted, Arch-packaged (system daemon):
+# docker
+# docker-buildx
+# docker-compose
+#
+# (b) Rootless — same packages plus the rootless extras package; also
+#     run `dockerd-rootless-setuptool.sh install` per the Arch wiki:
+#     https://wiki.archlinux.org/title/Docker#Rootless_Docker_daemon
+# docker
+# docker-buildx
+# docker-compose
+# fuse-overlayfs
+# uidmap
 
 # VM / virtualization (comment out if you don't need libvirt/qemu)
 libvirt
