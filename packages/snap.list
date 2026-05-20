@@ -1,0 +1,11 @@
+# snap.list — Snap packages. Installed on Debian/Ubuntu and Fedora when
+# the native repo lacks the package. setup.sh skips this file on Arch
+# (AUR is preferred — see aur.list).
+#
+# Each line is `<name>` for stable channel + strict confinement, or
+# `<name> --classic` to opt into classic confinement, or
+# `<name> --channel=<track>/<risk>` for a non-stable channel.
+# setup.sh parses the trailing flags.
+
+# Only Linux desktop GUI apps with no apt/dnf path.
+discord

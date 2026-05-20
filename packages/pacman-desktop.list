@@ -1,0 +1,26 @@
+# pacman-desktop.list — Arch / Manjaro / EndeavourOS desktop additions.
+# Installed by setup.sh only when --desktop is passed.
+#
+# discord and veracrypt live in aur.list (not in extra).
+
+# Terminal — Ghostty is in `extra` on Arch.
+ghostty
+
+# Wayland / window stack
+sway
+swaybg
+swayidle
+swaylock
+waybar
+wofi
+dunst
+xdotool
+
+# GUI apps
+flameshot
+kdiff3
+nautilus
+obs-studio
+smplayer
+telegram-desktop
+qtcreator

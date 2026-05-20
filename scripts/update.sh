@@ -3,20 +3,19 @@
 #
 # Two layers, both idempotent and runnable independently:
 #
-#   packages       — git pull, nix flake update, home-manager switch,
-#                    brew bundle on macOS, distro install on Linux.
-#   configurations — verify scoped backup state, lefthook hooks, bat
-#                    cache, tmux/nvim/atuin reloads where applicable.
+#   packages       — git pull, brew update + bundle + cleanup on macOS,
+#                    distro install on Linux (apt/pacman/dnf + AUR/Snap).
+#   configurations — symlink check, lefthook hooks, bat cache,
+#                    tmux/nvim/atuin reloads where applicable.
 #
 # Defaults to running both layers in order. Each step prints its own
-# "==> stage" banner; on failure the script exits non-zero and tells
-# you which stage failed.
+# "==> stage" banner; on failure the script exits non-zero.
 #
 # Usage:
 #   scripts/update.sh                          # both layers
 #   scripts/update.sh --dry-run                # print every command, run none
 #   scripts/update.sh --yes                    # skip the git-pull confirmation
-#   scripts/update.sh --no-flake               # skip `nix flake update`
+#   scripts/update.sh --desktop                # include Linux desktop list
 #   scripts/update.sh --only=packages          # packages layer only
 #   scripts/update.sh --only=configurations    # configurations layer only
 #
@@ -27,15 +26,15 @@ set -euo pipefail
 
 DRY_RUN=0
 YES=0
-NO_FLAKE=0
+DESKTOP=0
 ONLY=""
 
 for arg in "$@"; do
     case "${arg}" in
-        --dry-run)          DRY_RUN=1 ;;
-        --yes|-y)           YES=1 ;;
-        --no-flake)         NO_FLAKE=1 ;;
-        --only=packages)    ONLY="packages" ;;
+        --dry-run)             DRY_RUN=1 ;;
+        --yes|-y)              YES=1 ;;
+        --desktop)             DESKTOP=1 ;;
+        --only=packages)       ONLY="packages" ;;
         --only=configurations) ONLY="configurations" ;;
         --only=*)
             echo "Unknown --only value: ${arg#--only=}" >&2
@@ -80,9 +79,6 @@ do_or_say_sh() {
     fi
 }
 
-# Run a stage and bail loudly if it fails. The trap unwinds with the
-# stage name so users see "stage X failed" even if the actual error was
-# 5 levels down inside a sub-shell.
 run_stage() {
     local name="$1"; shift
     note "stage: ${name}"
@@ -110,30 +106,6 @@ stage_packages_git_pull() {
     do_or_say git pull --rebase
 }
 
-stage_packages_flake_update() {
-    if [ "${NO_FLAKE}" -eq 1 ]; then
-        note "nix flake update — skipped (--no-flake)"
-        return 0
-    fi
-    note "nix flake update"
-    do_or_say nix flake update
-}
-
-stage_packages_hm_switch() {
-    # Reuses the per-day, per-run backup-suffix scheme that setup.sh
-    # established so home-manager's clash-handling stays consistent
-    # whether the user came in via setup or update.
-    local date_str last_n suffix
-    date_str="$(date +%Y-%m-%d)"
-    last_n="$(find "${HOME}" -maxdepth 4 -name "*.backup-${date_str}---*" 2>/dev/null \
-        | sed -nE "s/.*\\.backup-${date_str}---([0-9]+)\$/\\1/p" \
-        | sort -n | tail -1)"
-    suffix="backup-${date_str}---$(( ${last_n:-0} + 1 ))"
-    note "home-manager switch  (backup suffix: ${suffix})"
-    do_or_say nix run --impure home-manager/master -- \
-        switch --impure --flake "${REPO_ROOT}#default" -b "${suffix}"
-}
-
 stage_packages_brew() {
     if [ "$(uname)" != "Darwin" ]; then
         return 0
@@ -142,9 +114,10 @@ stage_packages_brew() {
         warn "brew not on PATH; skipping Brewfile replay"
         return 0
     fi
-    note "brew update / bundle / cleanup"
+    note "brew update / upgrade / bundle / cleanup"
     do_or_say brew update
-    do_or_say brew bundle --file "${REPO_ROOT}/configurations/brew/Brewfile"
+    do_or_say brew upgrade
+    do_or_say brew bundle --file "${REPO_ROOT}/packages/Brewfile"
     do_or_say brew cleanup
 }
 
@@ -154,62 +127,100 @@ stage_packages_native_linux() {
     fi
     # shellcheck source=/dev/null
     . /etc/os-release
-    local list cmd
+    local install_cmd update_cmd upgrade_cmd baseline desktop_list
     case "${ID:-}" in
         debian|ubuntu|pop|linuxmint)
-            list="${REPO_ROOT}/configurations/native/apt.list"
-            cmd="sudo apt-get install -y"
+            update_cmd="sudo apt-get update"
+            upgrade_cmd="sudo apt-get upgrade -y"
+            install_cmd="sudo apt-get install -y"
+            baseline="${REPO_ROOT}/packages/apt.list"
+            desktop_list="${REPO_ROOT}/packages/apt-desktop.list"
             ;;
-        arch|manjaro|endeavouros)
-            list="${REPO_ROOT}/configurations/native/pacman.list"
-            cmd="sudo pacman -S --needed --noconfirm"
+        arch|manjaro|endeavouros|artix)
+            update_cmd="sudo pacman -Syy --noconfirm"
+            upgrade_cmd="sudo pacman -Syu --noconfirm"
+            install_cmd="sudo pacman -S --needed --noconfirm"
+            baseline="${REPO_ROOT}/packages/pacman.list"
+            desktop_list="${REPO_ROOT}/packages/pacman-desktop.list"
             ;;
         fedora|rhel|centos|almalinux|rocky)
-            list="${REPO_ROOT}/configurations/native/dnf.list"
-            cmd="sudo dnf install -y"
+            update_cmd="sudo dnf check-update || true"
+            upgrade_cmd="sudo dnf upgrade -y"
+            install_cmd="sudo dnf install -y"
+            baseline="${REPO_ROOT}/packages/dnf.list"
+            desktop_list="${REPO_ROOT}/packages/dnf-desktop.list"
             ;;
         *)
-            note "distro ${ID:-unknown} not mapped; skipping native install"
+            note "distro ${ID:-unknown} not mapped; skipping native update"
             return 0
             ;;
     esac
-    if [ ! -f "${list}" ]; then
+
+    do_or_say_sh "${update_cmd}"
+    do_or_say_sh "${upgrade_cmd}"
+
+    local lists=("${baseline}")
+    [ "${DESKTOP}" -eq 1 ] && lists+=("${desktop_list}")
+    for list in "${lists[@]}"; do
+        [ -f "${list}" ] || continue
+        local pkgs
+        pkgs="$(grep -vE '^\s*(#|$)' "${list}" | tr '\n' ' ')"
+        if [ -n "${pkgs}" ]; then
+            note "installing from ${list##*/}"
+            # shellcheck disable=SC2086
+            do_or_say ${install_cmd} ${pkgs}
+        fi
+    done
+}
+
+stage_packages_linux_fallback() {
+    if [ "$(uname)" != "Linux" ] || [ ! -f /etc/os-release ]; then
         return 0
     fi
-    local pkgs
-    pkgs="$(grep -vE '^\s*(#|$)' "${list}" | tr '\n' ' ')"
-    if [ -z "${pkgs}" ]; then
-        note "${list##*/} empty; nothing to install"
-        return 0
-    fi
-    note "native install from ${list##*/}: ${pkgs}"
-    # shellcheck disable=SC2086
-    do_or_say ${cmd} ${pkgs}
+    # shellcheck source=/dev/null
+    . /etc/os-release
+    case "${ID:-}" in
+        arch|manjaro|endeavouros|artix)
+            local aur_list="${REPO_ROOT}/packages/aur.list"
+            if [ -f "${aur_list}" ] && command -v yay >/dev/null 2>&1; then
+                local pkgs
+                pkgs="$(grep -vE '^\s*(#|$)' "${aur_list}" | tr '\n' ' ')"
+                if [ -n "${pkgs}" ]; then
+                    note "AUR install via yay"
+                    # shellcheck disable=SC2086
+                    do_or_say yay -S --needed --noconfirm ${pkgs}
+                fi
+            fi
+            ;;
+        debian|ubuntu|pop|linuxmint|fedora|rhel|centos|almalinux|rocky)
+            local snap_list="${REPO_ROOT}/packages/snap.list"
+            if [ -f "${snap_list}" ] && command -v snap >/dev/null 2>&1; then
+                while IFS= read -r line; do
+                    case "${line}" in ""|"#"*) continue ;; esac
+                    note "snap install ${line}"
+                    # shellcheck disable=SC2086
+                    do_or_say sudo snap install ${line}
+                done < "${snap_list}"
+            fi
+            ;;
+    esac
 }
 
 run_packages() {
     run_stage "git-pull"        stage_packages_git_pull
-    run_stage "flake-update"    stage_packages_flake_update
-    run_stage "hm-switch"       stage_packages_hm_switch
     run_stage "brew"            stage_packages_brew
     run_stage "native-linux"    stage_packages_native_linux
+    run_stage "linux-fallback"  stage_packages_linux_fallback
 }
 
 # ----------------------------------------------------------------------
 # Configurations layer
 # ----------------------------------------------------------------------
 
-stage_configurations_backup_check() {
-    # Run backup-configs.sh in dry-run mode purely as a probe: it prints
-    # one "managed:" line per path that's correctly symlinked into this
-    # repo, and one "move:" line per path that regressed to a real file.
-    # We don't auto-fix here; surfacing a regression is enough.
-    note "backup-configs.sh (check-only)"
-    if [ ! -x "${REPO_ROOT}/scripts/backup-configs.sh" ]; then
-        warn "scripts/backup-configs.sh missing or not executable; skipping"
-        return 0
-    fi
-    do_or_say "${REPO_ROOT}/scripts/backup-configs.sh"
+stage_configurations_symlinks() {
+    note "scripts/symlinks.sh install"
+    [ "${DESKTOP}" -eq 1 ] && export DOTFILES_DESKTOP=1
+    do_or_say "${REPO_ROOT}/scripts/symlinks.sh" install
 }
 
 stage_configurations_lefthook() {
@@ -220,9 +231,6 @@ stage_configurations_lefthook() {
     note "lefthook install"
     do_or_say lefthook install
     note "lefthook run pre-commit --all-files"
-    # pre-commit failures here mean the working tree has stuff the hooks
-    # would have rejected — surface that as a hard failure so the user
-    # fixes it before continuing.
     do_or_say lefthook run pre-commit --all-files
 }
 
@@ -256,22 +264,18 @@ stage_configurations_tpm() {
     do_or_say "${tpm}" || warn "tpm install_plugins failed (non-fatal)"
 }
 
-stage_configurations_nvim_lazy() {
-    if ! command -v nvim >/dev/null 2>&1; then
+stage_configurations_vim_plug() {
+    if ! command -v vim >/dev/null 2>&1; then
         return 0
     fi
-    note "nvim --headless +Lazy! sync +qa"
-    # Lazy may not be present (we use vim-plug via the shared rc), so
-    # treat failure as non-fatal.
-    do_or_say nvim --headless "+Lazy! sync" +qa 2>/dev/null || \
-        warn "nvim Lazy sync skipped or failed (non-fatal)"
+    note "vim +PlugInstall +qa --headless"
+    do_or_say_sh "vim +PlugInstall +qa --headless 2>/dev/null || true"
 }
 
 stage_configurations_atuin_daemon() {
     if ! command -v atuin >/dev/null 2>&1; then
         return 0
     fi
-    # The daemon only exists for sync; restart is a no-op if sync is off.
     if ! atuin --help 2>&1 | grep -q '^[[:space:]]*daemon'; then
         return 0
     fi
@@ -280,12 +284,12 @@ stage_configurations_atuin_daemon() {
 }
 
 run_configurations() {
-    run_stage "backup-check"    stage_configurations_backup_check
+    run_stage "symlinks"        stage_configurations_symlinks
     run_stage "lefthook"        stage_configurations_lefthook
     run_stage "bat-cache"       stage_configurations_bat_cache
     run_stage "tmux-reload"     stage_configurations_tmux_reload
     run_stage "tpm"             stage_configurations_tpm
-    run_stage "nvim-lazy"       stage_configurations_nvim_lazy
+    run_stage "vim-plug"        stage_configurations_vim_plug
     run_stage "atuin-daemon"    stage_configurations_atuin_daemon
 }
 
@@ -293,7 +297,7 @@ run_configurations() {
 # Dispatch
 # ----------------------------------------------------------------------
 
-note "update.sh  (dry-run=${DRY_RUN}, yes=${YES}, no-flake=${NO_FLAKE}, only=${ONLY:-both})"
+note "update.sh  (dry-run=${DRY_RUN}, yes=${YES}, desktop=${DESKTOP}, only=${ONLY:-both})"
 note "repo: ${REPO_ROOT}"
 echo
 

@@ -1,0 +1,110 @@
+#!/usr/bin/env zsh
+# zshrc — daily-driver shell. Symlinked from
+# configurations/zsh/zshrc → ~/.zshrc by scripts/symlinks.sh.
+#
+# Phase 3 of v3-native: replaces what Home Manager's `programs.zsh = {…}`
+# was generating. Plugins are sourced from native package install paths
+# (varies per OS) with `~/.config/zsh-plugins/` as last-resort fallback.
+
+DOTFILES_DIR="${HOME}/gel-ort/dotfiles"
+
+# === History ===
+HISTSIZE=50000
+SAVEHIST=50000
+HISTFILE="${HOME}/.zsh_history"
+setopt hist_ignore_dups
+setopt share_history
+
+# === Shell options ===
+setopt prompt_subst
+zle_highlight=(bold)
+
+# === Plugin loader ===
+# `_source_first <paths…>` sources the first readable path and returns.
+# Use this to walk the common install locations across brew / apt / pacman /
+# dnf / git-clone. Order matters: the first hit wins.
+_source_first() {
+  for f in "$@"; do
+    if [ -r "$f" ]; then
+      source "$f"
+      return 0
+    fi
+  done
+  return 1
+}
+
+# zsh-autosuggestions
+_source_first \
+  /opt/homebrew/share/zsh-autosuggestions/zsh-autosuggestions.zsh \
+  /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh \
+  /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh \
+  "${HOME}/.config/zsh-plugins/zsh-autosuggestions/zsh-autosuggestions.zsh"
+
+# zsh-syntax-highlighting (load BEFORE history-substring-search per upstream).
+_source_first \
+  /opt/homebrew/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh \
+  /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh \
+  /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh \
+  "${HOME}/.config/zsh-plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
+
+# zsh-history-substring-search (must come AFTER syntax-highlighting).
+_source_first \
+  /opt/homebrew/share/zsh-history-substring-search/zsh-history-substring-search.zsh \
+  /usr/share/zsh-history-substring-search/zsh-history-substring-search.zsh \
+  /usr/share/zsh/plugins/zsh-history-substring-search/zsh-history-substring-search.zsh \
+  "${HOME}/.config/zsh-plugins/zsh-history-substring-search/zsh-history-substring-search.zsh"
+
+# you-should-use (alias reminder)
+_source_first \
+  /usr/share/zsh/plugins/zsh-you-should-use/you-should-use.plugin.zsh \
+  /usr/share/zsh/plugins/you-should-use/you-should-use.plugin.zsh \
+  "${HOME}/.config/zsh-plugins/zsh-you-should-use/you-should-use.plugin.zsh"
+
+# === Completion ===
+autoload -Uz compinit && compinit
+
+# === Catppuccin Mocha palette overrides for syntax-highlighting + autosuggest ===
+# Autosuggest uses the terminal's bright-black slot so it tracks the active palette.
+ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE="fg=8"
+
+typeset -gA ZSH_HIGHLIGHT_STYLES
+ZSH_HIGHLIGHT_STYLES[default]='fg=#cdd6f4'
+ZSH_HIGHLIGHT_STYLES[unknown-token]='fg=#f38ba8'
+ZSH_HIGHLIGHT_STYLES[command]='fg=#a6e3a1'
+ZSH_HIGHLIGHT_STYLES[alias]='fg=#94e2d5'
+ZSH_HIGHLIGHT_STYLES[builtin]='fg=#a6e3a1'
+ZSH_HIGHLIGHT_STYLES[function]='fg=#89b4fa'
+ZSH_HIGHLIGHT_STYLES[path]='fg=#cdd6f4'
+ZSH_HIGHLIGHT_STYLES[single-quoted-argument]='fg=#f9e2af'
+ZSH_HIGHLIGHT_STYLES[double-quoted-argument]='fg=#f9e2af'
+ZSH_HIGHLIGHT_STYLES[comment]='fg=#7f849c'
+
+# === Shared exports (EDITOR, EZA_COLORS, FZF defaults, MANPAGER, …) ===
+if [ -r "${DOTFILES_DIR}/configurations/zsh/exports.sh" ]; then
+  source "${DOTFILES_DIR}/configurations/zsh/exports.sh"
+fi
+
+# === Aliases (cross-shell — sourced from configurations/aliases/) ===
+for f in "${DOTFILES_DIR}"/configurations/aliases/*.sh; do
+  [ -r "$f" ] && source "$f"
+done
+
+# === FZF Catppuccin palette ===
+if [ -r "${DOTFILES_DIR}/configurations/themes/fzf/catppuccin-mocha.sh" ]; then
+  source "${DOTFILES_DIR}/configurations/themes/fzf/catppuccin-mocha.sh"
+fi
+
+# === PATH additions ===
+[ -d "${HOME}/.scripts" ]   && PATH="${HOME}/.scripts:${PATH}"
+[ -d "${HOME}/.local/bin" ] && PATH="${HOME}/.local/bin:${PATH}"
+export PATH
+
+# === Tool init (must come after PATH so init scripts can find the binaries) ===
+command -v starship >/dev/null 2>&1 && eval "$(starship init zsh)"
+command -v atuin    >/dev/null 2>&1 && eval "$(atuin init zsh)"
+command -v zoxide   >/dev/null 2>&1 && eval "$(zoxide init zsh)"
+command -v fzf      >/dev/null 2>&1 && eval "$(fzf --zsh 2>/dev/null)"
+
+# === Debian-only binary renames (apt installs fd as fdfind, bat as batcat) ===
+command -v fdfind >/dev/null 2>&1 && ! command -v fd  >/dev/null 2>&1 && alias fd=fdfind
+command -v batcat >/dev/null 2>&1 && ! command -v bat >/dev/null 2>&1 && alias bat=batcat

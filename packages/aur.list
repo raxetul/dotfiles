@@ -1,0 +1,14 @@
+# aur.list — Arch User Repository packages. Installed via yay (or paru)
+# only on pacman-family distros. setup.sh skips this file on non-Arch.
+#
+# Use for packages absent from extra/community/multilib that we can't
+# do without. Cross-reference doc/packages-native.md for the lookup
+# table.
+
+# CLI / dev tooling
+lefthook-bin
+zsh-you-should-use
+
+# Desktop GUI apps (only relevant when --desktop is passed)
+discord
+veracrypt

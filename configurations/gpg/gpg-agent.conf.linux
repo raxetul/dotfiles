@@ -1,0 +1,10 @@
+# gpg-agent.conf — Linux variant. Symlinked to ~/.gnupg/gpg-agent.conf
+# on Linux by scripts/symlinks.sh.
+#
+# pinentry-curses is installed via the distro's package manager (see
+# packages/apt.list, packages/pacman.list, packages/dnf.list) and
+# gpg-agent picks it up from PATH — no explicit pinentry-program line.
+
+default-cache-ttl 86400
+max-cache-ttl 86400
+allow-loopback-pinentry

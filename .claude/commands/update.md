@@ -4,7 +4,7 @@ allowed-tools: Bash(./scripts/update.sh*), Bash(scripts/update.sh*), Bash(grep*)
 ---
 
 Run `scripts/update.sh`. This is the entry point for "make this host
-current with what's checked in," covering both flake-pinned packages
+current with what's checked in," covering both the native packages
 and the configurations layer (symlinks, hooks, theme caches).
 
 Procedure:
@@ -13,8 +13,8 @@ Procedure:
    stages will run. If the user passes flag-style hints, forward them:
    - `--dry-run` → just print, don't run.
    - `--yes` → skip the git-pull confirmation prompt.
-   - `--no-flake` → skip `nix flake update`; useful when you want a
-     pure replay against the current `flake.lock`.
+   - `--desktop` → include the Linux desktop list when refreshing
+     packages.
    - `--only=packages` / `--only=configurations` → run only that layer.
 2. If the user said "what would change" without specifying flags,
    invoke `scripts/update.sh --dry-run --yes`. Show the output and

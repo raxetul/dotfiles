@@ -1,0 +1,24 @@
+# apt-desktop.list — Debian / Ubuntu / Mint desktop additions.
+# Installed by setup.sh only when --desktop is passed.
+#
+# Packages absent here that v3 still wants (ghostty, discord, veracrypt)
+# fall through to snap.list or a release-binary bootstrap in setup.sh.
+
+# Wayland / window stack
+sway
+swaybg
+swayidle
+swaylock
+waybar
+wofi
+dunst
+xdotool
+
+# GUI apps
+flameshot
+kdiff3
+nautilus
+obs-studio
+smplayer
+telegram-desktop
+qtcreator

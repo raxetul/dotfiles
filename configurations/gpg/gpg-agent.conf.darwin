@@ -1,0 +1,10 @@
+# gpg-agent.conf — macOS variant. Symlinked to ~/.gnupg/gpg-agent.conf
+# on Darwin by scripts/symlinks.sh.
+#
+# Cache TTLs are a day so the pinentry prompt isn't a per-commit ritual.
+# pinentry-mac is provided by packages/Brewfile (Cocoa dialog).
+
+default-cache-ttl 86400
+max-cache-ttl 86400
+allow-loopback-pinentry
+pinentry-program /opt/homebrew/bin/pinentry-mac

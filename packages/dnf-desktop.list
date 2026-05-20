@@ -1,0 +1,24 @@
+# dnf-desktop.list — Fedora / RHEL / CentOS / Rocky / Alma desktop add-ons.
+# Installed by setup.sh only when --desktop is passed.
+#
+# discord and veracrypt fall through to RPM Fusion or snap.list.
+# ghostty falls through to COPR `pgdev/ghostty` (handled in setup.sh).
+
+# Wayland / window stack
+sway
+swaybg
+swayidle
+swaylock
+waybar
+wofi
+dunst
+xdotool
+
+# GUI apps
+flameshot
+kdiff3
+nautilus
+obs-studio
+smplayer
+telegram-desktop
+qt-creator
