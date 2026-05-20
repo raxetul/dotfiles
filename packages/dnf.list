@@ -1,3 +1,74 @@
-# dnf.list — Fedora / RHEL / CentOS packages installed natively (not via Nix).
+# dnf.list — Fedora / RHEL / CentOS / Rocky / Alma baseline.
 # One package per line; blank lines and lines starting with # are skipped.
-# setup.sh installs only this list when the host runs dnf.
+# setup.sh runs `sudo dnf install -y` on this list.
+#
+# Desktop additions live in dnf-desktop.list. Packages absent from
+# Fedora's default repos (discord, veracrypt, ghostty, JetBrains Mono
+# Nerd Font, lefthook) fall through to snap.list or a release-binary
+# bootstrap in setup.sh. Discord and veracrypt also have RPM Fusion
+# entries — setup.sh enables RPM Fusion before installing if needed.
+#
+# Source of truth for the dnf column of doc/packages-native.md. Keep
+# the two in lockstep (CLAUDE.md §6).
+
+# Shell + prompt
+zsh
+zsh-autosuggestions
+zsh-syntax-highlighting
+zsh-history-substring-search
+starship
+atuin
+
+# File / search tools
+eza
+bat
+fzf
+ripgrep
+fd-find
+zoxide
+tldr
+jq
+
+# Editor stack
+vim
+neovim
+tmux
+
+# Git + dev tooling
+git
+git-delta
+gnupg
+pinentry
+ShellCheck
+
+# Language toolchains
+golang
+rustup
+nodejs
+llvm
+clang-tools-extra
+
+# Networking / sysadmin
+arp-scan
+bandwhich
+bind-utils
+wget
+curl
+
+# Containers
+moby-engine
+docker-compose-plugin
+
+# VM / virtualization (comment out if you don't need libvirt/qemu)
+libvirt
+qemu-kvm
+
+# Filesystem / misc
+sqlite
+zip
+unzip
+asciinema
+
+# Fonts
+fontawesome-fonts
+jetbrains-mono-fonts

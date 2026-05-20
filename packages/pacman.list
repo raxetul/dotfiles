@@ -1,3 +1,73 @@
-# pacman.list — Arch / Manjaro packages installed natively (not via Nix).
+# pacman.list — Arch / Manjaro / EndeavourOS / Artix baseline.
 # One package per line; blank lines and lines starting with # are skipped.
-# setup.sh installs only this list when the host runs pacman.
+# setup.sh runs `sudo pacman -S --needed --noconfirm` on this list.
+#
+# Desktop additions live in pacman-desktop.list. AUR-only fallbacks
+# (lefthook-bin, zsh-you-should-use, discord, veracrypt) live in
+# aur.list and are installed via yay/paru.
+#
+# Source of truth for the pacman column of doc/packages-native.md. Keep
+# the two in lockstep (CLAUDE.md §6).
+
+# Shell + prompt
+zsh
+zsh-autosuggestions
+zsh-syntax-highlighting
+zsh-history-substring-search
+starship
+atuin
+
+# File / search tools
+eza
+bat
+fzf
+ripgrep
+fd
+zoxide
+tealdeer
+jq
+
+# Editor stack
+vim
+neovim
+tmux
+
+# Git + dev tooling
+git
+git-delta
+gnupg
+pinentry
+shellcheck
+
+# Language toolchains
+go
+rustup
+nodejs
+llvm
+clang
+
+# Networking / sysadmin
+arp-scan
+bandwhich
+bind
+wget
+curl
+
+# Containers
+docker
+docker-compose
+
+# VM / virtualization (comment out if you don't need libvirt/qemu)
+libvirt
+qemu-base
+
+# Filesystem / misc
+sqlite
+zip
+unzip
+asciinema
+
+# Fonts
+ttf-font-awesome
+ttf-jetbrains-mono
+ttf-jetbrains-mono-nerd

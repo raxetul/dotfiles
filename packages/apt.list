@@ -1,6 +1,69 @@
-# apt.list — Debian / Ubuntu packages installed natively (not via Nix).
-# One package per line; blank lines and lines starting with # are
-# skipped. setup.sh installs only this list when the host runs apt.
+# apt.list — Debian / Ubuntu / Mint baseline (server + CLI).
+# One package per line; blank lines and lines starting with # are skipped.
+# setup.sh runs `sudo apt install -y` on every non-comment line.
 #
-# Reserve this file for packages that don't make sense as user-scoped
-# Nix installs (kernel modules, distro GUI tooling, NVIDIA drivers, …).
+# Desktop additions live in apt-desktop.list. Packages absent from apt
+# repos (starship, atuin, rustup, lefthook, tealdeer, bandwhich, ghostty,
+# discord, veracrypt, JetBrains Mono Nerd Font) fall through to either
+# snap.list or a release-binary bootstrap in setup.sh.
+#
+# Source of truth for the apt column of doc/packages-native.md. Keep
+# the two in lockstep (CLAUDE.md §6).
+
+# Shell + prompt
+zsh
+zsh-autosuggestions
+zsh-syntax-highlighting
+
+# File / search tools
+eza
+bat
+fzf
+ripgrep
+fd-find
+zoxide
+tldr
+jq
+
+# Editor stack
+vim
+neovim
+tmux
+
+# Git + dev tooling
+git
+git-delta
+gnupg
+pinentry-curses
+shellcheck
+
+# Language toolchains
+golang-go
+nodejs
+llvm
+clang-format
+clang-tidy
+
+# Networking / sysadmin
+arp-scan
+dnsutils
+wget
+curl
+
+# Containers
+docker.io
+docker-compose-v2
+
+# VM / virtualization (comment out if you don't need libvirt/qemu)
+libvirt-daemon-system
+qemu-kvm
+
+# Filesystem / misc
+sqlite3
+zip
+unzip
+asciinema
+
+# Fonts
+fonts-font-awesome
+fonts-jetbrains-mono
