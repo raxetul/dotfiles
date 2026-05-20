@@ -212,7 +212,9 @@ if [ "${OS}" = "Linux" ] && ! command -v atuin >/dev/null 2>&1; then
 fi
 
 # lefthook — not in Debian apt repos. Pull the latest release binary
-# from GitHub into ~/.local/bin.
+# from GitHub into ~/.local/bin. GitHub asset names embed the version
+# (lefthook_<ver>_Linux_<arch>.gz), so /releases/latest/download/<name>
+# 404s — we resolve the tag via the API first.
 if ! command -v lefthook >/dev/null 2>&1 && [ "${OS}" = "Linux" ]; then
     say "  installing lefthook into ~/.local/bin"
     mkdir -p "${HOME}/.local/bin"
@@ -222,10 +224,20 @@ if ! command -v lefthook >/dev/null 2>&1 && [ "${OS}" = "Linux" ]; then
         aarch64|arm64) arch_tag="arm64" ;;
         *) arch_tag="${arch}" ;;
     esac
-    latest_url="https://github.com/evilmartians/lefthook/releases/latest/download/lefthook_Linux_${arch_tag}.gz"
-    curl -fsSL "${latest_url}" \
-        | gunzip > "${HOME}/.local/bin/lefthook" \
-        && chmod +x "${HOME}/.local/bin/lefthook"
+    lh_ver="$(curl -fsSL https://api.github.com/repos/evilmartians/lefthook/releases/latest \
+        | grep '"tag_name"' | head -1 | cut -d'"' -f4 | sed 's/^v//')"
+    if [ -n "${lh_ver}" ]; then
+        lh_url="https://github.com/evilmartians/lefthook/releases/download/v${lh_ver}/lefthook_${lh_ver}_Linux_${arch_tag}.gz"
+        tmp="$(mktemp)"
+        if curl -fsSL "${lh_url}" | gunzip > "${tmp}" && [ -s "${tmp}" ]; then
+            install -m 0755 "${tmp}" "${HOME}/.local/bin/lefthook"
+        else
+            say "  WARN: lefthook download failed (${lh_url})"
+        fi
+        rm -f "${tmp}"
+    else
+        say "  WARN: could not resolve latest lefthook version from GitHub API"
+    fi
 fi
 
 # ------------------------------------------------------------------
