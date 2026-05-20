@@ -33,6 +33,38 @@ global one, see [doc/agentic-promotion.md](doc/agentic-promotion.md).
    This rule is repeated in the user's global `~/.claude/CLAUDE.md`;
    it's loud here because most of this repo is heavily multi-line by
    design.
+6. **Preserve Nerd Font / PUA glyphs in `configurations/starship/starship.toml`
+   (and any other terminal config that uses them: tmux, ghostty,
+   waybar, vim status lines).** The prompt string, `[os.symbols]`,
+   `[directory.substitutions]`, every `symbol = "…"`, the powerline
+   separators `       ` (U+E0B0 / U+E0B4 / U+E0B6), the prompt
+   chevrons `❯` `❮` (U+276F / U+276E), the clock glyph in
+   `cmd_duration`, and the time-icon glyph in `[time].format` are
+   load-bearing — stripping them produces a broken prompt with
+   visible empty `[]` boxes.
+   - Some agent input/output channels silently normalize Private Use
+     Area codepoints (U+E000–U+F8FF, plus most U+F000–U+FFFF Nerd
+     Font ranges) to empty strings. **If you can't see a glyph in
+     the diff view of this conversation, assume it's there in the
+     file and don't "tidy" it.** Hex-check with `xxd` before
+     concluding a line is empty.
+     ```sh
+     sed -n '78p' configurations/starship/starship.toml | xxd
+     # if bytes between the quotes are `ee 9c 98` etc., the glyph is live
+     ```
+   - When you need to edit such a file and the `Write`/`Edit`
+     channel is dropping glyphs, **don't retype them by hand**.
+     Slice the glyph-bearing chunks out of the existing file (or
+     out of git history via `git show <ref>:<path>`) with `sed -n
+     'A,Bp'`, and only construct the non-glyph structural lines via
+     `printf` or here-docs. The byte-exact copy is the source of
+     truth.
+   - If you must add a brand-new glyph the file doesn't already
+     contain, fetch the literal UTF-8 byte sequence from the
+     upstream Nerd Font cheat sheet (`https://www.nerdfonts.com/cheat-sheet`)
+     or from another file in this repo that uses it. Never substitute
+     a "close enough" ASCII fallback — the whole point of the
+     Catppuccin Mocha terminal stack is that those glyphs render.
 
 ## Soft conventions
 
