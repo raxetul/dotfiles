@@ -211,6 +211,16 @@ if [ "${OS}" = "Linux" ] && ! command -v atuin >/dev/null 2>&1; then
         | env ATUIN_NO_MODIFY_PATH=1 sh
 fi
 
+# claude (Claude Code) — not in any native package manager and no
+# Homebrew formula; upstream install script handles platform/arch
+# detection and drops the binary in ~/.local/bin. Idempotent — the
+# installer no-ops when already current.
+if ! command -v claude >/dev/null 2>&1; then
+    say "  installing claude (Claude Code) into ~/.local/bin"
+    mkdir -p "${HOME}/.local/bin"
+    curl -fsSL https://claude.ai/install.sh | bash
+fi
+
 # lefthook — not in Debian apt repos. Pull the latest release binary
 # from GitHub into ~/.local/bin. GitHub asset names embed the version
 # (lefthook_<ver>_Linux_<arch>.gz), so /releases/latest/download/<name>

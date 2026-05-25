@@ -116,6 +116,7 @@ Vim plugins themselves are declared via `Plug` directives in
 | pinentry-curses | n/a | pinentry-curses | pinentry | pinentry | — |
 | lefthook | lefthook | — | — | — | release binary `~/.local/bin/lefthook`, or `go install github.com/evilmartians/lefthook@latest`; **AUR**: `lefthook-bin` |
 | shellcheck | shellcheck | shellcheck | shellcheck | ShellCheck | — |
+| claude (Claude Code) | — | — | — | — | upstream installer `curl -fsSL https://claude.ai/install.sh \| bash` → `~/.local/bin/claude`; handles platform/arch detection, idempotent on re-run |
 
 ## Language toolchains
 
