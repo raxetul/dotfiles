@@ -3,22 +3,98 @@
 # On macOS, Ghostty also checks ~/Library/Application Support/com.mitchellh.ghostty/config,
 # but prefers ~/.config/ghostty/config (XDG) when both exist. This repo
 # only manages the XDG path — the Library one is deliberately untouched.
-
-theme = catppuccin-mocha
-
+theme = "Catppuccin Mocha"
 font-family = JetBrainsMono Nerd Font
 font-size = 13
-
 window-padding-x = 8
 window-padding-y = 8
-
 cursor-style = bar
 mouse-hide-while-typing = true
-
 # macOS-only — silently ignored on Linux.
 macos-titlebar-style = tabs
-
 # Shell integration: Ghostty injects its own integration into bash/zsh
 # unless told otherwise. Leaving it on enables cursor reporting and
 # OSC 133 prompt marks, which Catppuccin Mocha and starship both expect.
 shell-integration = detect
+
+# ─── Font tuning ──────────────────────────────────────────────────────────
+# Blink the bar cursor so it's easier to locate after a scrollback jump.
+cursor-style-blink = true
+# Loosen line spacing slightly. Accepts % or absolute px; % scales with
+# font-size so it stays consistent if you bump the size on a hi-DPI display.
+adjust-cell-height = 8%
+# font-thicken nudges glyph weight up; only meaningful on macOS CoreText,
+# ignored by the FreeType backend on Linux. Harmless to leave on everywhere.
+font-thicken = true
+# JetBrains Mono ships ligatures (==, =>, !=). Uncomment to kill them if you
+# find arrow/equality ligatures distracting when reading code or diffs.
+# font-feature = -liga, -calt
+
+# ─── Window & transparency ──────────────────────────────────────────────────
+# Subtle transparency + blur. background-blur works on macOS and on KDE/
+# some Wayland compositors; plain GNOME/X11 ignores it and you just get the
+# opacity. Keep opacity high (0.95) so Mocha's contrast doesn't suffer.
+background-opacity = 0.95
+background-blur = 20
+# Extend the background color into the padding region instead of leaving a
+# hard edge between text area and window chrome — looks cleaner with the
+# transparency above.
+window-padding-color = extend
+window-padding-balance = true
+# Dim the inactive pane in a split so focus is obvious at a glance.
+unfocused-split-opacity = 0.85
+
+# ─── Behavior ───────────────────────────────────────────────────────────────
+# Don't nag with a confirmation dialog when closing a surface that has a
+# running process. Set back to true if you regularly run long jobs you'd
+# hate to kill by reflex.
+confirm-close-surface = false
+# ~100 MB of scrollback per surface (value is in bytes). Generous for long
+# build logs without letting a runaway process eat all your RAM.
+scrollback-limit = 100000000
+# Copy selections straight to the system clipboard (on Linux this also keeps
+# the primary/middle-click selection working). trim avoids trailing-space
+# noise when copying aligned columns.
+copy-on-select = clipboard
+clipboard-trim-trailing-spaces = true
+# Warn before pasting text that contains control characters or newlines —
+# cheap protection against paste-injection from a copied web snippet.
+clipboard-paste-protection = true
+
+# ─── macOS-only ─────────────────────────────────────────────────────────────
+# Treat the left Option key as Alt so Meta-based bindings (readline M-b/M-f,
+# tmux prefix, etc.) work. Use `right` instead if you still want Option for
+# typing accented characters.
+macos-option-as-alt = left
+# Non-native fullscreen keeps the menu bar reachable and avoids the slow
+# Spaces animation.
+macos-non-native-fullscreen = true
+# Wider gamut on P3 displays — makes the Mocha palette noticeably richer.
+window-colorspace = display-p3
+# macOS app auto-updates itself; `check` notifies without forcing. On Linux
+# this is ignored since the package manager owns updates.
+auto-update = check
+# Restore windows/tabs after a restart (macOS session state).
+window-save-state = always
+
+# ─── Linux / GTK-only ───────────────────────────────────────────────────────
+# One process for all windows: faster new-window spawns and shared state.
+# No effect on macOS.
+gtk-single-instance = true
+gtk-tabs-location = top
+
+# ─── Shell integration extras ───────────────────────────────────────────────
+# Builds on shell-integration = detect above. `sudo` re-injects the
+# integration across sudo so prompt marks survive; `title` lets the shell
+# set the window title. `cursor` keeps Ghostty's cursor-shape reporting.
+shell-integration-features = cursor,sudo,title
+
+# ─── Keybinds ───────────────────────────────────────────────────────────────
+# Quick-terminal: a drop-down surface toggled by a GLOBAL hotkey (works even
+# when Ghostty isn't focused). On macOS the global bind needs Accessibility
+# permission the first time. On Linux global binds require a compatible
+# compositor; the position hint is honored where supported.
+quick-terminal-position = top
+keybind = global:cmd+grave_accent=toggle_quick_terminal
+# Reset the terminal (clears a wedged state from a misbehaving TUI).
+keybind = cmd+shift+r=reset
