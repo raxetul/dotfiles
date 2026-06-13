@@ -48,3 +48,4 @@ done
 # === Debian-only binary renames ===
 command -v fdfind >/dev/null 2>&1 && ! command -v fd  >/dev/null 2>&1 && alias fd=fdfind
 command -v batcat >/dev/null 2>&1 && ! command -v bat >/dev/null 2>&1 && alias bat=batcat
+export PATH="$PATH:$HOME/Library/Infineon/usr/bin"
