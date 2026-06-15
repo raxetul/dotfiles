@@ -89,7 +89,7 @@ setup.sh detects the distro and runs the matching pair (`*.list` always;
 | ripgrep | ripgrep | ripgrep | ripgrep | ripgrep | — |
 | fd | fd | fd-find — installed binary is `fdfind` on Debian | fd | fd-find | shell alias `fd=fdfind` on Debian/Ubuntu |
 | zoxide | zoxide | zoxide (22.04+) | zoxide | zoxide | release binary |
-| tldr (tealdeer) | tealdeer | tldr | tealdeer | tldr | cargo install tealdeer |
+| tldr (tealdeer) | tealdeer | tealdeer | tealdeer | tldr | cargo install tealdeer |
 | jq | jq | jq | jq | jq | — |
 
 ## Editor stack
@@ -154,7 +154,7 @@ candidate package sets; uncomment the one matching your install.
 | colima (mac docker daemon) | colima | n/a | n/a | n/a | macOS-only |
 | lima (colima backend) | lima | n/a | n/a | n/a | macOS-only |
 | libvirt (Linux server) | n/a | libvirt-daemon-system | libvirt | libvirt | — |
-| qemu (Linux server) | n/a | qemu-kvm | qemu-base | qemu-kvm | — |
+| qemu (Linux server) | n/a | qemu-system | qemu-base | qemu-kvm | — |
 
 ## Filesystem / misc
 

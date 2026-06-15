@@ -22,7 +22,7 @@ fzf
 ripgrep
 fd-find
 zoxide
-tldr
+tealdeer
 jq
 
 # Editor stack
@@ -76,7 +76,7 @@ curl
 
 # VM / virtualization (comment out if you don't need libvirt/qemu)
 libvirt-daemon-system
-qemu-kvm
+qemu-system
 
 # Filesystem / misc
 sqlite3
