@@ -112,17 +112,30 @@ global one, see [doc/agentic-promotion.md](doc/agentic-promotion.md).
      package contributes one `before ----` and one `after ----`
      banner per run, with `(no-op stub)` output when the script
      just exits).
-   - **PATH additions go through a common sink, not the hook
-     itself.** When the package adds binaries to PATH (rustup →
-     `~/.cargo/bin`, future tools likewise), the `after.sh` MUST
-     write the PATH update to
-     `${XDG_STATE_HOME:-$HOME/.local/state}/dotfiles/path-additions.d/<pkg>.sh`.
-     `configurations/{zsh,bash}/rc` source every `.sh` in that
-     directory at shell startup, so future interactive shells get
-     the new PATH without re-running the hook. Each `<pkg>.sh`
-     file is overwritten by its `after.sh` — idempotent by
-     construction. Don't put one-off `PATH=…` lines in the shell
-     rc files; they belong in the sink.
+   - **PATH additions go through `${DOTFILES_DIR}/.path`.** When
+     the package adds binaries to PATH (rustup → `~/.cargo/bin`,
+     future tools likewise) or defines a `FOO_HOME`-style env var,
+     the `after.sh` MUST write a segment into the gitignored
+     `${DOTFILES_DIR}/.path` file, bracketed by markers so re-runs
+     are idempotent:
+
+     ```sh
+     # >>> rustup begin
+     [ -d "${HOME}/.cargo/bin" ] && case ":${PATH}:" in
+         *":${HOME}/.cargo/bin:"*) ;;
+         *) PATH="${HOME}/.cargo/bin:${PATH}"; export PATH ;;
+     esac
+     # >>> rustup end
+     ```
+
+     The hook strips any existing `# >>> <pkg> begin …  end`
+     section before appending the fresh one — `sed -i.bak
+     '/^# >>> <pkg> begin$/,/^# >>> <pkg> end$/d'`. `.path` is
+     sourced from `.load`, which is sourced from
+     `configurations/{zsh,bash}/rc`. Both `.load` and `.path` are
+     gitignored (per-host); `scripts/init-load` ensures `.load`
+     exists. Don't put one-off `PATH=…` lines in the shell rc
+     files; they belong in `.path`.
    - Every script must be executable, idempotent (re-running with
      the work already done is a no-op), skip cleanly if the package
      isn't installed, honor `DRY_RUN=1`, and use `$DOTFILES_DIR` to

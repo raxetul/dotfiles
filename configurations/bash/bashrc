@@ -1,63 +1,14 @@
 #!/usr/bin/env bash
-# bashrc — bash is not the daily-driver shell; this file exists so
-# non-interactive scripts and CI runs hit the same aliases zsh sees.
-# Symlinked from configurations/bash/bashrc → ~/.bashrc by
-# scripts/symlinks.sh.
+# ~/.bashrc — minimal stub. Every customization lives in
+# ${DOTFILES_DIR}/.load (gitignored, per-host). See
+# scripts/init-load for the template that generates .load.
 
-export DOTFILES_DIR="${HOME}/gel-ort/dotfiles"
+# If not running interactively, don't do anything (system default guard).
+case $- in
+    *i*) ;;
+    *) return ;;
+esac
 
-# === Shared exports ===
-if [ -r "${DOTFILES_DIR}/configurations/zsh/exports.sh" ]; then
-  . "${DOTFILES_DIR}/configurations/zsh/exports.sh"
-fi
-
-# === Aliases (cross-shell) ===
-for f in "${DOTFILES_DIR}"/configurations/aliases/*.sh; do
-  [ -r "$f" ] && . "$f"
-done
-
-# === FZF Catppuccin palette ===
-if [ -r "${DOTFILES_DIR}/configurations/themes/fzf/catppuccin-mocha.sh" ]; then
-  . "${DOTFILES_DIR}/configurations/themes/fzf/catppuccin-mocha.sh"
-fi
-
-# === PATH additions ===
-[ -d "${HOME}/.scripts" ]   && PATH="${HOME}/.scripts:${PATH}"
-[ -d "${HOME}/.local/bin" ] && PATH="${HOME}/.local/bin:${PATH}"
-export PATH
-
-# Per-package PATH additions written by custom-install after.sh hooks.
-# Each <pkg>.sh appends its package's bin dir if not already on PATH.
-# See packages/custom-install/README.md.
-_pa_dir="${XDG_STATE_HOME:-${HOME}/.local/state}/dotfiles/path-additions.d"
-if [ -d "${_pa_dir}" ]; then
-    for _f in "${_pa_dir}"/*.sh; do
-        # shellcheck disable=SC1090  # dynamic per-package sink, by design
-        [ -r "${_f}" ] && . "${_f}"
-    done
-fi
-unset _pa_dir _f
-
-# === Tool init ===
-command -v starship >/dev/null 2>&1 && eval "$(starship init bash)"
-command -v atuin    >/dev/null 2>&1 && eval "$(atuin init bash)"
-command -v zoxide   >/dev/null 2>&1 && eval "$(zoxide init bash)"
-
-# fzf bash key bindings — package layout varies per OS.
-for f in \
-  /opt/homebrew/opt/fzf/shell/key-bindings.bash \
-  /usr/share/doc/fzf/examples/key-bindings.bash \
-  /usr/share/fzf/key-bindings.bash; do
-  [ -r "$f" ] && { . "$f"; break; }
-done
-for f in \
-  /opt/homebrew/opt/fzf/shell/completion.bash \
-  /usr/share/doc/fzf/examples/completion.bash \
-  /usr/share/fzf/completion.bash; do
-  [ -r "$f" ] && { . "$f"; break; }
-done
-
-# === Debian-only binary renames ===
-command -v fdfind >/dev/null 2>&1 && ! command -v fd  >/dev/null 2>&1 && alias fd=fdfind
-command -v batcat >/dev/null 2>&1 && ! command -v bat >/dev/null 2>&1 && alias bat=batcat
-export PATH="$PATH:$HOME/Library/Infineon/usr/bin"
+export DOTFILES_DIR="${DOTFILES_DIR:-${HOME}/gel-ort/dotfiles}"
+# shellcheck disable=SC1091  # generated, gitignored
+[ -r "${DOTFILES_DIR}/.load" ] && . "${DOTFILES_DIR}/.load"

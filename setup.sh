@@ -67,6 +67,14 @@ if [ "${OS}" = "Darwin" ]; then
 fi
 
 # ------------------------------------------------------------------
+# Ensure the gitignored .load file exists. It's sourced by
+# configurations/{zsh,bash}/rc and in turn sources .path (managed by
+# custom-install after.sh hooks). Creating it early so later steps
+# can rely on it.
+# ------------------------------------------------------------------
+DOTFILES_DIR="${DIR}" "${DIR}/scripts/init-load"
+
+# ------------------------------------------------------------------
 # Step 1.5 — packages/custom-install/<pkg>/before.sh hooks.
 # Run BEFORE the package install step so each script can register a
 # third-party repo, pre-create config dirs, etc. Output goes through
@@ -76,13 +84,19 @@ fi
 # ------------------------------------------------------------------
 CUSTOM_INSTALL_DIR="${DIR}/packages/custom-install"
 if [ -d "${CUSTOM_INSTALL_DIR}" ]; then
-    say "running packages/custom-install/*/before.sh"
+    custom_install_pkgs=()
     for pkg_dir in "${CUSTOM_INSTALL_DIR}"/*/; do
         [ -d "${pkg_dir}" ] || continue
-        pkg="$(basename "${pkg_dir}")"
-        say "  ${pkg}/before.sh"
-        DOTFILES_DIR="${DIR}" "${DIR}/scripts/run-custom-install-hook" "${pkg}" before
+        custom_install_pkgs+=("$(basename "${pkg_dir}")")
     done
+    if [ "${#custom_install_pkgs[@]}" -gt 0 ]; then
+        printf 'custom-install befores ---------------- start\n'
+        printf '  %s\n' "${custom_install_pkgs[@]}"
+        printf 'custom-install befores ---------------- end\n\n'
+        for pkg in "${custom_install_pkgs[@]}"; do
+            DOTFILES_DIR="${DIR}" "${DIR}/scripts/run-custom-install-hook" "${pkg}" before
+        done
+    fi
 fi
 
 # ------------------------------------------------------------------
@@ -194,12 +208,11 @@ fi
 # ~/.local/state/dotfiles/custom-install.log. CUSTOM_INSTALL_DIR was
 # set above for the before-pass; we reuse it here.
 # ------------------------------------------------------------------
-if [ -d "${CUSTOM_INSTALL_DIR}" ]; then
-    say "running packages/custom-install/*/after.sh"
-    for pkg_dir in "${CUSTOM_INSTALL_DIR}"/*/; do
-        [ -d "${pkg_dir}" ] || continue
-        pkg="$(basename "${pkg_dir}")"
-        say "  ${pkg}/after.sh"
+if [ -d "${CUSTOM_INSTALL_DIR}" ] && [ "${#custom_install_pkgs[@]}" -gt 0 ]; then
+    printf 'custom-install afters ----------------- start\n'
+    printf '  %s\n' "${custom_install_pkgs[@]}"
+    printf 'custom-install afters ----------------- end\n\n'
+    for pkg in "${custom_install_pkgs[@]}"; do
         DOTFILES_DIR="${DIR}" "${DIR}/scripts/run-custom-install-hook" "${pkg}" after
     done
 fi

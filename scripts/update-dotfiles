@@ -91,6 +91,10 @@ _log_session_end() {
 }
 trap _log_session_end EXIT
 
+# Ensure the gitignored .load file exists. It's sourced by
+# configurations/{zsh,bash}/rc and in turn sources .path.
+DOTFILES_DIR="${REPO_ROOT}" init-load
+
 note()  { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
 warn()  { printf '\033[1;33mWARN:\033[0m %s\n' "$*" >&2; }
 fail()  { printf '\033[1;31mERR:\033[0m  %s\n' "$*" >&2; exit 1; }
@@ -242,20 +246,33 @@ stage_packages_linux_fallback() {
     esac
 }
 
-# Walk packages/custom-install/<pkg>/ in lexical order and call the
-# helper for every package — the helper always prints a banner so the
-# log timeline shows one entry per (pkg, phase) pair even if the
-# script is a no-op stub. Output streams to terminal + the per-hook
-# log at ~/.local/state/dotfiles/custom-install.log.
+# Walk packages/custom-install/<pkg>/ in lexical order. Print a single
+# grouped banner per phase (start + listed pkgs + end) so the terminal
+# output stays compact regardless of how many packages exist. Each
+# script's output prints after the closing banner.
+#
+#   custom-install befores ---------------- start
+#     rustup
+#     foo
+#   custom-install befores ---------------- end
+#
+#   (script outputs)
 _run_custom_install_hooks() {
-    local hook="$1"   # before | after
+    local hook="$1"           # before | after
+    local plural="${hook}s"   # befores | afters
     local root="${REPO_ROOT}/packages/custom-install"
     [ -d "${root}" ] || return 0
     local pkg_dir pkg
+    local pkgs=()
     for pkg_dir in "${root}"/*/; do
         [ -d "${pkg_dir}" ] || continue
-        pkg="$(basename "${pkg_dir}")"
-        note "custom-install/${pkg}/${hook}.sh"
+        pkgs+=("$(basename "${pkg_dir}")")
+    done
+    [ "${#pkgs[@]}" -eq 0 ] && return 0
+    printf 'custom-install %s ---------------- start\n' "${plural}"
+    printf '  %s\n' "${pkgs[@]}"
+    printf 'custom-install %s ---------------- end\n\n' "${plural}"
+    for pkg in "${pkgs[@]}"; do
         DRY_RUN="${DRY_RUN}" do_or_say run-custom-install-hook "${pkg}" "${hook}"
     done
 }

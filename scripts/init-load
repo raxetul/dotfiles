@@ -1,0 +1,185 @@
+#!/usr/bin/env bash
+# scripts/init-load — create ${DOTFILES_DIR}/.load if it doesn't exist.
+# Idempotent: never overwrites a hand-edited file. To regenerate from
+# the current template, `rm .load && init-load`.
+#
+# `.load` is the per-host shell-init centre. configurations/{zsh,bash}/rc
+# are minimal stubs that export DOTFILES_DIR and source this file. All
+# shared init (history, plugins, completion, aliases, exports, tool
+# init, theme palettes) lives here so the rc files stay 4 lines apiece.
+#
+# `.load` itself then sources .path (the segment-managed PATH + env
+# file written by packages/custom-install/<pkg>/after.sh hooks).
+#
+# Both .load and .path are gitignored — they live inside the repo dir
+# so $DOTFILES_DIR is the one true location, but neither is tracked.
+set -euo pipefail
+
+REPO_ROOT="${DOTFILES_DIR:-${HOME}/gel-ort/dotfiles}"
+[ -d "${REPO_ROOT}" ] || {
+    printf 'ERR: repo not found at %s — set DOTFILES_DIR.\n' "${REPO_ROOT}" >&2
+    exit 1
+}
+
+LOAD_FILE="${REPO_ROOT}/.load"
+if [ -f "${LOAD_FILE}" ]; then
+    exit 0
+fi
+
+cat > "${LOAD_FILE}" <<'EOF'
+# .load — shell-init centre. Sourced by configurations/{zsh,bash}/rc
+# (symlinked to ~/.zshrc and ~/.bashrc). Gitignored — per-host.
+#
+# Everything that used to live in the rc files is here now. The rc
+# files just export DOTFILES_DIR and source this. Shell-specific
+# blocks are gated on $ZSH_VERSION / $BASH_VERSION so one file feeds
+# both shells.
+
+DOTFILES_DIR="${DOTFILES_DIR:-${HOME}/gel-ort/dotfiles}"
+
+# === Bootstrap PATH (must precede .path source + tool init) ===
+[ -d "${HOME}/.scripts" ]   && PATH="${HOME}/.scripts:${PATH}"
+[ -d "${HOME}/.local/bin" ] && PATH="${HOME}/.local/bin:${PATH}"
+export PATH
+
+# === Per-package PATH + env from .path ===
+# Each segment in .path is bracketed by `# >>> <pkg> begin` / `# >>> <pkg> end`
+# and managed by that package's custom-install/<pkg>/after.sh hook.
+if [ -r "${DOTFILES_DIR}/.path" ]; then
+    # shellcheck disable=SC1091  # generated, gitignored
+    . "${DOTFILES_DIR}/.path"
+fi
+
+# === Shared exports (EDITOR, EZA_COLORS, FZF defaults, MANPAGER, …) ===
+if [ -r "${DOTFILES_DIR}/configurations/zsh/exports.sh" ]; then
+    # shellcheck disable=SC1091
+    . "${DOTFILES_DIR}/configurations/zsh/exports.sh"
+fi
+
+# === Shared aliases (cross-shell — sourced from configurations/aliases/) ===
+for _f in "${DOTFILES_DIR}"/configurations/aliases/*.sh; do
+    # shellcheck disable=SC1090
+    [ -r "${_f}" ] && . "${_f}"
+done
+unset _f
+
+# === FZF Catppuccin palette ===
+if [ -r "${DOTFILES_DIR}/configurations/themes/fzf/catppuccin-mocha.sh" ]; then
+    # shellcheck disable=SC1091
+    . "${DOTFILES_DIR}/configurations/themes/fzf/catppuccin-mocha.sh"
+fi
+
+# === Shell-specific setup ===
+if [ -n "${ZSH_VERSION:-}" ]; then
+    # --- zsh -----------------------------------------------------------------
+
+    HISTSIZE=50000
+    SAVEHIST=50000
+    HISTFILE="${HOME}/.zsh_history"
+    setopt hist_ignore_dups
+    setopt share_history
+    setopt prompt_subst
+    zle_highlight=(bold)
+
+    # `_source_first <paths…>` sources the first readable path and returns.
+    # Walks common install locations across brew / apt / pacman / dnf /
+    # git-clone. First hit wins.
+    _source_first() {
+        for _p in "$@"; do
+            if [ -r "${_p}" ]; then
+                source "${_p}"
+                return 0
+            fi
+        done
+        return 1
+    }
+
+    # zsh-autosuggestions
+    _source_first \
+        /opt/homebrew/share/zsh-autosuggestions/zsh-autosuggestions.zsh \
+        /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh \
+        /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh \
+        "${HOME}/.config/zsh-plugins/zsh-autosuggestions/zsh-autosuggestions.zsh"
+
+    # zsh-syntax-highlighting (load BEFORE history-substring-search per upstream).
+    _source_first \
+        /opt/homebrew/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh \
+        /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh \
+        /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh \
+        "${HOME}/.config/zsh-plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
+
+    # zsh-history-substring-search (after syntax-highlighting).
+    _source_first \
+        /opt/homebrew/share/zsh-history-substring-search/zsh-history-substring-search.zsh \
+        /usr/share/zsh-history-substring-search/zsh-history-substring-search.zsh \
+        /usr/share/zsh/plugins/zsh-history-substring-search/zsh-history-substring-search.zsh \
+        "${HOME}/.config/zsh-plugins/zsh-history-substring-search/zsh-history-substring-search.zsh"
+
+    # you-should-use (alias reminder).
+    _source_first \
+        /usr/share/zsh/plugins/zsh-you-should-use/you-should-use.plugin.zsh \
+        /usr/share/zsh/plugins/you-should-use/you-should-use.plugin.zsh \
+        "${HOME}/.config/zsh-plugins/zsh-you-should-use/you-should-use.plugin.zsh"
+
+    unset _p
+    unset -f _source_first
+
+    # Completion.
+    autoload -Uz compinit && compinit
+
+    # Catppuccin Mocha palette for syntax-highlighting + autosuggest.
+    ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE="fg=8"
+    typeset -gA ZSH_HIGHLIGHT_STYLES
+    ZSH_HIGHLIGHT_STYLES[default]='fg=#cdd6f4'
+    ZSH_HIGHLIGHT_STYLES[unknown-token]='fg=#f38ba8'
+    ZSH_HIGHLIGHT_STYLES[command]='fg=#a6e3a1'
+    ZSH_HIGHLIGHT_STYLES[alias]='fg=#94e2d5'
+    ZSH_HIGHLIGHT_STYLES[builtin]='fg=#a6e3a1'
+    ZSH_HIGHLIGHT_STYLES[function]='fg=#89b4fa'
+    ZSH_HIGHLIGHT_STYLES[path]='fg=#cdd6f4'
+    ZSH_HIGHLIGHT_STYLES[single-quoted-argument]='fg=#f9e2af'
+    ZSH_HIGHLIGHT_STYLES[double-quoted-argument]='fg=#f9e2af'
+    ZSH_HIGHLIGHT_STYLES[comment]='fg=#7f849c'
+
+    # Tool init — must come AFTER PATH so the binaries resolve.
+    command -v starship >/dev/null 2>&1 && eval "$(starship init zsh)"
+    command -v atuin    >/dev/null 2>&1 && eval "$(atuin init zsh)"
+    command -v zoxide   >/dev/null 2>&1 && eval "$(zoxide init zsh)"
+    command -v fzf      >/dev/null 2>&1 && eval "$(fzf --zsh 2>/dev/null)"
+
+elif [ -n "${BASH_VERSION:-}" ]; then
+    # --- bash ----------------------------------------------------------------
+
+    command -v starship >/dev/null 2>&1 && eval "$(starship init bash)"
+    command -v atuin    >/dev/null 2>&1 && eval "$(atuin init bash)"
+    command -v zoxide   >/dev/null 2>&1 && eval "$(zoxide init bash)"
+
+    # fzf bash key bindings + completion — package layout varies per OS.
+    for _f in \
+        /opt/homebrew/opt/fzf/shell/key-bindings.bash \
+        /usr/share/doc/fzf/examples/key-bindings.bash \
+        /usr/share/fzf/key-bindings.bash; do
+        # shellcheck disable=SC1090
+        [ -r "${_f}" ] && { . "${_f}"; break; }
+    done
+    for _f in \
+        /opt/homebrew/opt/fzf/shell/completion.bash \
+        /usr/share/doc/fzf/examples/completion.bash \
+        /usr/share/fzf/completion.bash; do
+        # shellcheck disable=SC1090
+        [ -r "${_f}" ] && { . "${_f}"; break; }
+    done
+    unset _f
+fi
+
+# === Debian-only binary renames (apt installs fd as fdfind, bat as batcat) ===
+if command -v fdfind >/dev/null 2>&1 && ! command -v fd >/dev/null 2>&1; then
+    alias fd=fdfind
+fi
+if command -v batcat >/dev/null 2>&1 && ! command -v bat >/dev/null 2>&1; then
+    alias bat=batcat
+fi
+
+# === User additions below ===
+# Host-specific exports, aliases, plugin init calls, etc.
+EOF

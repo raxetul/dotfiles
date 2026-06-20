@@ -46,16 +46,11 @@ LOG_DIR="${XDG_STATE_HOME:-${HOME}/.local/state}/dotfiles"
 LOG_FILE="${LOG_DIR}/custom-install.log"
 mkdir -p "${LOG_DIR}"
 
-# Always print the banner — even when the hook script is missing or
-# not executable — so every package contributes a `before` + `after`
-# pair to the log. No-op stubs are explicit; missing files annotated
-# inline so the timeline stays linear.
-#   before ---------------------- rustup
-#   <script output, or "(no before.sh)">
-#   after  ---------------------- rustup
-#
-# `printf '%-6s'` left-pads the phase to 6 chars (length of "before").
-printf '%-6s ---------------------- %s\n' "${HOOK}" "${PKG}" | tee -a "${LOG_FILE}"
+# Per-script banners moved to the drivers (setup.sh + update-dotfiles
+# print a single grouped "custom-install <befores|afters> start / end"
+# bracket listing every package). This helper just records into the
+# log which script started, runs it, and propagates the exit code.
+printf '\n--- %s/%s.sh ---\n' "${PKG}" "${HOOK}" >> "${LOG_FILE}"
 
 if [ ! -x "${SCRIPT}" ]; then
     printf '   (no %s.sh for %s)\n' "${HOOK}" "${PKG}" | tee -a "${LOG_FILE}"
