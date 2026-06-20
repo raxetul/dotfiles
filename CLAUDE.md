@@ -97,6 +97,48 @@ global one, see [doc/agentic-promotion.md](doc/agentic-promotion.md).
    `scripts/uninstall.sh` (Phase 4 of v3-native) will wrap that with
    optional `apt purge` / `brew uninstall` driven by the `.list`
    files + optional `chsh` revert.
+9. **Custom-install hooks live in `packages/custom-install/<pkg>/`,
+   one folder per package, with REQUIRED `before.sh` and `after.sh`
+   slots.** `before.sh` runs *before* the package install step
+   (register a third-party APT/COPR repo, accept an upstream key,
+   pre-create a config dir); `after.sh` runs *after* the install +
+   AUR/Snap fallback (provision a toolchain — canonical example:
+   `rustup default stable` to materialize `cargo`/`rustc` in
+   `~/.cargo/bin/`, enable a service, run a self-test).
+   - **Both files MUST exist** for every `<pkg>/` directory, even
+     when one side has no work. The unused side is a stub:
+     `#!/usr/bin/env bash` + `set -euo pipefail` + `exit 0`. This
+     keeps the layout uniform and the log timeline linear (every
+     package contributes one `before ----` and one `after ----`
+     banner per run, with `(no-op stub)` output when the script
+     just exits).
+   - **PATH additions go through a common sink, not the hook
+     itself.** When the package adds binaries to PATH (rustup →
+     `~/.cargo/bin`, future tools likewise), the `after.sh` MUST
+     write the PATH update to
+     `${XDG_STATE_HOME:-$HOME/.local/state}/dotfiles/path-additions.d/<pkg>.sh`.
+     `configurations/{zsh,bash}/rc` source every `.sh` in that
+     directory at shell startup, so future interactive shells get
+     the new PATH without re-running the hook. Each `<pkg>.sh`
+     file is overwritten by its `after.sh` — idempotent by
+     construction. Don't put one-off `PATH=…` lines in the shell
+     rc files; they belong in the sink.
+   - Every script must be executable, idempotent (re-running with
+     the work already done is a no-op), skip cleanly if the package
+     isn't installed, honor `DRY_RUN=1`, and use `$DOTFILES_DIR` to
+     find anything in the repo.
+
+   `setup.sh` (Step 2 before-pass, Step 5 after-pass) and
+   `scripts/update-dotfiles` (`stage_packages_custom_before` /
+   `stage_packages_custom_after`, addressable via
+   `--only=custom-install`, `--only=custom-install-before`, or
+   `--only=custom-install-after`) iterate the directory in lexical
+   order through `scripts/run-custom-install-hook`, which logs each
+   hook to `~/.local/state/dotfiles/custom-install.log` and streams
+   to the terminal. See
+   [`packages/custom-install/README.md`](packages/custom-install/README.md)
+   for the full contract. Anything that's *configuration* (lives in
+   `~/.config/<app>/`) belongs in `configurations/<app>/`, not here.
 
 ## Soft conventions
 

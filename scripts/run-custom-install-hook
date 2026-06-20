@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+# scripts/run-custom-install-hook — driver-side wrapper that runs a
+# single packages/custom-install/<pkg>/{before,after}.sh script with
+# logging.
+#
+# Output streams live to the terminal AND to
+# ${XDG_STATE_HOME:-$HOME/.local/state}/dotfiles/custom-install.log,
+# with a timestamped banner bracketing each hook so you can grep the
+# log for a specific package or phase later.
+#
+# Called by both setup.sh (Step 2 before-pass, Step 5 after-pass) and
+# scripts/update-dotfiles (stage_packages_custom_{before,after}).
+# Each driver iterates packages/custom-install/*/ and calls this
+# helper once per (package, hook) pair.
+#
+# Usage:
+#   run-custom-install-hook <pkg> <before|after>
+#
+# Env:
+#   DOTFILES_DIR   — repo root (defaults to ~/gel-ort/dotfiles).
+#   DRY_RUN        — "1" to print but not execute; the hook itself
+#                    also honors this, but we record the intent in
+#                    the log either way.
+#
+# Exit codes:
+#   0   hook ran (or was missing/non-executable — that's a no-op).
+#   !=0 propagated from the hook.
+set -euo pipefail
+
+if [ $# -ne 2 ] || [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
+    sed -n '2,21p' "$0"
+    exit 1
+fi
+
+PKG="$1"
+HOOK="$2"
+case "${HOOK}" in
+    before|after) : ;;
+    *) printf 'ERR: hook must be "before" or "after", got %q\n' "${HOOK}" >&2; exit 1 ;;
+esac
+
+REPO_ROOT="${DOTFILES_DIR:-${HOME}/gel-ort/dotfiles}"
+SCRIPT="${REPO_ROOT}/packages/custom-install/${PKG}/${HOOK}.sh"
+
+LOG_DIR="${XDG_STATE_HOME:-${HOME}/.local/state}/dotfiles"
+LOG_FILE="${LOG_DIR}/custom-install.log"
+mkdir -p "${LOG_DIR}"
+
+# Always print the banner — even when the hook script is missing or
+# not executable — so every package contributes a `before` + `after`
+# pair to the log. No-op stubs are explicit; missing files annotated
+# inline so the timeline stays linear.
+#   before ---------------------- rustup
+#   <script output, or "(no before.sh)">
+#   after  ---------------------- rustup
+#
+# `printf '%-6s'` left-pads the phase to 6 chars (length of "before").
+printf '%-6s ---------------------- %s\n' "${HOOK}" "${PKG}" | tee -a "${LOG_FILE}"
+
+if [ ! -x "${SCRIPT}" ]; then
+    printf '   (no %s.sh for %s)\n' "${HOOK}" "${PKG}" | tee -a "${LOG_FILE}"
+    exit 0
+fi
+
+# Run the hook with stdout+stderr teed live. PIPESTATUS preserves the
+# script's exit code so a failing hook still propagates up.
+set +e
+DRY_RUN="${DRY_RUN:-0}" "${SCRIPT}" 2>&1 | tee -a "${LOG_FILE}"
+rc=${PIPESTATUS[0]}
+set -e
+
+exit "${rc}"

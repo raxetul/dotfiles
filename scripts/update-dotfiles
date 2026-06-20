@@ -19,7 +19,10 @@
 #   scripts/update-dotfiles --only=packages          # packages layer only
 #   scripts/update-dotfiles --only=configurations    # configurations layer only
 #   scripts/update-dotfiles --only=symlinks          # symlinks stage only
-#                                              # (re-link newly added configs)
+#                                                    # (re-link newly added configs)
+#   scripts/update-dotfiles --only=custom-install        # both before.sh + after.sh hooks
+#   scripts/update-dotfiles --only=custom-install-before # only before.sh hooks
+#   scripts/update-dotfiles --only=custom-install-after  # only after.sh hooks
 #
 # Exit codes:
 #   0   success
@@ -36,13 +39,17 @@ for arg in "$@"; do
         --dry-run)             DRY_RUN=1 ;;
         --yes|-y)              YES=1 ;;
         --desktop)             DESKTOP=1 ;;
-        --only=packages)       ONLY="packages" ;;
-        --only=configurations) ONLY="configurations" ;;
-        --only=symlinks)       ONLY="symlinks" ;;
-        --symlinks)            ONLY="symlinks" ;;
+        --only=packages)              ONLY="packages" ;;
+        --only=configurations)        ONLY="configurations" ;;
+        --only=symlinks)              ONLY="symlinks" ;;
+        --symlinks)                   ONLY="symlinks" ;;
+        --only=custom-install)        ONLY="custom-install" ;;
+        --only=custom-install-before) ONLY="custom-install-before" ;;
+        --only=custom-install-after)  ONLY="custom-install-after" ;;
         --only=*)
             echo "Unknown --only value: ${arg#--only=}" >&2
-            echo "Valid: packages, configurations, symlinks" >&2
+            echo "Valid: packages, configurations, symlinks, custom-install," >&2
+            echo "       custom-install-before, custom-install-after" >&2
             exit 1
             ;;
         -h|--help)
@@ -56,8 +63,33 @@ for arg in "$@"; do
     esac
 done
 
-REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# Scripts in this repo are installed onto PATH via the `scripts::.scripts`
+# symlink in scripts/symlinks.sh — so `$0` resolves to ~/.scripts/... when
+# invoked from PATH, and `dirname $0/..` would point at $HOME. The repo
+# location is exported by configurations/{zsh,bash}/rc as $DOTFILES_DIR;
+# fall back to the documented default if it's missing (cron, fresh shell).
+REPO_ROOT="${DOTFILES_DIR:-${HOME}/gel-ort/dotfiles}"
+[ -d "${REPO_ROOT}" ] || { printf 'ERR: repo not found at %s — set DOTFILES_DIR.\n' "${REPO_ROOT}" >&2; exit 1; }
 cd "${REPO_ROOT}"
+
+# Session log — every line printed from here on goes to the terminal
+# AND to ~/.local/state/dotfiles/update-dotfiles.log via tee. The
+# per-hook log at custom-install.log still gets the inner before/after
+# script output (written by scripts/run-custom-install-hook); this
+# session log captures the whole run including git-pull, brew/native
+# install, fallbacks, and the configurations layer.
+LOG_DIR="${XDG_STATE_HOME:-${HOME}/.local/state}/dotfiles"
+LOG_FILE="${LOG_DIR}/update-dotfiles.log"
+mkdir -p "${LOG_DIR}"
+exec > >(tee -a "${LOG_FILE}") 2>&1
+printf '\n==== %s update-dotfiles  only=%s dry-run=%s desktop=%s ====\n' \
+    "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" "${ONLY:-both}" "${DRY_RUN}" "${DESKTOP}"
+_log_session_end() {
+    local rc=$?
+    printf '==== %s update-dotfiles end rc=%d ====\n\n' \
+        "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" "${rc}"
+}
+trap _log_session_end EXIT
 
 note()  { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
 warn()  { printf '\033[1;33mWARN:\033[0m %s\n' "$*" >&2; }
@@ -210,11 +242,34 @@ stage_packages_linux_fallback() {
     esac
 }
 
+# Walk packages/custom-install/<pkg>/ in lexical order and call the
+# helper for every package — the helper always prints a banner so the
+# log timeline shows one entry per (pkg, phase) pair even if the
+# script is a no-op stub. Output streams to terminal + the per-hook
+# log at ~/.local/state/dotfiles/custom-install.log.
+_run_custom_install_hooks() {
+    local hook="$1"   # before | after
+    local root="${REPO_ROOT}/packages/custom-install"
+    [ -d "${root}" ] || return 0
+    local pkg_dir pkg
+    for pkg_dir in "${root}"/*/; do
+        [ -d "${pkg_dir}" ] || continue
+        pkg="$(basename "${pkg_dir}")"
+        note "custom-install/${pkg}/${hook}.sh"
+        DRY_RUN="${DRY_RUN}" do_or_say run-custom-install-hook "${pkg}" "${hook}"
+    done
+}
+
+stage_packages_custom_before() { _run_custom_install_hooks before; }
+stage_packages_custom_after()  { _run_custom_install_hooks after;  }
+
 run_packages() {
     run_stage "git-pull"        stage_packages_git_pull
+    run_stage "custom-before"   stage_packages_custom_before
     run_stage "brew"            stage_packages_brew
     run_stage "native-linux"    stage_packages_native_linux
     run_stage "linux-fallback"  stage_packages_linux_fallback
+    run_stage "custom-after"    stage_packages_custom_after
 }
 
 # ----------------------------------------------------------------------
@@ -222,9 +277,9 @@ run_packages() {
 # ----------------------------------------------------------------------
 
 stage_configurations_symlinks() {
-    note "scripts/symlinks.sh install"
+    note "symlinks.sh install"
     [ "${DESKTOP}" -eq 1 ] && export DOTFILES_DESKTOP=1
-    do_or_say "${REPO_ROOT}/scripts/symlinks.sh" install
+    do_or_say symlinks.sh install
 }
 
 stage_configurations_lefthook() {
@@ -306,10 +361,16 @@ note "repo: ${REPO_ROOT}"
 echo
 
 case "${ONLY}" in
-    packages)        run_packages ;;
-    configurations)  run_configurations ;;
-    symlinks)        run_stage "symlinks" stage_configurations_symlinks ;;
-    "")              run_packages; echo; run_configurations ;;
+    packages)                run_packages ;;
+    configurations)          run_configurations ;;
+    symlinks)                run_stage "symlinks"      stage_configurations_symlinks ;;
+    custom-install-before)   run_stage "custom-before" stage_packages_custom_before ;;
+    custom-install-after)    run_stage "custom-after"  stage_packages_custom_after ;;
+    custom-install)
+        run_stage "custom-before" stage_packages_custom_before
+        run_stage "custom-after"  stage_packages_custom_after
+        ;;
+    "")                      run_packages; echo; run_configurations ;;
 esac
 
 echo

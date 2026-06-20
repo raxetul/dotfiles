@@ -3,14 +3,16 @@
 #
 # What this script does:
 #   1. installs Homebrew on macOS (idempotent)
-#   2. installs packages from packages/Brewfile (macOS) or
+#   2. runs packages/custom-install/*/before.sh (third-party repos, …)
+#   3. installs packages from packages/Brewfile (macOS) or
 #      packages/<pkgmgr>.list (+ -desktop.list on --desktop) on Linux
-#   3. layers Linux fallbacks — AUR on pacman-family, Snap elsewhere
-#   4. bootstraps user-scope plugin managers (vim-plug, TPM, zsh plugins)
-#   5. plants symlinks from configurations/ into $HOME via
+#   4. layers Linux fallbacks — AUR on pacman-family, Snap elsewhere
+#   5. runs packages/custom-install/*/after.sh (e.g. `rustup default stable`)
+#   6. bootstraps user-scope plugin managers (vim-plug, TPM, zsh plugins)
+#   7. plants symlinks from configurations/ into $HOME via
 #      scripts/symlinks.sh
-#   6. makes zsh the login shell
-#   7. installs lefthook git hooks for this repo
+#   8. makes zsh the login shell
+#   9. installs lefthook git hooks for this repo
 #
 # Usage:
 #   ./setup.sh                # baseline (CLI + dev only)
@@ -62,6 +64,25 @@ if [ "${OS}" = "Darwin" ]; then
     elif [ -x /usr/local/bin/brew ]; then
         eval "$(/usr/local/bin/brew shellenv)"
     fi
+fi
+
+# ------------------------------------------------------------------
+# Step 1.5 — packages/custom-install/<pkg>/before.sh hooks.
+# Run BEFORE the package install step so each script can register a
+# third-party repo, pre-create config dirs, etc. Output goes through
+# scripts/run-custom-install-hook which tees to
+# ~/.local/state/dotfiles/custom-install.log.
+# See packages/custom-install/README.md for the contract.
+# ------------------------------------------------------------------
+CUSTOM_INSTALL_DIR="${DIR}/packages/custom-install"
+if [ -d "${CUSTOM_INSTALL_DIR}" ]; then
+    say "running packages/custom-install/*/before.sh"
+    for pkg_dir in "${CUSTOM_INSTALL_DIR}"/*/; do
+        [ -d "${pkg_dir}" ] || continue
+        pkg="$(basename "${pkg_dir}")"
+        say "  ${pkg}/before.sh"
+        DOTFILES_DIR="${DIR}" "${DIR}/scripts/run-custom-install-hook" "${pkg}" before
+    done
 fi
 
 # ------------------------------------------------------------------
@@ -162,6 +183,25 @@ if [ "${OS}" = "Linux" ] && [ -f /etc/os-release ]; then
             fi
             ;;
     esac
+fi
+
+# ------------------------------------------------------------------
+# Step 3.5 — packages/custom-install/<pkg>/after.sh hooks.
+# Run AFTER the package install step + AUR/Snap fallback so each
+# script can provision toolchains (e.g. `rustup default stable`),
+# enable services, etc. Output goes through
+# scripts/run-custom-install-hook which tees to
+# ~/.local/state/dotfiles/custom-install.log. CUSTOM_INSTALL_DIR was
+# set above for the before-pass; we reuse it here.
+# ------------------------------------------------------------------
+if [ -d "${CUSTOM_INSTALL_DIR}" ]; then
+    say "running packages/custom-install/*/after.sh"
+    for pkg_dir in "${CUSTOM_INSTALL_DIR}"/*/; do
+        [ -d "${pkg_dir}" ] || continue
+        pkg="$(basename "${pkg_dir}")"
+        say "  ${pkg}/after.sh"
+        DOTFILES_DIR="${DIR}" "${DIR}/scripts/run-custom-install-hook" "${pkg}" after
+    done
 fi
 
 # ------------------------------------------------------------------

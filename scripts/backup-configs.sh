@@ -36,7 +36,11 @@ for arg in "$@"; do
     esac
 done
 
-REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# Scripts run from ~/.scripts (PATH-installed), so $0/.. is $HOME, not
+# the repo. Trust $DOTFILES_DIR (exported by configurations/{zsh,bash}/rc);
+# fall back to the documented default for non-interactive contexts.
+REPO_ROOT="${DOTFILES_DIR:-${HOME}/gel-ort/dotfiles}"
+[ -d "${REPO_ROOT}" ] || { printf 'ERR: repo not found at %s — set DOTFILES_DIR.\n' "${REPO_ROOT}" >&2; exit 1; }
 CONFIG_ROOT="${REPO_ROOT}/configurations"
 TS="$(date +%Y-%m-%dT%H-%M-%S)"
 BACKUP_DIR="${HOME}/.dotfiles-backup-${TS}"

@@ -22,7 +22,8 @@ packages/
 ├── dnf.list               # Fedora baseline
 ├── dnf-desktop.list       # Fedora desktop additions
 ├── aur.list               # Arch fallback (only pacman-family)
-└── snap.list              # Debian + Fedora fallback (skipped on Arch)
+├── snap.list              # Debian + Fedora fallback (skipped on Arch)
+└── custom-install/        # Per-package before.sh/after.sh hooks (rustup, …)
 ```
 
 `packages/` sits at the repo root next to `configurations/`. The
@@ -30,9 +31,19 @@ separation is intentional: `configurations/` holds app config files
 the user edits live; `packages/` holds the inventory of what's
 installed.
 
-setup.sh detects the distro and runs the matching pair (`*.list` always;
-`*-desktop.list` only with `--desktop`), then layers fallbacks
-(`aur.list` on Arch, `snap.list` elsewhere).
+setup.sh runs in five package-related steps:
+
+1. `custom-install/*/before.sh` — register third-party repos, accept
+   upstream keys, pre-create config dirs.
+2. native install — distro-detected `*.list` pair (`*-desktop.list`
+   only with `--desktop`) or `brew bundle` on macOS.
+3. fallbacks — `aur.list` on Arch, `snap.list` elsewhere.
+4. `custom-install/*/after.sh` — provision toolchains
+   (`rustup default stable`), enable services, run self-tests.
+5. plugin bootstrap + symlinks (orthogonal to packages).
+
+See [`packages/custom-install/README.md`](../packages/custom-install/README.md)
+for the hook contract.
 
 ## Install policy (locked)
 

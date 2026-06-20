@@ -14,7 +14,12 @@
 
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# When invoked from PATH (~/.scripts is a dir-symlink into the repo),
+# $0 resolves under ~/.scripts/ and `dirname $0/..` would land at $HOME.
+# Trust $DOTFILES_DIR (exported by configurations/{zsh,bash}/rc); fall
+# back to the documented default for non-interactive contexts.
+REPO_ROOT="${DOTFILES_DIR:-${HOME}/gel-ort/dotfiles}"
+[ -d "${REPO_ROOT}" ] || { printf 'ERR: repo not found at %s — set DOTFILES_DIR.\n' "${REPO_ROOT}" >&2; exit 1; }
 
 # === Symlink mapping ===
 # Each entry: "<src relative to REPO_ROOT>::<dst relative to $HOME>".

@@ -6,7 +6,7 @@
 # was generating. Plugins are sourced from native package install paths
 # (varies per OS) with `~/.config/zsh-plugins/` as last-resort fallback.
 
-DOTFILES_DIR="${HOME}/gel-ort/dotfiles"
+export DOTFILES_DIR="${HOME}/gel-ort/dotfiles"
 
 # === History ===
 HISTSIZE=50000
@@ -98,6 +98,17 @@ fi
 [ -d "${HOME}/.scripts" ]   && PATH="${HOME}/.scripts:${PATH}"
 [ -d "${HOME}/.local/bin" ] && PATH="${HOME}/.local/bin:${PATH}"
 export PATH
+
+# Per-package PATH additions written by custom-install after.sh hooks.
+# Each <pkg>.sh appends its package's bin dir if not already on PATH.
+# See packages/custom-install/README.md.
+_pa_dir="${XDG_STATE_HOME:-${HOME}/.local/state}/dotfiles/path-additions.d"
+if [ -d "${_pa_dir}" ]; then
+    for _f in "${_pa_dir}"/*.sh; do
+        [ -r "${_f}" ] && . "${_f}"
+    done
+fi
+unset _pa_dir _f
 
 # === Tool init (must come after PATH so init scripts can find the binaries) ===
 command -v starship >/dev/null 2>&1 && eval "$(starship init zsh)"
