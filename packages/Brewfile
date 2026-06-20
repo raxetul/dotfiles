@@ -38,9 +38,12 @@ brew "shellcheck"
 # === Language toolchains ===
 brew "go"
 brew "rustup-init"
+brew "rust-analyzer"       # Rust LSP server (used by neovim/lspconfig + helix)
 brew "node"
 brew "llvm"
 brew "clang-format"
+# `mold` is omitted on macOS — it links ELF only; Rust on Darwin uses
+# the system linker (lld via Xcode). See packages-native.md.
 
 # === Networking / sysadmin ===
 brew "arp-scan"

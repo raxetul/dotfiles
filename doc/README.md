@@ -31,7 +31,7 @@ graph TD
 | ------------------- | ------------------------------------ |
 | `setup.sh`          | (this README) — bootstrap entrypoint |
 | `scripts/symlinks.sh` | (inline help via `--help`) — symlink driver |
-| `scripts/update.sh` | (inline help) — refresh entrypoint   |
+| `scripts/update-dotfiles` | (inline help) — refresh entrypoint |
 | `scripts/gpg-setup.sh` | (inline help) — GPG signing wizard |
 | `scripts/nix-uninstall.sh` | (inline help) — legacy Nix cleanup |
 

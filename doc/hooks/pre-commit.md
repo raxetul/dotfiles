@@ -34,7 +34,7 @@ Exit codes:
 
 - Never bypasses lefthook (`LEFTHOOK=0`).
 - Doesn't run `lefthook install`. That's the responsibility of
-  `setup.sh` (Phase 14) and `scripts/update.sh` (Phase 11).
+  `setup.sh` (Phase 14) and `scripts/update-dotfiles` (Phase 11).
 
 ## Related
 

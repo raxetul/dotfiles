@@ -121,7 +121,7 @@ See `.claude/commands/` for the full set. Quick map:
 | Command   | What it does                                                                                       |
 | --------- | -------------------------------------------------------------------------------------------------- |
 | `/apply`  | Runs `setup.sh`. Forwards `--desktop` / `--update` when asked.                                     |
-| `/update` | Runs `scripts/update.sh`. Forwards `--dry-run` / `--desktop` / `--only=…` when asked.              |
+| `/update` | Runs `scripts/update-dotfiles`. Forwards `--dry-run` / `--desktop` / `--only=…` when asked.        |
 | `/commit` | Builds a Conventional Commit message from `git diff --cached`.                                     |
 | `/check`  | Runs `shellcheck scripts/*.sh setup.sh`, validates `packages/*.list`, and `commitlint --from origin/main`. |
 

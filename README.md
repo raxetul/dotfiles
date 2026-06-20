@@ -29,7 +29,7 @@ What it does:
 7. Installs lefthook git hooks for this repo.
 
 Re-running is safe — every step is idempotent. Use
-`scripts/update.sh` to refresh packages + configurations on an
+`scripts/update-dotfiles` to refresh packages + configurations on an
 already-set-up host.
 
 ## Layout
@@ -45,7 +45,7 @@ already-set-up host.
 | `scripts/`                      | Installed into `~/.scripts/` and added to `PATH`.                                |
 | `scripts/symlinks.sh`           | `install` / `uninstall` / `list` the symlinks the repo plants under `$HOME`.     |
 | `setup.sh`                      | Bootstrap; idempotent.                                                           |
-| `scripts/update.sh`             | Refresh packages + configurations on an already-set-up host.                     |
+| `scripts/update-dotfiles`       | Refresh packages + configurations on an already-set-up host.                     |
 | `scripts/gpg-setup.sh`          | Generate a signing key + wire it into git (one-shot, idempotent).                |
 | `scripts/nix-uninstall.sh`      | Remove a legacy multi-user Nix install (kept around for hosts still on v2).      |
 | `.claude/`                      | Repo-local agentic config: slash commands, skills, hooks, permissions.           |

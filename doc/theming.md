@@ -60,7 +60,7 @@ Phase 4.
    - shell-sourced files: `exec $SHELL -l` (or `reload`).
    - tmux: `<prefix> r` (binding in tmux.conf) or `tmux source-file ~/.config/tmux/tmux.conf`.
    - dunst: `dunst --reload` or restart the service.
-   - bat: `bat cache --build` (driven by `scripts/update.sh` and
+   - bat: `bat cache --build` (driven by `scripts/update-dotfiles` and
      the `setup.sh` plugin-bootstrap step).
 3. If the color is set in `configurations/zsh/exports.sh` (env vars
    like `EZA_COLORS`, `MANPAGER`), open a new shell to pick it up.

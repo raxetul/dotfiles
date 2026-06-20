@@ -44,9 +44,11 @@ ShellCheck
 # Language toolchains
 golang
 rustup
+rust-analyzer       # Rust LSP server (Fedora 35+)
 nodejs
 llvm
 clang-tools-extra
+mold                # Faster Rust ELF linker (Fedora 36+)
 
 # Networking / sysadmin
 arp-scan

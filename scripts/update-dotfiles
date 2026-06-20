@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# scripts/update.sh — refresh everything this repo manages.
+# scripts/update-dotfiles — refresh everything this repo manages.
 #
 # Two layers, both idempotent and runnable independently:
 #
@@ -12,12 +12,14 @@
 # "==> stage" banner; on failure the script exits non-zero.
 #
 # Usage:
-#   scripts/update.sh                          # both layers
-#   scripts/update.sh --dry-run                # print every command, run none
-#   scripts/update.sh --yes                    # skip the git-pull confirmation
-#   scripts/update.sh --desktop                # include Linux desktop list
-#   scripts/update.sh --only=packages          # packages layer only
-#   scripts/update.sh --only=configurations    # configurations layer only
+#   scripts/update-dotfiles                          # both layers
+#   scripts/update-dotfiles --dry-run                # print every command, run none
+#   scripts/update-dotfiles --yes                    # skip the git-pull confirmation
+#   scripts/update-dotfiles --desktop                # include Linux desktop list
+#   scripts/update-dotfiles --only=packages          # packages layer only
+#   scripts/update-dotfiles --only=configurations    # configurations layer only
+#   scripts/update-dotfiles --only=symlinks          # symlinks stage only
+#                                              # (re-link newly added configs)
 #
 # Exit codes:
 #   0   success
@@ -36,9 +38,11 @@ for arg in "$@"; do
         --desktop)             DESKTOP=1 ;;
         --only=packages)       ONLY="packages" ;;
         --only=configurations) ONLY="configurations" ;;
+        --only=symlinks)       ONLY="symlinks" ;;
+        --symlinks)            ONLY="symlinks" ;;
         --only=*)
             echo "Unknown --only value: ${arg#--only=}" >&2
-            echo "Valid: packages, configurations" >&2
+            echo "Valid: packages, configurations, symlinks" >&2
             exit 1
             ;;
         -h|--help)
@@ -297,13 +301,14 @@ run_configurations() {
 # Dispatch
 # ----------------------------------------------------------------------
 
-note "update.sh  (dry-run=${DRY_RUN}, yes=${YES}, desktop=${DESKTOP}, only=${ONLY:-both})"
+note "update-dotfiles  (dry-run=${DRY_RUN}, yes=${YES}, desktop=${DESKTOP}, only=${ONLY:-both})"
 note "repo: ${REPO_ROOT}"
 echo
 
 case "${ONLY}" in
     packages)        run_packages ;;
     configurations)  run_configurations ;;
+    symlinks)        run_stage "symlinks" stage_configurations_symlinks ;;
     "")              run_packages; echo; run_configurations ;;
 esac
 

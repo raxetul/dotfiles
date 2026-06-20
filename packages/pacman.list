@@ -42,9 +42,11 @@ shellcheck
 # Language toolchains
 go
 rustup
+rust-analyzer       # Rust LSP server (extra)
 nodejs
 llvm
 clang
+mold                # Faster Rust ELF linker (extra)
 
 # Networking / sysadmin
 arp-scan

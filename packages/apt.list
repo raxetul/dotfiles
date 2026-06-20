@@ -43,6 +43,12 @@ nodejs
 llvm
 clang-format
 clang-tidy
+# Rust LSP — apt 22.04+ / Debian 12+. Older releases: fall through to
+# `rustup component add rust-analyzer` (handled in setup.sh).
+rust-analyzer
+# Faster linker for Rust ELF builds. apt 22.10+ / Debian 12+; older
+# releases skip it without error (setup.sh logs and continues).
+mold
 
 # Networking / sysadmin
 arp-scan

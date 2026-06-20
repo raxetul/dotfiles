@@ -124,6 +124,8 @@ Vim plugins themselves are declared via `Plug` directives in
 |---|---|---|---|---|---|
 | go | go | golang-go | go | golang | — |
 | rustup | rustup-init | rustup (23.10+) | rustup | rustup | `curl https://sh.rustup.rs -sSf \| sh` |
+| rust-analyzer | rust-analyzer | rust-analyzer (22.04+ / Debian 12+) | rust-analyzer | rust-analyzer (35+) | `rustup component add rust-analyzer` |
+| mold (Rust linker, Linux only) | — | mold (22.10+ / Debian 12+) | mold | mold (36+) | release tarball from `rui314/mold`; on macOS use system linker (mold links ELF only) |
 | nodejs (LTS, 24.x today) | node | nodejs (NodeSource repo) | nodejs | nodejs | NodeSource / volta / nvm |
 | llvm | llvm | llvm | llvm | llvm | — |
 | clang-format / clang-tidy | clang-format | clang-format clang-tidy | clang | clang-tools-extra | — |
