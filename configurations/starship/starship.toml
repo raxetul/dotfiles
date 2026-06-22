@@ -9,8 +9,9 @@ format = """
 [](red)\
 $os\
 $username\
+[](fg:red bg:mauve)\
 $hostname\
-[](bg:peach fg:red)\
+[](fg:mauve bg:peach)\
 $directory\
 [](bg:yellow fg:peach)\
 $git_branch\
@@ -64,10 +65,11 @@ format = '[ $user]($style)'
 
 [hostname]
 ssh_only = false                 # always show, not just over SSH
-# Same red bg as username so segment chain holds; mauve fg makes the
-# hostname pop visually distinct from the crust-colored username.
-style = "bg:red fg:mauve"
-format = '[@$hostname]($style)'
+# Mauve bg makes the hostname its own segment between red (user)
+# and peach (directory); transitions in the format string handle
+# the colour seams.
+style = "bg:mauve fg:crust"
+format = '[ $hostname ]($style)'
 trim_at = "."                    # strip the .local / .lan suffix
 
 [directory]
