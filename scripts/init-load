@@ -22,11 +22,39 @@ REPO_ROOT="${DOTFILES_DIR:-${HOME}/gel-ort/dotfiles}"
 }
 
 LOAD_FILE="${REPO_ROOT}/.load"
+
+# Version sentinel — every time the template here changes meaningfully,
+# bump this and the marker line baked into the generated .load. The
+# detection block below checks for the current marker; an existing
+# .load that doesn't contain it is treated as outdated.
+TEMPLATE_VERSION=2
+TEMPLATE_MARKER="# .load template-version: ${TEMPLATE_VERSION}"
+
 if [ -f "${LOAD_FILE}" ]; then
+    if grep -qxF "${TEMPLATE_MARKER}" "${LOAD_FILE}"; then
+        # Current template — nothing to do.
+        exit 0
+    fi
+    cat >&2 <<MSG
+WARN: ${LOAD_FILE} is outdated (template v${TEMPLATE_VERSION} not found).
+      The shell rc files have been minimized to stubs that source .load,
+      so an old .load will not pick up plugin/tool init / aliases /
+      exports / history settings.
+      To migrate (your custom additions under '=== User additions below ==='
+      will need to be re-added afterwards — back them up first):
+
+        rm ${LOAD_FILE} && ${0}
+
+      Skipping regeneration to avoid clobbering local edits.
+MSG
     exit 0
 fi
 
-cat > "${LOAD_FILE}" <<'EOF'
+cat > "${LOAD_FILE}" <<EOF
+${TEMPLATE_MARKER}
+EOF
+
+cat >> "${LOAD_FILE}" <<'EOF'
 # .load — shell-init centre. Sourced by configurations/{zsh,bash}/rc
 # (symlinked to ~/.zshrc and ~/.bashrc). Gitignored — per-host.
 #

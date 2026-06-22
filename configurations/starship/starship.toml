@@ -64,7 +64,9 @@ format = '[ $user]($style)'
 
 [hostname]
 ssh_only = false                 # always show, not just over SSH
-style = "bg:red fg:crust"
+# Same red bg as username so segment chain holds; mauve fg makes the
+# hostname pop visually distinct from the crust-colored username.
+style = "bg:red fg:mauve"
 format = '[@$hostname]($style)'
 trim_at = "."                    # strip the .local / .lan suffix
 
