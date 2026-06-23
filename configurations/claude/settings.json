@@ -8,15 +8,6 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$HOME/.claude/scripts/agentic-phase-pane.sh",
-            "timeout": 10
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
             "command": "\"$HOME/.claude/hooks/context-mode-cache-heal.mjs\""
           }
         ]
