@@ -15,8 +15,8 @@ alias gcb='git checkout -b'
 
 alias gc='git commit'
 alias gca='git commit -a'
-alias gcm='git commit -m'
-alias gcam='git commit -am'
+alias gcmsg='git commit -m'
+alias gcmsga='git commit -am'
 
 alias gp='git push'
 alias gpf='git push --force-with-lease'

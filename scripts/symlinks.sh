@@ -44,6 +44,8 @@ COMMON_LINKS=(
   "configurations/nvim/init.vim::.config/nvim/init.vim"
   "configurations/ghostty/config::.config/ghostty/config"
   "configurations/tmux/tmux.conf::.config/tmux/tmux.conf"
+  "configurations/claude/settings.json::.claude/settings.json"
+  "configurations/claude/scripts::.claude/scripts"
   "scripts::.scripts"
 )
 

@@ -12,3 +12,6 @@ esac
 export DOTFILES_DIR="${DOTFILES_DIR:-${HOME}/gel-ort/dotfiles}"
 # shellcheck disable=SC1091  # generated, gitignored
 [ -r "${DOTFILES_DIR}/.load" ] && . "${DOTFILES_DIR}/.load"
+
+[[ -f ~/.bash-preexec.sh ]] && source ~/.bash-preexec.sh
+eval "$(atuin init bash)"
