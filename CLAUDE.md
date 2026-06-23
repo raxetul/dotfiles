@@ -152,6 +152,56 @@ global one, see [doc/agentic-promotion.md](doc/agentic-promotion.md).
    [`packages/custom-install/README.md`](packages/custom-install/README.md)
    for the full contract. Anything that's *configuration* (lives in
    `~/.config/<app>/`) belongs in `configurations/<app>/`, not here.
+10. **`.path` is the single source of truth for per-package PATH and
+    env. Centralized, clean, one bracketed segment per package.** Any
+    package that installs binaries outside the bootstrap dirs, or that
+    needs a `FOO_HOME`-style env var, gets exactly one segment in the
+    gitignored `${DOTFILES_DIR}/.path`:
+
+    ```sh
+    # >>> <pkg> begin
+    export FOO_HOME="${HOME}/.foo"
+    [ -d "${FOO_HOME}/bin" ] && case ":${PATH}:" in
+        *":${FOO_HOME}/bin:"*) ;;
+        *) PATH="${FOO_HOME}/bin:${PATH}"; export PATH ;;
+    esac
+    # >>> <pkg> end
+    ```
+
+    - **The segment is written by that package's
+      `custom-install/<pkg>/after.sh`** (rule #9), which strips the old
+      segment (`sed -i.bak '/^# >>> <pkg> begin$/,/^# >>> <pkg> end$/d'`)
+      and re-appends before adding the fresh one — idempotent. `.path`
+      is sourced by `.load`, which is sourced by
+      `configurations/{zsh,bash}/rc`.
+    - **The `[ -d ]` and `case` guards are mandatory** — they keep the
+      segment a no-op on hosts where the dir doesn't exist and
+      idempotent across shell reloads. A segment may be written on
+      every host even if only one platform needs it (the guards make
+      the others harmless), so behavior doesn't fork per distro.
+    - **The only non-package PATH entries** are the generic bootstrap
+      dirs `~/.scripts` and `~/.local/bin`, set once in `.load` (via
+      `scripts/init-load`). A tool that installs *into* `~/.local/bin`
+      needs no segment; one that installs elsewhere (atuin →
+      `~/.atuin/bin`, rustup → `~/.cargo/bin` + toolchain) does.
+    - **Never** put `PATH=…` / `export FOO_HOME=…` lines in `setup.sh`,
+      `scripts/*`, `configurations/{zsh,bash}/rc`, or any other shell
+      file. If a tool needs a path, it gets a `.path` segment via its
+      `after.sh`. No exceptions — that's what "centralized" buys us.
+11. **Reference the home directory through `${HOME}`, never a static
+    path.** Anywhere a path under the user's home is needed — in any
+    `configurations/<app>/` file, in `.load`, in `.path`, and in the
+    scripts/hooks that generate them — write `${HOME}/…` (or `$HOME/…`),
+    never a hardcoded `/home/<user>/…` or `/Users/<user>/…`. The same
+    config is symlinked across hosts and both OSes where the home root
+    differs (`/home/emrah` vs `/Users/emrah`), so a baked-in absolute
+    path breaks portability and the one-pass uninstall.
+    - Prefer the braced `${HOME}` form for quoting safety; bare `~`
+      only expands unquoted and at word start, so it silently fails
+      inside quotes or mid-string — don't rely on it in config files.
+    - For the repo root specifically, use the `${DOTFILES_DIR}`
+      variable (which itself defaults to `${HOME}/gel-ort/dotfiles`),
+      not a literal path — see `.load` / `scripts/init-load`.
 
 ## Soft conventions
 

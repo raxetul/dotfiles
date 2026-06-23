@@ -5,7 +5,9 @@
 # Desktop additions live in apt-desktop.list. Packages absent from apt
 # repos (starship, atuin, rustup, lefthook, tealdeer, bandwhich, ghostty,
 # discord, veracrypt, JetBrains Mono Nerd Font) fall through to either
-# snap.list or a release-binary bootstrap in setup.sh.
+# snap.list or a release-binary fallback in a
+# packages/custom-install/<pkg>/after.sh hook (starship, atuin,
+# lefthook; claude too, though it's on no list). See CLAUDE.md §9–§10.
 #
 # Source of truth for the apt column of doc/packages-native.md. Keep
 # the two in lockstep (CLAUDE.md §6).

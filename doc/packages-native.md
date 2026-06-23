@@ -39,8 +39,11 @@ setup.sh runs in five package-related steps:
    only with `--desktop`) or `brew bundle` on macOS.
 3. fallbacks — `aur.list` on Arch, `snap.list` elsewhere.
 4. `custom-install/*/after.sh` — provision toolchains
-   (`rustup default stable`), enable services, run self-tests.
-5. plugin bootstrap + symlinks (orthogonal to packages).
+   (`rustup default stable`), install release-binary fallbacks where
+   the native repo lacks the tool (starship/atuin/claude/lefthook),
+   and own each tool's PATH via a `.path` segment.
+5. plugin bootstrap (vim-plug, TPM, zsh plugins, bash-preexec) +
+   symlinks (orthogonal to packages).
 
 See [`packages/custom-install/README.md`](../packages/custom-install/README.md)
 for the hook contract.
@@ -83,12 +86,13 @@ for the hook contract.
 |---|---|---|---|---|---|
 | zsh | zsh | zsh | zsh | zsh | — |
 | bash | bash | bash | bash | bash | preinstalled everywhere |
-| starship | starship | starship | starship | starship | release binary `curl -sS https://starship.rs/install.sh \| sh` |
-| atuin | atuin | atuin (23.10+) | atuin | atuin | release binary `~/.local/bin/atuin` |
+| starship | starship | starship | starship | starship | apt fallback via `custom-install/starship/after.sh`: `curl -sS https://starship.rs/install.sh \| sh -s -- --bin-dir ~/.local/bin --yes` |
+| atuin | atuin | atuin (23.10+) | atuin | atuin | apt fallback via `custom-install/atuin/after.sh`: upstream installer → `~/.atuin/bin` (NOT `~/.local/bin`); PATH added via the `atuin` segment in `.path` |
 | zsh-autosuggestions | zsh-autosuggestions | zsh-autosuggestions | zsh-autosuggestions | zsh-autosuggestions | git clone → `~/.config/zsh-plugins/` |
 | zsh-syntax-highlighting | zsh-syntax-highlighting | zsh-syntax-highlighting | zsh-syntax-highlighting | zsh-syntax-highlighting | git clone |
 | zsh-history-substring-search | zsh-history-substring-search | zsh-syntax-highlighting (split) | zsh-history-substring-search | zsh-history-substring-search | git clone |
 | you-should-use (zsh plugin) | — | — | — | — | git clone `MichaelAquilina/zsh-you-should-use` → `~/.config/zsh-plugins/`; **AUR**: `zsh-you-should-use` |
+| bash-preexec | — | — | — | — | single-file dependency for atuin's bash integration; `setup.sh` Step 4 fetches `rcaloras/bash-preexec` → `~/.bash-preexec.sh`, sourced by `.load` before `atuin init bash` |
 
 ## File / search tools
 
@@ -125,9 +129,9 @@ Vim plugins themselves are declared via `Plug` directives in
 | gnupg | gnupg | gnupg | gnupg | gnupg | — |
 | pinentry-mac | pinentry-mac | n/a | n/a | n/a | macOS-only — sourced via `packages/Brewfile` |
 | pinentry-curses | n/a | pinentry-curses | pinentry | pinentry | — |
-| lefthook | lefthook | — | — | — | release binary `~/.local/bin/lefthook`, or `go install github.com/evilmartians/lefthook@latest`; **AUR**: `lefthook-bin` |
+| lefthook | lefthook | — | — | — | apt/dnf fallback via `custom-install/lefthook/after.sh`: GitHub release binary → `~/.local/bin/lefthook`; **AUR**: `lefthook-bin` |
 | shellcheck | shellcheck | shellcheck | shellcheck | ShellCheck | — |
-| claude (Claude Code) | — | — | — | — | upstream installer `curl -fsSL https://claude.ai/install.sh \| bash` → `~/.local/bin/claude`; handles platform/arch detection, idempotent on re-run |
+| claude (Claude Code) | — | — | — | — | every platform via `custom-install/claude/after.sh`: upstream installer `curl -fsSL https://claude.ai/install.sh \| bash` → `~/.local/bin/claude`; handles platform/arch detection, idempotent on re-run |
 
 ## Language toolchains
 

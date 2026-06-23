@@ -5,8 +5,10 @@
 # Desktop additions live in dnf-desktop.list. Packages absent from
 # Fedora's default repos (discord, veracrypt, ghostty, JetBrains Mono
 # Nerd Font, lefthook) fall through to snap.list or a release-binary
-# bootstrap in setup.sh. Discord and veracrypt also have RPM Fusion
-# entries — setup.sh enables RPM Fusion before installing if needed.
+# fallback in a packages/custom-install/<pkg>/after.sh hook (lefthook;
+# claude too, though it's on no list). See CLAUDE.md §9–§10. Discord and
+# veracrypt also have RPM Fusion entries — setup.sh enables RPM Fusion
+# before installing if needed.
 #
 # Source of truth for the dnf column of doc/packages-native.md. Keep
 # the two in lockstep (CLAUDE.md §6).

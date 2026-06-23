@@ -5,5 +5,3 @@
 
 export DOTFILES_DIR="${DOTFILES_DIR:-${HOME}/gel-ort/dotfiles}"
 [ -r "${DOTFILES_DIR}/.load" ] && source "${DOTFILES_DIR}/.load"
-
-eval "$(atuin init zsh)"

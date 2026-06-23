@@ -190,9 +190,13 @@ vs. what actually changed.
 
 ## Per-package inventory
 
-| Folder    | Package | `before.sh` | `after.sh`               |
-| --------- | ------- | ----------- | ------------------------ |
-| `rustup/` | rustup  | no-op stub  | toolchain + CARGO_CRATES |
+| Folder       | Package  | `before.sh` | `after.sh`                                      |
+| ------------ | -------- | ----------- | ----------------------------------------------- |
+| `rustup/`    | rustup   | no-op stub  | toolchain + CARGO_CRATES                        |
+| `starship/`  | starship | no-op stub  | apt release-binary fallback → `~/.local/bin`    |
+| `atuin/`     | atuin    | no-op stub  | apt fallback → `~/.atuin/bin` + `.path` segment |
+| `claude/`    | claude   | no-op stub  | upstream installer → `~/.local/bin` (all OSes)  |
+| `lefthook/`  | lefthook | no-op stub  | apt/dnf release-binary fallback → `~/.local/bin`|
 
 * **`rustup/after.sh`** — runs `rustup default stable` if no default
   toolchain is configured, then cargo-installs the crates listed in
@@ -200,3 +204,12 @@ vs. what actually changed.
   `cargo-edit`, `cargo-update`, `cargo-outdated`, `cargo-audit`,
   `cargo-nextest`). Edit the array to add/remove. `cargo-binstall` is
   bootstrapped first so the rest install from prebuilt binaries.
+* **`starship/`, `atuin/`, `claude/`, `lefthook/after.sh`** —
+  release-binary fallbacks for tools the native package manager may
+  not carry. Each exits early when the tool is already on PATH (i.e.
+  brew/pacman/dnf/AUR provided it) and only installs the upstream
+  binary on the platforms that lack it. **`atuin/after.sh`** is the
+  one that writes a `.path` segment: its installer lands in
+  `~/.atuin/bin`, which is *not* one of `.load`'s bootstrap dirs, so
+  the segment is what puts `atuin` on PATH. The other three install
+  into `~/.local/bin` (already on PATH) and write no segment.

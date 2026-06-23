@@ -178,6 +178,13 @@ if [ -n "${ZSH_VERSION:-}" ]; then
 elif [ -n "${BASH_VERSION:-}" ]; then
     # --- bash ----------------------------------------------------------------
 
+    # bash-preexec — gives bash the preexec/precmd hooks it lacks
+    # natively; atuin's bash integration needs them. MUST be sourced
+    # before `atuin init bash`. Provisioned by setup.sh Step 4 (plugin
+    # bootstrap); the [ -r ] guard keeps this a no-op before that runs.
+    # shellcheck disable=SC1091
+    [ -r "${HOME}/.bash-preexec.sh" ] && . "${HOME}/.bash-preexec.sh"
+
     command -v starship >/dev/null 2>&1 && eval "$(starship init bash)"
     command -v atuin    >/dev/null 2>&1 && eval "$(atuin init bash)"
     command -v zoxide   >/dev/null 2>&1 && eval "$(zoxide init bash)"
