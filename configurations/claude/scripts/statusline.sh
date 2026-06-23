@@ -37,17 +37,16 @@ account_email="$(jq -r '.oauthAccount.emailAddress // ""' "${HOME}/.claude.json"
 # colors
 # ---------------------------------------------------------------------------
 RST=$'\033[0m'; B=$'\033[1m'; DIM=$'\033[2m'
-GRN=$'\033[32m'; YEL=$'\033[33m'; RED=$'\033[31m'; CYN=$'\033[36m'; BLU=$'\033[34m'
+GRN=$'\033[32m'; YEL=$'\033[33m'; RED=$'\033[31m'; CYN=$'\033[36m'; BLU=$'\033[34m'; MAG=$'\033[35m'
 
 # ---------------------------------------------------------------------------
-# width helpers (account for the few wide glyphs we emit: 📁 ⚡)
+# width helpers (each wide emoji we emit counts as 2 cols, not 1)
 # ---------------------------------------------------------------------------
+WIDE_GLYPHS=(📁 💻 ⚡ 📧 🌿 🤖 🔖 📊)
 count_occ() { local h="$1" n="$2" t="${1//$2/}"; echo $(( ${#h} - ${#t} )); }
 vislen() {                       # visible columns of a plain (uncolored) string
-  local s="$1" extra=0
-  extra=$(( extra + $(count_occ "$s" "📁") ))
-  extra=$(( extra + $(count_occ "$s" "💻") ))
-  extra=$(( extra + $(count_occ "$s" "⚡") ))
+  local s="$1" extra=0 g
+  for g in "${WIDE_GLYPHS[@]}"; do extra=$(( extra + $(count_occ "$s" "$g") )); done
   echo $(( ${#s} + extra ))
 }
 trunc() {                        # $1 string, $2 max cols -> truncated with …
@@ -60,6 +59,13 @@ cell() {                         # $1 plaintext, $2 color -> exactly COLW cols, 
   local s pad vl; s="$(trunc "$1" "$COLW")"; vl=$(vislen "$s")
   pad=$(( COLW - vl )); [ "$pad" -lt 0 ] && pad=0
   printf '%b%s%b%*s' "$2" "$s" "$RST" "$pad" ''
+}
+seg() { printf '%b%s%b' "$2" "$1" "$RST"; }   # $1 text, $2 color -> colored, no padding
+mcell() {                        # $1 plaintext, $2 pre-colored, $3 fallback color
+  local plain="$1" colored="$2" fb="$3" vl   # multi-color line padded to COLW;
+  vl="$(vislen "$plain")"                     # falls back to a truncated cell when too wide
+  if [ "$vl" -gt "$COLW" ]; then cell "$plain" "$fb"
+  else printf '%s%*s' "$colored" "$(( COLW - vl ))" ''; fi
 }
 
 # ---------------------------------------------------------------------------
@@ -75,25 +81,43 @@ COLW=$(( (W - 6) / 3 ))
 # ---------------------------------------------------------------------------
 # LEFT PANE — workspace (extend here: add a row -> L4, etc.)
 # ---------------------------------------------------------------------------
+# Each row carries two items, each with its own icon + color, separated by 2 spaces.
 host="$(hostname -s 2>/dev/null || printf '%s' "${HOSTNAME%%.*}")"
-disp_cwd="💻 ${host} 📁 ${cwd/#$HOME/\~}"
+cwd_disp="${cwd/#$HOME/\~}"
+
+# L1 — host (💻 cyan) · cwd (📁 blue)
+L1_PLAIN="💻 ${host} 📁 ${cwd_disp}"
+L1_COL="$(seg "💻 ${host}" "$B$CYN") $(seg "📁 ${cwd_disp}" "$B$BLU")"
+
+# L2 — account email (📧 yellow) · git branch (🌿 green, red when no repo)
 branch=""
 if git -C "$cwd" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   branch="$(git -C "$cwd" symbolic-ref --quiet --short HEAD 2>/dev/null \
             || git -C "$cwd" rev-parse --short HEAD 2>/dev/null)"
   if [ -n "$(git -C "$cwd" status --porcelain 2>/dev/null)" ]; then branch="${branch}*"; fi
-  git_txt=" ${branch}"
+  git_item="🌿 ${branch}"; git_col="$GRN"
 else
-  git_txt=" (no git)"
+  git_item="🌿 (no git)"; git_col="$RED"
 fi
-# account email precedes the git segment on the same line
-L2_TXT="${account_email}${git_txt}"
-L3_TXT=" ${model}"
-[ -n "$version" ] && L3_TXT="$L3_TXT · v${version}"
+if [ -n "$account_email" ]; then
+  L2_PLAIN="📧 ${account_email} ${git_item}"
+  L2_COL="$(seg "📧 ${account_email}" "$YEL") $(seg "${git_item}" "$git_col")"
+else
+  L2_PLAIN="${git_item}"
+  L2_COL="$(seg "${git_item}" "$git_col")"
+fi
 
-L1="$(cell "$disp_cwd" "$B$CYN")"
-L2="$(cell "$L2_TXT" "$GRN")"
-L3="$(cell "$L3_TXT" "$DIM")"
+# L3 — model (🤖 magenta) · version (🔖 dim)
+L3_PLAIN="🤖 ${model}"
+L3_COL="$(seg "🤖 ${model}" "$MAG")"
+if [ -n "$version" ]; then
+  L3_PLAIN="${L3_PLAIN} 🔖 v${version}"
+  L3_COL="${L3_COL} $(seg "🔖 v${version}" "$DIM")"
+fi
+
+L1="$(mcell "$L1_PLAIN" "$L1_COL" "$B$CYN")"
+L2="$(mcell "$L2_PLAIN" "$L2_COL" "$GRN")"
+L3="$(mcell "$L3_PLAIN" "$L3_COL" "$DIM")"
 
 # ---------------------------------------------------------------------------
 # MIDDLE PANE — context-mode (context-window meter)
@@ -139,7 +163,10 @@ for ((x=0;x<empty;x++)); do bar_empty+="░"; done
 
 if [ "$used" -gt 0 ]; then
   M1="$(cell "⚡ context  ${pct}%" "$B$MC")"
-  M2="$(cell " $(human "$used") / $(human "$win")" "$DIM")"
+  # used tokens take the fill color, the window total stays dim
+  M2_PLAIN="📊 $(human "$used") / $(human "$win")"
+  M2_COL="$(seg "📊 $(human "$used")" "$MC")$(seg " / $(human "$win")" "$DIM")"
+  M2="$(mcell "$M2_PLAIN" "$M2_COL" "$DIM")"
   # bar built to an exact known width, then padded manually
   bartxt="[${bar_fill}${bar_empty}]"
   barpad=$(( COLW - (barw + 2) )); [ "$barpad" -lt 0 ] && barpad=0
