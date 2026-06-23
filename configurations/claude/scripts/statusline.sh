@@ -2,7 +2,7 @@
 # statusline.sh — Claude Code status line, rendered as 3 columns × 3 lines.
 #
 #   ┌ LEFT (workspace) ──┐ ┌ MIDDLE (context-mode) ┐ ┌ RIGHT (agentic phases) ┐
-#   │ 📁 cwd             │ │ ⚡ context  12%        │ │ ✓ <completed phase>    │
+#   │ 💻 host 📁 cwd     │ │ ⚡ context  12%        │ │ ✓ <completed phase>    │
 #   │  branch* (git)     │ │ 121k / 1.0M            │ │ ▶ <current phase>      │
 #   │  model · vX.Y      │ │ [████░░░░░░░░░░░]      │ │ ○ <next phase>         │
 #   └────────────────────┘ └───────────────────────┘ └────────────────────────┘
@@ -31,6 +31,7 @@ model_id="$(jqr '.model.id // ""')"
 version="$(jqr '.version // ""')"
 transcript="$(jqr '.transcript_path // ""')"
 exceeds200k="$(jqr '.exceeds_200k_tokens // false')"
+account_email="$(jq -r '.oauthAccount.emailAddress // ""' "${HOME}/.claude.json" 2>/dev/null)"
 
 # ---------------------------------------------------------------------------
 # colors
@@ -45,6 +46,7 @@ count_occ() { local h="$1" n="$2" t="${1//$2/}"; echo $(( ${#h} - ${#t} )); }
 vislen() {                       # visible columns of a plain (uncolored) string
   local s="$1" extra=0
   extra=$(( extra + $(count_occ "$s" "📁") ))
+  extra=$(( extra + $(count_occ "$s" "💻") ))
   extra=$(( extra + $(count_occ "$s" "⚡") ))
   echo $(( ${#s} + extra ))
 }
@@ -73,16 +75,19 @@ COLW=$(( (W - 6) / 3 ))
 # ---------------------------------------------------------------------------
 # LEFT PANE — workspace (extend here: add a row -> L4, etc.)
 # ---------------------------------------------------------------------------
-disp_cwd="📁 ${cwd/#$HOME/\~}"
+host="$(hostname -s 2>/dev/null || printf '%s' "${HOSTNAME%%.*}")"
+disp_cwd="💻 ${host} 📁 ${cwd/#$HOME/\~}"
 branch=""
 if git -C "$cwd" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   branch="$(git -C "$cwd" symbolic-ref --quiet --short HEAD 2>/dev/null \
             || git -C "$cwd" rev-parse --short HEAD 2>/dev/null)"
   if [ -n "$(git -C "$cwd" status --porcelain 2>/dev/null)" ]; then branch="${branch}*"; fi
-  L2_TXT=" ${branch}"
+  git_txt=" ${branch}"
 else
-  L2_TXT=" (no git)"
+  git_txt=" (no git)"
 fi
+# account email precedes the git segment on the same line
+L2_TXT="${account_email}${git_txt}"
 L3_TXT=" ${model}"
 [ -n "$version" ] && L3_TXT="$L3_TXT · v${version}"
 
