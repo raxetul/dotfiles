@@ -189,7 +189,7 @@ candidate package sets; uncomment the one matching your install.
 |---|---|---|---|---|---|
 | Font Awesome | font-fontawesome | fonts-font-awesome | ttf-font-awesome | fontawesome-fonts | — |
 | JetBrains Mono | font-jetbrains-mono | fonts-jetbrains-mono | ttf-jetbrains-mono | jetbrains-mono-fonts | — |
-| JetBrains Mono Nerd Font | font-jetbrains-mono-nerd-font | — | ttf-jetbrains-mono-nerd | — | release zip from `nerdfonts.com` → `~/.local/share/fonts/`, then `fc-cache -fv`; **AUR**: `nerd-fonts-jetbrains-mono` |
+| JetBrains Mono Nerd Font | font-jetbrains-mono-nerd-font | — | ttf-jetbrains-mono-nerd | — | apt/dnf: `custom-install/jetbrains-mono-nerd-font/after.sh` fetches the upstream release zip into `~/.local/share/fonts/` + `fc-cache -f` (idempotent, user-scoped); **AUR**: `nerd-fonts-jetbrains-mono` |
 
 ## Linux desktop — Wayland / window stack
 
