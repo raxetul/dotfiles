@@ -202,6 +202,27 @@ global one, see [doc/agentic-promotion.md](doc/agentic-promotion.md).
     - For the repo root specifically, use the `${DOTFILES_DIR}`
       variable (which itself defaults to `${HOME}/gel-ort/dotfiles`),
       not a literal path — see `.load` / `scripts/init-load`.
+12. **Migrating a live config into the repo follows one fixed
+    procedure** — the same one used for `claude` and `ghostty`. To
+    bring an app's existing config under management:
+    1. **Probe for secrets and runtime state first.** Move only the
+       files the user hand-edits; never the credential/cache/history
+       artifacts (the `claude` migration deliberately left
+       `.credentials.json`, `history.jsonl`, `projects/`, `sessions/`
+       behind). If a file's sensitivity is unclear, ask before moving.
+    2. **Move (don't copy)** the file into `configurations/<app>/`,
+       preserving its path layout under `~/.config` (a nested
+       `~/.config/<app>/sub/foo` → `configurations/<app>/sub/foo`).
+    3. **Symlink it back** with `ln -sfn <repo-src> <live-dst>` so the
+       user's edits keep taking effect live.
+    4. **Register the mapping** in the `COMMON_LINKS` (or a
+       platform-specific) array in `scripts/symlinks.sh`, with a
+       `${HOME}`-relative `dst` (rule #1, #11). A whole directory may
+       be linked as one entry (see `scripts::.scripts`).
+    5. **Verify**: `scripts/symlinks.sh list` shows the new entry and
+       `readlink` on the live path resolves into the repo.
+    The `/migrate-config` command automates steps 2–5 (and prompts on
+    step 1). Use it rather than doing the moves ad hoc.
 
 ## Soft conventions
 
@@ -229,6 +250,7 @@ See `.claude/commands/` for the full set. Quick map:
 | `/update` | Runs `scripts/update-dotfiles`. Forwards `--dry-run` / `--desktop` / `--only=…` when asked.        |
 | `/commit` | Builds a Conventional Commit message from `git diff --cached`.                                     |
 | `/check`  | Runs `shellcheck scripts/*.sh setup.sh`, validates `packages/*.list`, and `commitlint --from origin/main`. |
+| `/migrate-config` | Brings a live `~/.config/<app>` config under the repo: probe → move → symlink back → wire `COMMON_LINKS` → verify (per hard rule #12). |
 
 ## Skills
 
