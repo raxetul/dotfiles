@@ -118,6 +118,7 @@ elif [ "${OS}" = "Linux" ] && [ -f /etc/os-release ]; then
     UPGRADE_CMD=""
     BASELINE=""
     DESKTOP=""
+    PKG_KIND=""
     case "${ID:-}" in
         debian|ubuntu|pop|linuxmint)
             UPDATE_CMD="sudo apt-get update"
@@ -125,6 +126,7 @@ elif [ "${OS}" = "Linux" ] && [ -f /etc/os-release ]; then
             UPGRADE_CMD="sudo apt-get upgrade -y"
             BASELINE="${DIR}/packages/apt.list"
             DESKTOP="${DIR}/packages/apt-desktop.list"
+            PKG_KIND="apt"
             ;;
         arch|manjaro|endeavouros|artix)
             UPDATE_CMD="sudo pacman -Syy --noconfirm"
@@ -132,6 +134,7 @@ elif [ "${OS}" = "Linux" ] && [ -f /etc/os-release ]; then
             UPGRADE_CMD="sudo pacman -Syu --noconfirm"
             BASELINE="${DIR}/packages/pacman.list"
             DESKTOP="${DIR}/packages/pacman-desktop.list"
+            PKG_KIND="pacman"
             ;;
         fedora|rhel|centos|almalinux|rocky)
             UPDATE_CMD="sudo dnf check-update || true"
@@ -139,11 +142,32 @@ elif [ "${OS}" = "Linux" ] && [ -f /etc/os-release ]; then
             UPGRADE_CMD="sudo dnf upgrade -y"
             BASELINE="${DIR}/packages/dnf.list"
             DESKTOP="${DIR}/packages/dnf-desktop.list"
+            PKG_KIND="dnf"
             ;;
         *)
             say "distro ${ID:-unknown} not mapped; skipping native package install"
             ;;
     esac
+
+    # Drop apt packages that have no install candidate on this release
+    # (rust-analyzer, mold, … are version-gated to newer Debian/Ubuntu).
+    # apt-get install is all-or-nothing: one unknown name aborts the whole
+    # batch and installs nothing, so filter them out here — logging each
+    # skip — rather than letting the run fail. Needs the apt cache, which
+    # the UPDATE_CMD above has already refreshed.
+    apt_keep_installable() {
+        local p cand keep=()
+        for p in "$@"; do
+            cand="$(apt-cache policy "${p}" 2>/dev/null \
+                    | awk -F': ' '/Candidate:/{print $2; exit}')"
+            if [ -n "${cand}" ] && [ "${cand}" != "(none)" ]; then
+                keep+=("${p}")
+            else
+                say "  skip (no apt candidate on this release): ${p}"
+            fi
+        done
+        printf '%s ' "${keep[@]}"
+    }
 
     if [ -n "${INSTALL_CMD}" ]; then
         eval "${UPDATE_CMD}"
@@ -153,7 +177,14 @@ elif [ "${OS}" = "Linux" ] && [ -f /etc/os-release ]; then
         [ "${PROFILE}" = "desktop" ] && LISTS+=("${DESKTOP}")
         for list in "${LISTS[@]}"; do
             [ -f "${list}" ] || continue
-            pkgs="$(grep -vE '^\s*(#|$)' "${list}" | tr '\n' ' ')"
+            # Strip full-line AND inline `# …` comments, then blank lines.
+            pkgs="$(sed -E 's/[[:space:]]*#.*$//' "${list}" \
+                    | grep -vE '^\s*$' | tr '\n' ' ')"
+            # On apt, prune entries with no candidate so the batch survives.
+            if [ "${PKG_KIND}" = "apt" ] && [ -n "${pkgs}" ]; then
+                # shellcheck disable=SC2086
+                pkgs="$(apt_keep_installable ${pkgs})"
+            fi
             if [ -n "${pkgs}" ]; then
                 say "installing from ${list##*/}"
                 # shellcheck disable=SC2086

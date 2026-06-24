@@ -36,7 +36,12 @@ setup.sh runs in five package-related steps:
 1. `custom-install/*/before.sh` — register third-party repos, accept
    upstream keys, pre-create config dirs.
 2. native install — distro-detected `*.list` pair (`*-desktop.list`
-   only with `--desktop`) or `brew bundle` on macOS.
+   only with `--desktop`) or `brew bundle` on macOS. Inline `# …`
+   comments are stripped first; on apt, packages with no install
+   candidate on the running release (version-gated entries like
+   `rust-analyzer` / `mold` on pre-12 Debian or pre-22.04 Ubuntu) are
+   pruned with a logged skip, so one missing name can't abort the
+   whole batch.
 3. fallbacks — `aur.list` on Arch, `snap.list` elsewhere.
 4. `custom-install/*/after.sh` — provision toolchains
    (`rustup default stable`), install release-binary fallbacks where
