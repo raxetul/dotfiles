@@ -45,6 +45,7 @@ COMMON_LINKS=(
   "configurations/ghostty/config::.config/ghostty/config"
   "configurations/tmux/tmux.conf::.config/tmux/tmux.conf"
   "configurations/claude/settings.json::.claude/settings.json"
+  "configurations/claude/CLAUDE.md::.claude/CLAUDE.md"
   "configurations/claude/scripts::.claude/scripts"
   "scripts::.scripts"
 )
