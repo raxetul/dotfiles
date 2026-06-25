@@ -46,7 +46,6 @@ ShellCheck
 # Language toolchains
 golang
 rustup
-rust-analyzer       # Rust LSP server (Fedora 35+)
 nodejs
 llvm
 clang-tools-extra

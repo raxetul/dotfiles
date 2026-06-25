@@ -38,10 +38,9 @@ setup.sh runs in five package-related steps:
 2. native install — distro-detected `*.list` pair (`*-desktop.list`
    only with `--desktop`) or `brew bundle` on macOS. Inline `# …`
    comments are stripped first; on apt, packages with no install
-   candidate on the running release (version-gated entries like
-   `rust-analyzer` / `mold` on pre-12 Debian or pre-22.04 Ubuntu) are
-   pruned with a logged skip, so one missing name can't abort the
-   whole batch.
+   candidate on the running release (version-gated entries like `mold`
+   on pre-12 Debian or pre-22.04 Ubuntu) are pruned with a logged skip,
+   so one missing name can't abort the whole batch.
 3. fallbacks — `aur.list` on Arch, `snap.list` elsewhere.
 4. `custom-install/*/after.sh` — provision toolchains
    (`rustup default stable`), install release-binary fallbacks where
@@ -143,8 +142,7 @@ Vim plugins themselves are declared via `Plug` directives in
 | Package | brew | apt | pacman | dnf | Fallback |
 |---|---|---|---|---|---|
 | go | go | golang-go | go | golang | — |
-| rustup | rustup-init | rustup (23.10+) | rustup | rustup | `curl https://sh.rustup.rs -sSf \| sh` |
-| rust-analyzer | rust-analyzer | rust-analyzer (22.04+ / Debian 12+) | rust-analyzer | rust-analyzer (35+) | `rustup component add rust-analyzer` |
+| rustup | rustup-init | rustup (23.10+) | rustup | rustup | `curl https://sh.rustup.rs -sSf \| sh`. rust-analyzer is no longer a managed package — add it on demand with `rustup component add rust-analyzer`. |
 | mold (Rust linker, Linux only) | — | mold (22.10+ / Debian 12+) | mold | mold (36+) | release tarball from `rui314/mold`; on macOS use system linker (mold links ELF only) |
 | nodejs (LTS, 24.x today) | node | nodejs (NodeSource repo) | nodejs | nodejs | NodeSource / volta / nvm |
 | llvm | llvm | llvm | llvm | llvm | — |

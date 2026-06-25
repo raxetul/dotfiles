@@ -38,7 +38,6 @@ brew "shellcheck"
 # === Language toolchains ===
 brew "go"
 brew "rustup-init"
-brew "rust-analyzer"       # Rust LSP server (used by neovim/lspconfig + helix)
 brew "node"
 brew "llvm"
 brew "clang-format"
