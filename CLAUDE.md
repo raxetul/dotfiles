@@ -223,6 +223,14 @@ global one, see [doc/agentic-promotion.md](doc/agentic-promotion.md).
        `readlink` on the live path resolves into the repo.
     The `/migrate-config` command automates steps 2–5 (and prompts on
     step 1). Use it rather than doing the moves ad hoc.
+13. **Centralized Claude commands and rules are always tracked.** Every
+    slash command under `configurations/claude/commands/` and every
+    global rule in `configurations/claude/CLAUDE.md` must be committed
+    — never left untracked. Both are symlinked globally (the whole
+    `commands/` dir and `CLAUDE.md` into `~/.claude/`), so an untracked
+    file works on this host but silently vanishes on a fresh clone. When
+    a new command or global rule appears there (often authored live via
+    `~/.claude/`), commit it in the same pass; don't leave it dangling.
 
 ## Soft conventions
 
