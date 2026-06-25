@@ -119,6 +119,25 @@ do_or_say_sh() {
     fi
 }
 
+# apt_keep_installable <pkgs...> — echo only packages that have an install
+# candidate on this release, logging each skip. apt-get install is
+# all-or-nothing, so one version-gated name (rust-analyzer / mold on older
+# Ubuntu/Debian) would otherwise abort the whole batch. Needs the apt cache,
+# refreshed by the update_cmd run just before.
+apt_keep_installable() {
+    local p cand keep=()
+    for p in "$@"; do
+        cand="$(apt-cache policy "${p}" 2>/dev/null \
+                | awk -F': ' '/Candidate:/{print $2; exit}')"
+        if [ -n "${cand}" ] && [ "${cand}" != "(none)" ]; then
+            keep+=("${p}")
+        else
+            printf '   skip (no apt candidate on this release): %s\n' "${p}"
+        fi
+    done
+    printf '%s ' "${keep[@]}"
+}
+
 run_stage() {
     local name="$1"; shift
     note "stage: ${name}"
@@ -167,7 +186,7 @@ stage_packages_native_linux() {
     fi
     # shellcheck source=/dev/null
     . /etc/os-release
-    local install_cmd update_cmd upgrade_cmd baseline desktop_list
+    local install_cmd update_cmd upgrade_cmd baseline desktop_list pkg_kind
     case "${ID:-}" in
         debian|ubuntu|pop|linuxmint)
             update_cmd="sudo apt-get update"
@@ -175,6 +194,7 @@ stage_packages_native_linux() {
             install_cmd="sudo apt-get install -y"
             baseline="${REPO_ROOT}/packages/apt.list"
             desktop_list="${REPO_ROOT}/packages/apt-desktop.list"
+            pkg_kind="apt"
             ;;
         arch|manjaro|endeavouros|artix)
             update_cmd="sudo pacman -Syy --noconfirm"
@@ -182,6 +202,7 @@ stage_packages_native_linux() {
             install_cmd="sudo pacman -S --needed --noconfirm"
             baseline="${REPO_ROOT}/packages/pacman.list"
             desktop_list="${REPO_ROOT}/packages/pacman-desktop.list"
+            pkg_kind="pacman"
             ;;
         fedora|rhel|centos|almalinux|rocky)
             update_cmd="sudo dnf check-update || true"
@@ -189,6 +210,7 @@ stage_packages_native_linux() {
             install_cmd="sudo dnf install -y"
             baseline="${REPO_ROOT}/packages/dnf.list"
             desktop_list="${REPO_ROOT}/packages/dnf-desktop.list"
+            pkg_kind="dnf"
             ;;
         *)
             note "distro ${ID:-unknown} not mapped; skipping native update"
@@ -204,7 +226,14 @@ stage_packages_native_linux() {
     for list in "${lists[@]}"; do
         [ -f "${list}" ] || continue
         local pkgs
-        pkgs="$(grep -vE '^\s*(#|$)' "${list}" | tr '\n' ' ')"
+        # Strip full-line AND inline `# …` comments, then blank lines.
+        pkgs="$(sed -E 's/[[:space:]]*#.*$//' "${list}" \
+                | grep -vE '^\s*$' | tr '\n' ' ')"
+        # On apt, prune entries with no candidate so the batch survives.
+        if [ "${pkg_kind}" = "apt" ] && [ -n "${pkgs}" ]; then
+            # shellcheck disable=SC2086
+            pkgs="$(apt_keep_installable ${pkgs})"
+        fi
         if [ -n "${pkgs}" ]; then
             note "installing from ${list##*/}"
             # shellcheck disable=SC2086
