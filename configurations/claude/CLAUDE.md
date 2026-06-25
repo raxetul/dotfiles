@@ -5,16 +5,12 @@ repo-local `CLAUDE.md` and the organization instructions. When a
 repo-local rule or the organization instructions conflict with
 something here, those win.
 
-## Backend framework defaults
+## Adding rules: prefer project-scoped commands
 
-When building a backend service, default to the idiomatic framework for
-the language:
-
-- **Rust** → Loco (`loco.rs`).
-- **Java** → Spring Boot.
-- **JavaScript / TypeScript** → NestJS.
-
-If the project already uses a different backend framework, match the
-existing stack rather than introducing a second one — and if a new
-service genuinely warrants a different choice, say so and confirm before
-proceeding.
+Keep this global file small — it loads into every session. When I ask
+for something to be "added to global", first **offer a project-specific
+mechanism**: a slash command that writes the rule into an individual
+project's `CLAUDE.md` on demand, rather than growing this always-loaded
+file. The `/backend-stack` command (pins a project's backend framework
+by language) is the reference pattern. Only put a rule here when it
+genuinely must apply everywhere.

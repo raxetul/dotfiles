@@ -46,6 +46,7 @@ COMMON_LINKS=(
   "configurations/tmux/tmux.conf::.config/tmux/tmux.conf"
   "configurations/claude/settings.json::.claude/settings.json"
   "configurations/claude/CLAUDE.md::.claude/CLAUDE.md"
+  "configurations/claude/commands::.claude/commands"
   "configurations/claude/scripts::.claude/scripts"
   "scripts::.scripts"
 )
