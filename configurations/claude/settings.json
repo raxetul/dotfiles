@@ -52,6 +52,9 @@
     "command": "$HOME/.claude/scripts/statusline.sh",
     "padding": 0
   },
+  "enabledPlugins": {
+    "context-mode@context-mode": true
+  },
   "extraKnownMarketplaces": {
     "context-mode": {
       "source": {
@@ -62,7 +65,5 @@
   },
   "theme": "dark",
   "teammateMode": "tmux",
-  "enabledPlugins": {
-    "context-mode@context-mode": true
-  }
+  "tui": "fullscreen"
 }
