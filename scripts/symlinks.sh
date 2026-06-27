@@ -47,6 +47,7 @@ COMMON_LINKS=(
   "configurations/claude/settings.json::.claude/settings.json"
   "configurations/claude/CLAUDE.md::.claude/CLAUDE.md"
   "configurations/claude/commands::.claude/commands"
+  "configurations/claude/hooks/context-mode-cache-heal.mjs::.claude/hooks/context-mode-cache-heal.mjs"
   "configurations/claude/scripts::.claude/scripts"
   "scripts::.scripts"
 )
