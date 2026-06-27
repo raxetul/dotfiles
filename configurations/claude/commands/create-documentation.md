@@ -1,5 +1,5 @@
 ---
-description: Generate or refresh a project's docs/ tree (Markdown + embeddable Mermaid) in one of two house styles — work or personal.
+description: Generate or refresh a project's docs/ tree (Markdown + embeddable Mermaid) in one of two house styles — work (Büyütech green) or personal (turquoise).
 argument-hint: "[work|personal] [topic/scope notes — optional]"
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash(ls*), Bash(find*), Bash(test*), Bash(cat*), Bash(git*)
 ---
@@ -66,6 +66,32 @@ Rules:
 
 ## Step 3 — apply the chosen style
 
+### Edge & line conventions (both styles — STRICT, enforced)
+
+Use **only** these edge types — each has fixed meaning, and no other edge
+styling is permitted. This keeps every diagram uniform and the `.mmd` ↔ inline
+copies stable.
+
+| Meaning | Syntax |
+|---|---|
+| Primary / control flow | `A --> B` |
+| Main / emphasized path | `A ==> B` |
+| Secondary · reads · async · optional | `A -.-> B` |
+| Association (no direction) | `A --- B` |
+| Layout spacing only (invisible) | `A ~~~ B` |
+| Labeled edge | `A -- label --> B` |
+
+Shape and color/weight come from the init block + one `linkStyle default` line
+(per style, below). Rules:
+
+- **Never use `linkStyle <index>`** — index styling breaks when edges are
+  reordered. Only `linkStyle default` is allowed.
+- **Do not put `stroke-dasharray` in `linkStyle default`** — let `-.->` supply
+  the dotted look from syntax.
+- Line **weight semantics** stay with syntax (`==>` heavier than `-->`). If the
+  `linkStyle default` width visually flattens an emphasized `==>` edge, give only
+  those edges a targeted `linkStyle` width and say why.
+
 ### A) WORK style — professional, Büyütech **green** theme
 
 Tone: precise, neutral, third-person; no decorative emoji (semantic status
@@ -98,17 +124,24 @@ manifests in the Mermaid diagrams (GitHub Markdown can't recolor prose).
 Callouts: `> **Note:** …`, `> **Warning:** …`. Close each doc with a one-line
 maintenance footer: `> Maintained under \`docs/\`. Keep in sync with the source.`
 
-**Mermaid theme line** (first line after the `%%` title comment in every `.mmd`,
-and in every inline block):
+**Mermaid init** — first line after the `%%` title comment in every `.mmd` and
+every inline block:
 
 ```
-%%{init: {'theme':'base','themeVariables':{'primaryColor':'#1e293b','primaryTextColor':'#f8fafc','primaryBorderColor':'#475569','lineColor':'#64748b','secondaryColor':'#334155','tertiaryColor':'#0f172a','fontFamily':'Inter, Segoe UI, sans-serif'}}}%%
+%%{init: {'theme':'base','themeVariables':{'primaryColor':'#0E7A3C','primaryTextColor':'#ffffff','primaryBorderColor':'#0A5C2D','lineColor':'#14532D','secondaryColor':'#34A853','tertiaryColor':'#E8F5E9','fontFamily':'Inter, Segoe UI, sans-serif'},'flowchart':{'curve':'basis'}}}%%
 ```
 
-### B) PERSONAL style — playful, vibrant
+**Link defaults** — last line of the graph:
+
+```
+linkStyle default stroke:#14532D,stroke-width:1.5px;
+```
+
+### B) PERSONAL style — playful, **turquoise** theme
 
 Tone: friendly, first-person, energetic. Emoji section headers welcome. Use
-callout blockquotes liberally. Keep it skimmable and fun, still accurate.
+callout blockquotes liberally. Keep it skimmable and fun, still accurate. The
+turquoise palette manifests in the Mermaid diagrams.
 
 **Every Markdown file opens with this header:**
 
@@ -126,11 +159,17 @@ callout blockquotes liberally. Keep it skimmable and fun, still accurate.
 Callouts: `> 💡 **Tip:** …`, `> ⚠️ **Heads up:** …`, `> 🎯 **TL;DR:** …`. Close
 each doc with a friendly sign-off line.
 
-**Mermaid theme line** (first line after the `%%` title comment in every `.mmd`,
-and in every inline block):
+**Mermaid init** — first line after the `%%` title comment in every `.mmd` and
+every inline block:
 
 ```
-%%{init: {'theme':'base','themeVariables':{'primaryColor':'#7c3aed','primaryTextColor':'#ffffff','primaryBorderColor':'#a855f7','lineColor':'#ec4899','secondaryColor':'#06b6d4','tertiaryColor':'#f472b6','fontFamily':'Trebuchet MS, Poppins, sans-serif'}}}%%
+%%{init: {'theme':'base','themeVariables':{'primaryColor':'#14B8A6','primaryTextColor':'#ffffff','primaryBorderColor':'#0D9488','lineColor':'#0EA5E9','secondaryColor':'#2DD4BF','tertiaryColor':'#CFFAFE','fontFamily':'Trebuchet MS, Poppins, sans-serif'},'flowchart':{'curve':'basis'}}}%%
+```
+
+**Link defaults** — last line of the graph:
+
+```
+linkStyle default stroke:#0EA5E9,stroke-width:2px;
 ```
 
 ## Step 4 — write & report
