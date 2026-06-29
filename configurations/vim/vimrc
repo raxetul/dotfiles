@@ -7,6 +7,59 @@
 let mapleader = " "
 let maplocalleader = ","
 
+" --- plugins (vim-plug) ------------------------------------------------------
+" Replaces what Home Manager's programs.{vim,neovim}.plugins used to wire
+" declaratively. vim-plug is bootstrapped by setup.sh (~/.vim/autoload/plug.vim);
+" run :PlugInstall on first launch to fetch these. Plugin config + mappings
+" follow below; the catppuccin colorscheme is applied after plug#end().
+call plug#begin('~/.vim/plugged')
+
+" file tree
+Plug 'preservim/nerdtree'
+Plug 'tiagofumo/vim-nerdtree-syntax-highlight'
+Plug 'ryanoasis/vim-devicons'
+
+" fuzzy finder (the fzf binary comes from the native package; these add the
+" Vim integration and :Files / :Rg / :Buffers / :BLines commands)
+Plug 'junegunn/fzf'
+Plug 'junegunn/fzf.vim'
+
+" git
+Plug 'tpope/vim-fugitive'
+Plug 'airblade/vim-gitgutter'
+Plug 'tpope/vim-rhubarb'
+
+" editing
+Plug 'tpope/vim-surround'
+Plug 'tpope/vim-commentary'
+Plug 'tpope/vim-repeat'
+Plug 'jiangmiao/auto-pairs'
+Plug 'terryma/vim-multiple-cursors'
+Plug 'godlygeek/tabular'
+Plug 'easymotion/vim-easymotion'
+
+" UI
+Plug 'vim-airline/vim-airline'
+Plug 'vim-airline/vim-airline-themes'
+Plug 'catppuccin/vim', { 'as': 'catppuccin' }
+Plug 'Yggdroot/indentLine'
+
+" syntax + lint
+Plug 'sheerun/vim-polyglot'
+Plug 'dense-analysis/ale'
+
+" snippets
+Plug 'SirVer/ultisnips'
+Plug 'honza/vim-snippets'
+
+" buffer mgmt
+Plug 'jlanzarotta/bufexplorer'
+
+" QoL
+Plug 'tpope/vim-sensible'
+
+call plug#end()
+
 " --- core --------------------------------------------------------------------
 filetype plugin indent on
 syntax on
