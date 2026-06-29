@@ -42,6 +42,11 @@ esac
 REPO_ROOT="${DOTFILES_DIR:-${HOME}/gel-ort/dotfiles}"
 SCRIPT="${REPO_ROOT}/packages/custom-install/${PKG}/${HOOK}.sh"
 
+# Realized-state ledger — record that this hook ran (its .path segment, if
+# any, is self-describing via the `# >>> <pkg> begin/end` markers).
+# shellcheck source=scripts/dotfiles-state.sh
+. "${REPO_ROOT}/scripts/dotfiles-state.sh"
+
 LOG_DIR="${XDG_STATE_HOME:-${HOME}/.local/state}/dotfiles"
 LOG_FILE="${LOG_DIR}/custom-install.log"
 mkdir -p "${LOG_DIR}"
@@ -63,5 +68,7 @@ set +e
 DRY_RUN="${DRY_RUN:-0}" "${SCRIPT}" 2>&1 | tee -a "${LOG_FILE}"
 rc=${PIPESTATUS[0]}
 set -e
+
+state_record custom-hook run "${PKG}/${HOOK}" "rc=${rc}"
 
 exit "${rc}"

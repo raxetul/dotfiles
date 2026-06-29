@@ -32,6 +32,7 @@ graph TD
 | `setup.sh`          | (this README) — bootstrap entrypoint |
 | `scripts/symlinks.sh` | (inline help via `--help`) — symlink driver |
 | `scripts/update-dotfiles` | (inline help) — refresh entrypoint |
+| `scripts/dotfiles-state.sh` | [state-management.md](state-management.md) — realized-state ledger |
 | `scripts/gpg-setup.sh` | (inline help) — GPG signing wizard |
 | `scripts/nix-uninstall.sh` | (inline help) — legacy Nix cleanup |
 
@@ -69,4 +70,5 @@ graph TD
 | Topic              | Doc                                                                                                 |
 | ------------------ | --------------------------------------------------------------------------------------------------- |
 | Theming            | [theming.md](theming.md) — Catppuccin Mocha palette + per-app mapping.                              |
+| Footprint / state  | [state-management.md](state-management.md) — the realized-state ledger that records what got planted (and what we may safely remove). |
 | Agentic promotion  | [agentic-promotion.md](agentic-promotion.md) — lifting rules from repo-local `.claude/` to global. |

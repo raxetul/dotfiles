@@ -1,8 +1,22 @@
 ---
-status: planning
+status: in-progress
 branch: refactor/v3-native
 maintainer: emrahurhan@buyutech.com.tr
 claude-rule: "Phase-1 inventory for the Nix-removal refactor. Update entries as packages get verified on each distro."
+progress: |
+  Phases 1-3 done (inventory, native package lists, symlink loop in
+  scripts/symlinks.sh). Phase 5 deletions done: flake.nix, flake.lock,
+  home/, .claude/skills/nix-module-author/, .claude/commands/new-module.md,
+  doc/flake.md, doc/home-default.md, doc/modules-*.md, doc/packages-*.md
+  are all gone; no .nix files remain in the tree.
+  Plugin wiring that Home Manager used to generate is now native:
+  tmux via TPM (yank, catppuccin + theme, resurrect, continuum) and
+  vim via vim-plug (~24 plugins) — see configurations/tmux/tmux.conf
+  and configurations/vim/vimrc.
+  Phase 4 foundation in place: scripts/dotfiles-state.sh records the
+  realized footprint (see doc/state-management.md) so the still-unwritten
+  scripts/uninstall.sh can reverse it and safely --purge.
+  Outstanding: scripts/uninstall.sh itself.
 ---
 
 # v3-native — Phase 1 Inventory
@@ -268,16 +282,21 @@ doc/packages-*.md        # 4 files (will be replaced by 1 doc/packages-native.md
 
 ## Uninstall path (the constraint that drove the design)
 
-`scripts/uninstall.sh` (to be written in Phase 4):
+`scripts/uninstall.sh` (to be written in Phase 4) reads the realized-state
+ledger (`scripts/dotfiles-state.sh`, see
+[state-management.md](state-management.md)) rather than re-deriving the
+footprint, so `--purge` only removes packages we actually installed:
 
 ```sh
-# 1. Remove symlinks the repo planted (read the same loop setup.sh uses,
-#    just in reverse).
+# 1. Remove symlinks the repo planted (scripts/symlinks.sh uninstall;
+#    cross-check against `dotfiles-state.sh reduce symlink`).
 # 2. rm -rf ~/.scripts
 # 3. rm -rf ~/.config/{starship.toml,atuin,bat/themes/Catppuccin-mocha.tmTheme,git/{commit-template,template},nvim,ghostty,dunst,waybar,tmux/plugins,gpg}
 # 4. rm -rf ~/.vim ~/.vimrc
-# 5. (optional, --purge) read pkg lists, run apt purge / brew uninstall / pacman -R / dnf remove
-# 6. (optional, --shell) revert login shell to /bin/bash via chsh
+# 5. (optional, --purge) `dotfiles-state.sh owned-packages` → apt purge /
+#    brew uninstall / pacman -R / dnf remove (NEVER the `present` ones).
+# 6. (optional, --shell) chsh back to the `from=` shell in the shell record.
+# 7. Strip each package's bracketed segment from .path.
 ```
 
 Worst-case "delete everything this repo planted":

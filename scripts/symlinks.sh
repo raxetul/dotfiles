@@ -21,6 +21,12 @@ set -euo pipefail
 REPO_ROOT="${DOTFILES_DIR:-${HOME}/gel-ort/dotfiles}"
 [ -d "${REPO_ROOT}" ] || { printf 'ERR: repo not found at %s — set DOTFILES_DIR.\n' "${REPO_ROOT}" >&2; exit 1; }
 
+# Realized-state ledger — record each symlink we plant/remove so uninstall.sh
+# can reverse the exact set. (Symlinks are also derivable from the arrays
+# below; this is the audit/uninstall trail.)
+# shellcheck source=scripts/dotfiles-state.sh
+. "${REPO_ROOT}/scripts/dotfiles-state.sh"
+
 # === Symlink mapping ===
 # Each entry: "<src relative to REPO_ROOT>::<dst relative to $HOME>".
 
@@ -116,6 +122,7 @@ _install_one() {
 
   ln -sfn "$src" "$dst"
   printf '  link: ~/%s\n' "$2"
+  state_record symlink create "$2" "src=$1"
 }
 
 _uninstall_one() {
@@ -125,6 +132,7 @@ _uninstall_one() {
   if [ -L "$dst" ] && [ "$(readlink "$dst")" = "$src" ]; then
     rm "$dst"
     printf '  removed: ~/%s\n' "$2"
+    state_record symlink remove "$2" "src=$1"
   fi
 }
 

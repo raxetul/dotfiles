@@ -47,6 +47,13 @@ done
 OS="$(uname)"
 say() { printf '==> %s\n' "$*"; }
 
+# Realized-state ledger. state_begin_run exports DOTFILES_STATE_RUN so the
+# child scripts we invoke (symlinks.sh, run-custom-install-hook) group their
+# records under this one run. See scripts/dotfiles-state.sh.
+# shellcheck source=scripts/dotfiles-state.sh
+. "${DIR}/scripts/dotfiles-state.sh"
+state_begin_run >/dev/null
+
 # ------------------------------------------------------------------
 # Step 1 — Homebrew on macOS (idempotent).
 # ------------------------------------------------------------------
@@ -107,7 +114,26 @@ fi
 if [ "${OS}" = "Darwin" ]; then
     [ "${UPDATE}" -eq 1 ] && { say "brew update"; brew update; }
     say "brew bundle (packages/Brewfile)"
+    # Classify ownership BEFORE bundling: formulae/casks already present are
+    # recorded `present` (so --purge never removes them); the rest we record
+    # `install` once the post-bundle check confirms they landed.
+    brew_names="$(awk -F'"' '/^[[:space:]]*(brew|cask)[[:space:]]+"/{print $2}' \
+        "${DIR}/packages/Brewfile")"
+    brew_new=()
+    # shellcheck disable=SC2086
+    for p in ${brew_names}; do
+        if pkg_installed brew "${p}"; then
+            state_record package present "${p}" "mgr=brew"
+        else
+            brew_new+=("${p}")
+        fi
+    done
     brew bundle --file="${DIR}/packages/Brewfile"
+    if [ "${#brew_new[@]}" -gt 0 ]; then
+        for p in "${brew_new[@]}"; do
+            pkg_installed brew "${p}" && state_record package install "${p}" "mgr=brew"
+        done
+    fi
     [ "${UPDATE}" -eq 1 ] && { say "brew upgrade"; brew upgrade; }
 
 elif [ "${OS}" = "Linux" ] && [ -f /etc/os-release ]; then
@@ -187,8 +213,27 @@ elif [ "${OS}" = "Linux" ] && [ -f /etc/os-release ]; then
             fi
             if [ -n "${pkgs}" ]; then
                 say "installing from ${list##*/}"
+                # Classify ownership BEFORE installing: anything already
+                # present is recorded `present` (so --purge never removes it);
+                # the rest we attempt to install and, if the post-check
+                # confirms it landed, record `install`.
+                new_pkgs=()
+                # shellcheck disable=SC2086
+                for p in ${pkgs}; do
+                    if pkg_installed "${PKG_KIND}" "${p}"; then
+                        state_record package present "${p}" "mgr=${PKG_KIND}"
+                    else
+                        new_pkgs+=("${p}")
+                    fi
+                done
                 # shellcheck disable=SC2086
                 ${INSTALL_CMD} ${pkgs}
+                if [ "${#new_pkgs[@]}" -gt 0 ]; then
+                    for p in "${new_pkgs[@]}"; do
+                        pkg_installed "${PKG_KIND}" "${p}" \
+                            && state_record package install "${p}" "mgr=${PKG_KIND}"
+                    done
+                fi
             fi
         done
     fi
@@ -260,6 +305,7 @@ if [ ! -f "${HOME}/.vim/autoload/plug.vim" ]; then
     say "  installing vim-plug"
     curl -fsSLo "${HOME}/.vim/autoload/plug.vim" --create-dirs \
         https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
+    state_record bootstrap fetch "${HOME}/.vim/autoload/plug.vim" "name=vim-plug"
 fi
 
 # TPM (tmux plugin manager)
@@ -268,6 +314,7 @@ if [ ! -d "${HOME}/.config/tmux/plugins/tpm" ]; then
     mkdir -p "${HOME}/.config/tmux/plugins"
     git clone --depth=1 https://github.com/tmux-plugins/tpm \
         "${HOME}/.config/tmux/plugins/tpm"
+    state_record plugin clone "${HOME}/.config/tmux/plugins/tpm" "name=tpm"
 fi
 
 # zsh-you-should-use — fall back to git clone if no native package on PATH.
@@ -278,6 +325,7 @@ if [ ! -d "${HOME}/.config/zsh-plugins/zsh-you-should-use" ] \
     mkdir -p "${HOME}/.config/zsh-plugins"
     git clone --depth=1 https://github.com/MichaelAquilina/zsh-you-should-use \
         "${HOME}/.config/zsh-plugins/zsh-you-should-use"
+    state_record plugin clone "${HOME}/.config/zsh-plugins/zsh-you-should-use" "name=zsh-you-should-use"
 fi
 
 # bash-preexec — single-file shell dependency that gives bash the
@@ -289,6 +337,7 @@ if [ ! -f "${HOME}/.bash-preexec.sh" ]; then
     say "  installing bash-preexec"
     curl -fsSLo "${HOME}/.bash-preexec.sh" \
         https://raw.githubusercontent.com/rcaloras/bash-preexec/master/bash-preexec.sh
+    state_record bootstrap fetch "${HOME}/.bash-preexec.sh" "name=bash-preexec"
 fi
 
 # starship, atuin, claude and lefthook used to be installed inline here
@@ -319,9 +368,10 @@ current_login_shell() {
     fi
 }
 
+CURRENT_SHELL="$(current_login_shell)"
 if [ -z "${ZSH_BIN}" ]; then
     say "WARN: zsh not on PATH; skipping shell change"
-elif [ "$(current_login_shell)" = "${ZSH_BIN}" ]; then
+elif [ "${CURRENT_SHELL}" = "${ZSH_BIN}" ]; then
     say "login shell already ${ZSH_BIN}"
 else
     if ! grep -qxF "${ZSH_BIN}" /etc/shells 2>/dev/null; then
@@ -330,6 +380,8 @@ else
     fi
     say "setting login shell to ${ZSH_BIN} (sudo)"
     sudo chsh -s "${ZSH_BIN}" "${USER}"
+    # Record the prior shell so uninstall --shell can chsh back to it.
+    state_record shell chsh "${ZSH_BIN}" "from=${CURRENT_SHELL}"
     say "log out and back in for the shell change to take effect"
 fi
 
