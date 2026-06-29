@@ -1,6 +1,6 @@
 # dunst — Wayland/X11 notification daemon. Catppuccin Mocha colors so the
-# desktop notification stack matches the terminal stack. Loaded only on
-# Linux desktop hosts (see home/modules/packages/linux-desktop.nix).
+# desktop notification stack matches the terminal stack. Linux desktop only
+# (dunst comes from the *-desktop package lists).
 [global]
     monitor = 0
     follow = mouse

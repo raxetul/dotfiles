@@ -1,5 +1,5 @@
-# Catppuccin Mocha theme for delta — included from home/modules/git.nix
-# via [include] path = .../configurations/themes/delta/catppuccin.gitconfig.
+# Catppuccin Mocha theme for delta — pulled in via the [include] in
+# configurations/git/gitconfig (path = .../configurations/themes/delta/catppuccin.gitconfig).
 # Adapted from https://github.com/catppuccin/delta.
 [delta]
     syntax-theme = Catppuccin-mocha
