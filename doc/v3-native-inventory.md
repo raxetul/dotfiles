@@ -10,7 +10,7 @@ progress: |
   doc/flake.md, doc/home-default.md, doc/modules-*.md, doc/packages-*.md
   are all gone; no .nix files remain in the tree.
   Plugin wiring that Home Manager used to generate is now native:
-  tmux via TPM (yank, catppuccin + theme, resurrect, continuum) and
+  tmux via TPM (yank, catppuccin + theme) and
   vim via vim-plug (~24 plugins) — see configurations/tmux/tmux.conf
   and configurations/vim/vimrc.
   Phase 4 foundation in place: scripts/dotfiles-state.sh records the

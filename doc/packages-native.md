@@ -122,7 +122,12 @@ for the hook contract.
 | TPM (tmux plugin manager) | — | — | — | — | `git clone https://github.com/tmux-plugins/tpm ~/.config/tmux/plugins/tpm` |
 
 Vim plugins themselves are declared via `Plug` directives in
-`configurations/vim/vimrc`; `:PlugInstall` materializes them.
+`configurations/vim/vimrc`, and tmux plugins via `@plugin` lines in
+`configurations/tmux/tmux.conf`. These configs are the declarative
+source of truth: `scripts/update-dotfiles` reconciles each manager on
+every run — installing the declared plugins **and** pruning checkouts
+no longer declared (`vim +PlugInstall +PlugClean!`, TPM
+`install_plugins` + `clean_plugins`). See CLAUDE.md §14.
 
 ## Git + dev tooling
 

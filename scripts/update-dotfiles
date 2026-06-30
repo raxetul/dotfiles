@@ -360,21 +360,30 @@ stage_configurations_tmux_reload() {
         warn "tmux source-file failed (non-fatal)"
 }
 
+# Reconcile TPM against tmux.conf (CLAUDE.md §14): tmux.conf's `@plugin`
+# lines are the source of truth — install_plugins adds the declared ones,
+# clean_plugins removes any checkout no longer declared (e.g. resurrect /
+# continuum after they were dropped from the config).
 stage_configurations_tpm() {
-    local tpm="${HOME}/.config/tmux/plugins/tpm/bin/install_plugins"
-    if [ ! -x "${tpm}" ]; then
+    local bin="${HOME}/.config/tmux/plugins/tpm/bin"
+    if [ ! -x "${bin}/install_plugins" ]; then
         return 0
     fi
     note "tpm install_plugins (headless)"
-    do_or_say "${tpm}" || warn "tpm install_plugins failed (non-fatal)"
+    do_or_say "${bin}/install_plugins" || warn "tpm install_plugins failed (non-fatal)"
+    note "tpm clean_plugins (prune undeclared)"
+    do_or_say "${bin}/clean_plugins" || warn "tpm clean_plugins failed (non-fatal)"
 }
 
+# Reconcile vim-plug against vimrc (CLAUDE.md §14): `Plug` directives are the
+# source of truth — PlugInstall adds the declared ones, PlugClean! (the `!`
+# skips the interactive confirm) removes any plugin dir no longer declared.
 stage_configurations_vim_plug() {
     if ! command -v vim >/dev/null 2>&1; then
         return 0
     fi
-    note "vim +PlugInstall +qa --headless"
-    do_or_say_sh "vim +PlugInstall +qa --headless 2>/dev/null || true"
+    note "vim +PlugInstall +PlugClean! +qa --headless"
+    do_or_say_sh "vim +PlugInstall +PlugClean! +qa --headless 2>/dev/null || true"
 }
 
 stage_configurations_atuin_daemon() {

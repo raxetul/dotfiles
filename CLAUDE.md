@@ -231,6 +231,30 @@ global one, see [doc/agentic-promotion.md](doc/agentic-promotion.md).
     file works on this host but silently vanishes on a fresh clone. When
     a new command or global rule appears there (often authored live via
     `~/.claude/`), commit it in the same pass; don't leave it dangling.
+14. **Plugin sets are declarative — the repo config is the source of
+    truth, so reconcile (install declared + prune undeclared) on every
+    update.** For any app whose plugins are managed by a manifest in
+    `configurations/<app>/` (tmux's `@plugin` lines in `tmux.conf`,
+    vim's `Plug` directives in `vimrc`, and any future plugin-managed
+    tool), the update path must do both halves: install the plugins the
+    config declares **and** delete the on-disk checkouts it no longer
+    declares. Installing-only lets a dropped plugin (e.g. tmux-resurrect
+    / tmux-continuum) keep running from its stale `~/.config/<app>/plugins/…`
+    or `~/.vim/plugged/…` dir long after the `@plugin`/`Plug` line is
+    gone — the classic "I removed it from the config but it's still
+    active" bug. The reconcile lives in `scripts/update-dotfiles`'s
+    `run_configurations` stages, using each manager's own prune verb,
+    never a hand-rolled `rm`:
+    - **TPM** → `bin/install_plugins` then `bin/clean_plugins`
+      (`stage_configurations_tpm`).
+    - **vim-plug** → `vim +PlugInstall +PlugClean! +qa --headless`; the
+      `!` skips the interactive confirm so it's headless-safe
+      (`stage_configurations_vim_plug`).
+    Adding a new plugin-managed app means wiring the same two-step
+    (install + manager-native clean) into its own `run_configurations`
+    stage. `setup.sh` only *bootstraps* the managers; the install/prune
+    reconcile is an update concern, reachable via `/update` (or
+    `update-dotfiles --only=configurations`).
 
 ## Soft conventions
 
