@@ -265,9 +265,13 @@ global one, see [doc/agentic-promotion.md](doc/agentic-promotion.md).
 - Backup scope: only configs **this repo manages**. Anything else
   under `~/.config/` is left alone. `scripts/backup-configs.sh`
   is the authority on what's in scope.
-- Theming: every terminal app uses Catppuccin Mocha. When adding a
-  new app, source its palette from `configurations/themes/` if a
-  palette file is needed, not from inline hexes.
+- Theming: terminal apps use Catppuccin, dark **Mocha** flavour by
+  default. The one intentional exception is **tmux**, which runs the
+  light **Latte** flavour (`@catppuccin_flavour 'latte'` +
+  `configurations/themes/tmux/catppuccin-latte.conf`) for a
+  light-background status bar. When adding a new app, source its
+  palette from `configurations/themes/` if a palette file is needed,
+  not from inline hexes.
 - Aliases: cross-shell via portable `alias name='cmd'` syntax in
   `configurations/aliases/*.sh`, sourced from both zsh and bash. No
   third-party multi-shell alias manager.
