@@ -22,3 +22,16 @@ obs-studio
 smplayer
 telegram-desktop
 qt-creator
+
+# Tauri / GTK desktop-app build dependencies (Fedora equivalents of the Tauri
+# v2 Debian set). The C toolchain comes from the "Development Tools"/"C
+# Development Tools and Libraries" groups — install those separately with
+# `dnf group install` if not already present.
+# VERIFY the appindicator name on your box — Fedora has shipped both
+# `libayatana-appindicator-gtk3-devel` and the older `libappindicator-gtk3-devel`.
+file
+webkit2gtk4.1-devel
+libxdo-devel
+openssl-devel
+libayatana-appindicator-gtk3-devel
+librsvg2-devel

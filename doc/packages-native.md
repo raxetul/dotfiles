@@ -229,6 +229,34 @@ candidate package sets; uncomment the one matching your install.
 | veracrypt | — (PPA `unit193/encryption`) | — | — | **AUR**: `veracrypt`; Debian: PPA or release `.deb` from veracrypt.fr; Fedora: RPM Fusion or release `.rpm` |
 | qtcreator | qtcreator | qtcreator | qt-creator | — |
 
+## Linux desktop — Tauri / GTK build dependencies
+
+(Only installed when profile = desktop.) These are the libraries needed to
+**build** a Tauri v2 (WebKitGTK-backed) desktop app on Linux. The apt row is
+Tauri's official Debian prerequisite set verbatim. `curl` + `wget` are already
+in the baseline lists, so they are not repeated in the `*-desktop.list` files.
+
+On **macOS**, Tauri does not use any of these — it renders through the system
+WebKit (WKWebView) and only needs the Xcode Command Line Tools (`xcode-select
+--install`), which are not a Homebrew formula. Hence the `brew` column is `n/a`
+for the GTK-specific rows.
+
+| Package (purpose) | apt | pacman | dnf | brew |
+|---|---|---|---|---|
+| C toolchain | build-essential | base-devel | (group: *Development Tools* / *C Development Tools and Libraries*) | Xcode CLT (`xcode-select --install`) |
+| file (type detection) | file | file | file | file |
+| WebKitGTK 4.1 dev | libwebkit2gtk-4.1-dev | webkit2gtk-4.1 | webkit2gtk4.1-devel | n/a (system WebKit) |
+| libxdo dev (input sim) | libxdo-dev | xdotool (ships libxdo) | libxdo-devel | n/a |
+| OpenSSL dev | libssl-dev | openssl | openssl-devel | (openssl@3, but Tauri on mac uses system TLS) |
+| Ayatana AppIndicator dev (tray) | libayatana-appindicator3-dev | libayatana-appindicator ⚠️ | libayatana-appindicator-gtk3-devel ⚠️ | n/a |
+| librsvg dev (SVG icons) | librsvg2-dev | librsvg | librsvg2-devel | n/a |
+
+⚠️ **VERIFY the AppIndicator package name** on Arch/Fedora — Tauri's docs have
+shipped both the ayatana fork (`libayatana-appindicator*`) and the older
+`libappindicator-gtk3*`. The apt name is confirmed against the user's install
+command; the pacman/dnf equivalents are best-effort and should be checked
+against your distro's current repos before relying on them.
+
 ## macOS GUI bridge (`packages/Brewfile`)
 
 These ship only as Cocoa bundles — Homebrew casks are the only sane

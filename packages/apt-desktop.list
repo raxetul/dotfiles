@@ -22,3 +22,14 @@ obs-studio
 smplayer
 telegram-desktop
 qtcreator
+
+# Tauri / GTK desktop-app build dependencies
+# Matches Tauri v2's official Debian prerequisites. curl + wget are already
+# in the baseline apt.list, so they are not repeated here.
+build-essential
+file
+libwebkit2gtk-4.1-dev
+libxdo-dev
+libssl-dev
+libayatana-appindicator3-dev
+librsvg2-dev

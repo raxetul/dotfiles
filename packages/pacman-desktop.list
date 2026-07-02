@@ -24,3 +24,15 @@ obs-studio
 smplayer
 telegram-desktop
 qtcreator
+
+# Tauri / GTK desktop-app build dependencies (Arch equivalents of the Tauri
+# v2 Debian set). base-devel provides the C toolchain; xdotool ships libxdo.
+# VERIFY the appindicator name on your box — Tauri's Arch docs have used both
+# `libayatana-appindicator` (extra) and the older `libappindicator-gtk3`.
+base-devel
+file
+webkit2gtk-4.1
+xdotool
+openssl
+libayatana-appindicator
+librsvg
