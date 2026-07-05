@@ -22,7 +22,7 @@
 #
 # Domains / actions in use:
 #   symlink      create | remove        id = ~-relative dst, detail = src=<repo path>
-#   package      install | present      id = pkg name,       detail = mgr=<apt|pacman|dnf|brew>
+#   package      install | present      id = pkg name,       detail = mgr=<apt|pacman|dnf|brew|script>
 #   plugin       clone                  id = checkout path,  detail = name=<id>
 #   bootstrap    fetch                  id = file path,      detail = name=<id>
 #   custom-hook  run                    id = <pkg>/<hook>,   detail = rc=<code>

@@ -34,6 +34,7 @@ brew "gnupg"
 brew "pinentry-mac"        # Cocoa pinentry, wired in configurations/gpg/gpg-agent.conf.darwin
 brew "lefthook"
 brew "shellcheck"
+brew "herdr"               # agent multiplexer; Linux has no native pkg -> packages/script-install.list
 
 # === Language toolchains ===
 brew "go"

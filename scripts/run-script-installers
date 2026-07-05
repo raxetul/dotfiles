@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+# scripts/run-script-installers — generic lane for tools distributed ONLY
+# as an upstream shell installer (`curl … | sh`), with no package in
+# brew/apt/pacman/dnf/snap/aur.
+#
+# Reads packages/script-install.list (one `<probe-bin> <installer cmd>` per
+# line) and, for each tool, runs its installer ONLY when the probe binary
+# is absent from PATH. So on a host where the native lane (brew / apt / …)
+# already provided the tool, this lane is a no-op — the remote installer
+# fires only on "OSes without a package installer" for that tool.
+#
+# Called AFTER the native + fallback lanes by both setup.sh (Step 3.6) and
+# scripts/update-dotfiles (stage_packages_script_install), so the probe
+# reflects everything those lanes installed.
+#
+# SECURITY: this lane executes remote code (the pinned `curl … | sh` from
+# the list). Nothing is fetched dynamically beyond what a line says; every
+# entry is reviewed and pinned in packages/script-install.list.
+#
+# Output streams live to the terminal AND to
+# ${XDG_STATE_HOME:-$HOME/.local/state}/dotfiles/script-install.log.
+#
+# Env:
+#   DOTFILES_DIR   repo root (defaults to ~/gel-ort/dotfiles).
+#   DRY_RUN        "1" → print the intended installer per tool, run nothing.
+set -euo pipefail
+
+REPO_ROOT="${DOTFILES_DIR:-${HOME}/gel-ort/dotfiles}"
+LIST="${REPO_ROOT}/packages/script-install.list"
+[ -f "${LIST}" ] || exit 0
+
+# Realized-state ledger — record install/present per tool (mgr=script) so a
+# future uninstall knows this repo planted it and never touches tools you
+# already had.
+# shellcheck source=scripts/dotfiles-state.sh
+. "${REPO_ROOT}/scripts/dotfiles-state.sh"
+
+LOG_DIR="${XDG_STATE_HOME:-${HOME}/.local/state}/dotfiles"
+LOG_FILE="${LOG_DIR}/script-install.log"
+mkdir -p "${LOG_DIR}"
+
+log() { printf '%s\n' "$*" | tee -a "${LOG_FILE}"; }
+
+log ""
+log "=== script-install $(date -u +%Y-%m-%dT%H:%M:%SZ) ==="
+
+# Only FULL-LINE `#` comments + blank lines are stripped; installer commands
+# may contain `#`, so inline stripping is deliberately NOT done here.
+while IFS= read -r raw || [ -n "${raw}" ]; do
+    line="${raw#"${raw%%[![:space:]]*}"}"        # ltrim leading whitespace
+    case "${line}" in ""|\#*) continue ;; esac
+    bin="${line%%[[:space:]]*}"                  # field 1: probe binary
+    cmd="${line#"${bin}"}"                        # remainder: installer command
+    cmd="${cmd#"${cmd%%[![:space:]]*}"}"          # ltrim
+    if [ -z "${cmd}" ]; then
+        log "  WARN: no installer command for '${bin}' — skip"
+        continue
+    fi
+
+    if command -v "${bin}" >/dev/null 2>&1; then
+        log "  present — skip: ${bin} ($(command -v "${bin}"))"
+        state_record package present "${bin}" "mgr=script"
+        continue
+    fi
+
+    if [ "${DRY_RUN:-0}" = "1" ]; then
+        log "  DRY-RUN would install ${bin}: ${cmd}"
+        continue
+    fi
+
+    log "  script-install ${bin}: ${cmd}"
+    set +e
+    sh -c "${cmd}" 2>&1 | tee -a "${LOG_FILE}"
+    rc=${PIPESTATUS[0]}
+    set -e
+    if [ "${rc}" -eq 0 ] && command -v "${bin}" >/dev/null 2>&1; then
+        state_record package install "${bin}" "mgr=script"
+        log "  installed ${bin} ($(command -v "${bin}"))"
+    else
+        log "  WARN: ${bin} installer exited rc=${rc} or binary still not on PATH"
+    fi
+done < "${LIST}"

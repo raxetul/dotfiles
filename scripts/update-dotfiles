@@ -23,6 +23,7 @@
 #   scripts/update-dotfiles --only=custom-install        # both before.sh + after.sh hooks
 #   scripts/update-dotfiles --only=custom-install-before # only before.sh hooks
 #   scripts/update-dotfiles --only=custom-install-after  # only after.sh hooks
+#   scripts/update-dotfiles --only=script-install        # only script-install.list installers
 #
 # Exit codes:
 #   0   success
@@ -46,6 +47,7 @@ for arg in "$@"; do
         --only=custom-install)        ONLY="custom-install" ;;
         --only=custom-install-before) ONLY="custom-install-before" ;;
         --only=custom-install-after)  ONLY="custom-install-after" ;;
+        --only=script-install)        ONLY="script-install" ;;
         --only=*)
             echo "Unknown --only value: ${arg#--only=}" >&2
             echo "Valid: packages, configurations, symlinks, custom-install," >&2
@@ -313,6 +315,18 @@ _run_custom_install_hooks() {
 stage_packages_custom_before() { _run_custom_install_hooks before; }
 stage_packages_custom_after()  { _run_custom_install_hooks after;  }
 
+# Generic script-based installers (packages/script-install.list): tools
+# shipped only as an upstream `curl … | sh`, absent from every package
+# manager. Runs after the native + fallback lanes; the runner probes
+# `command -v <bin>` and installs only what's still missing.
+stage_packages_script_install() {
+    local list="${REPO_ROOT}/packages/script-install.list"
+    [ -f "${list}" ] || return 0
+    note "script-based installers (packages/script-install.list)"
+    DOTFILES_DIR="${REPO_ROOT}" DRY_RUN="${DRY_RUN}" \
+        "${REPO_ROOT}/scripts/run-script-installers"
+}
+
 run_packages() {
     run_stage "git-pull"        stage_packages_git_pull
     run_stage "custom-before"   stage_packages_custom_before
@@ -320,6 +334,7 @@ run_packages() {
     run_stage "native-linux"    stage_packages_native_linux
     run_stage "linux-fallback"  stage_packages_linux_fallback
     run_stage "custom-after"    stage_packages_custom_after
+    run_stage "script-install"  stage_packages_script_install
 }
 
 # ----------------------------------------------------------------------
@@ -425,6 +440,7 @@ case "${ONLY}" in
     symlinks)                run_stage "symlinks"      stage_configurations_symlinks ;;
     custom-install-before)   run_stage "custom-before" stage_packages_custom_before ;;
     custom-install-after)    run_stage "custom-after"  stage_packages_custom_after ;;
+    script-install)          run_stage "script-install" stage_packages_script_install ;;
     custom-install)
         run_stage "custom-before" stage_packages_custom_before
         run_stage "custom-after"  stage_packages_custom_after

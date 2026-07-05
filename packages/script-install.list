@@ -1,0 +1,28 @@
+# script-install.list — tools distributed ONLY as an upstream shell
+# installer (`curl … | sh`), with NO package in brew/apt/pacman/dnf/snap/
+# aur. This is the last-resort lane of the install policy (CLAUDE.md §6):
+# a pinned remote installer, used only where nothing native exists.
+#
+# scripts/run-script-installers reads this file and runs each entry's
+# installer ONLY on hosts where the tool isn't already available — it
+# probes `command -v <bin>` first and skips anything already on PATH. So
+# on an OS whose package manager DID provide the tool (e.g. macOS via
+# `brew "herdr"`), the native lane installs it earlier in the run and this
+# lane is a no-op. Net effect: the remote script fires only on "OSes
+# without a package installer" for that tool.
+#
+# SECURITY: every line here executes remote code as your user. Pin the
+# installer to the tool's documented command, review it before adding, and
+# prefer installers that land in ~/.local/bin (already on PATH, user-
+# scoped, easy to remove). This is a work machine (TISAX/ISO 27001) — treat
+# additions to this file as you would any `curl | sh`.
+#
+# Format — one tool per line:
+#   <probe-binary>   <installer shell command>
+# Field 1 (up to the first whitespace) is the binary the runner probes with
+# `command -v`. The rest of the line is the command, run verbatim via
+# `sh -c`. Only FULL-LINE `#` comments are stripped — inline `#` is NOT
+# supported here (installer commands may legitimately contain `#`).
+
+# --- agent / terminal tooling ---
+herdr   curl -fsSL https://herdr.dev/install.sh | sh

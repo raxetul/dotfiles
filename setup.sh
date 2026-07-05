@@ -300,6 +300,19 @@ if [ -d "${CUSTOM_INSTALL_DIR}" ] && [ "${#custom_install_pkgs[@]}" -gt 0 ]; the
 fi
 
 # ------------------------------------------------------------------
+# Step 3.6 — generic script-based installers (packages/script-install.list).
+# Tools shipped ONLY as an upstream `curl … | sh` installer, absent from
+# brew/apt/pacman/dnf/snap/aur. Runs AFTER the native + fallback lanes so it
+# fires only on hosts where none of them provided the tool — the runner
+# probes `command -v <bin>` and skips anything already on PATH. Streams to
+# ~/.local/state/dotfiles/script-install.log. See run-script-installers.
+# ------------------------------------------------------------------
+if [ -f "${DIR}/packages/script-install.list" ]; then
+    say "script-based installers (packages/script-install.list)"
+    DOTFILES_DIR="${DIR}" "${DIR}/scripts/run-script-installers"
+fi
+
+# ------------------------------------------------------------------
 # Step 4 — bootstrap user-scope plugin managers (idempotent).
 # ------------------------------------------------------------------
 say "bootstrapping plugin managers"

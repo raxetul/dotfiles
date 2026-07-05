@@ -23,6 +23,7 @@ packages/
 ├── dnf-desktop.list       # Fedora desktop additions
 ├── aur.list               # Arch fallback (only pacman-family)
 ├── snap.list              # Debian + Fedora fallback (skipped on Arch)
+├── script-install.list    # Upstream `curl … | sh` tools, no native pkg anywhere
 └── custom-install/        # Per-package before.sh/after.sh hooks (rustup, …)
 ```
 
@@ -31,7 +32,7 @@ separation is intentional: `configurations/` holds app config files
 the user edits live; `packages/` holds the inventory of what's
 installed.
 
-setup.sh runs in five package-related steps:
+setup.sh runs in six package-related steps:
 
 1. `custom-install/*/before.sh` — register third-party repos, accept
    upstream keys, pre-create config dirs.
@@ -46,7 +47,12 @@ setup.sh runs in five package-related steps:
    (`rustup default stable`), install release-binary fallbacks where
    the native repo lacks the tool (starship/atuin/claude/lefthook),
    and own each tool's PATH via a `.path` segment.
-5. plugin bootstrap (vim-plug, TPM, zsh plugins, bash-preexec) +
+5. `script-install.list` — tools shipped only as an upstream
+   `curl … | sh` installer, absent from every package manager. Runs
+   after the lanes above; `scripts/run-script-installers` probes
+   `command -v <bin>` and runs each installer only where the tool is
+   still missing (see the section below).
+6. plugin bootstrap (vim-plug, TPM, zsh plugins, bash-preexec) +
    symlinks (orthogonal to packages).
 
 See [`packages/custom-install/README.md`](../packages/custom-install/README.md)
@@ -280,6 +286,29 @@ Formulas (non-cask, CLI-only on mac):
 | Formula | Purpose |
 |---|---|
 | pinentry-mac | Cocoa GPG pinentry dialog — wired into `gpg-agent.conf` on macOS |
+
+---
+
+## Script-installed tools (`packages/script-install.list`)
+
+Last-resort lane for tools distributed **only** as an upstream shell
+installer (`curl … | sh`), with no package in brew/apt/pacman/dnf/snap/
+aur. `scripts/run-script-installers` runs each entry's installer **only**
+where the native lanes didn't already provide the binary: it probes
+`command -v <bin>` first and skips anything already on PATH. So a
+**supported OS whose package manager ships the tool uses that package**,
+not the remote script — e.g. macOS installs `herdr` from the Brewfile and
+this lane is a no-op there; only Linux (no native pkg) runs the installer.
+
+This lane executes remote code as your user. Every entry is pinned and
+reviewed in the list; prefer installers that land in `~/.local/bin`
+(already on PATH, user-scoped, easy to remove). Runs streamed to
+`~/.local/state/dotfiles/script-install.log`; each install is recorded in
+the state ledger as `mgr=script`.
+
+| Tool | Probe binary | brew | apt / pacman / dnf | Script installer |
+|---|---|---|---|---|
+| herdr (agent multiplexer) | `herdr` | herdr | — / — / — | `curl -fsSL https://herdr.dev/install.sh \| sh` |
 
 ---
 
