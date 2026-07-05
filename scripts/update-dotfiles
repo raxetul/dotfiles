@@ -132,7 +132,11 @@ apt_keep_installable() {
         if [ -n "${cand}" ] && [ "${cand}" != "(none)" ]; then
             keep+=("${p}")
         else
-            printf '   skip (no apt candidate on this release): %s\n' "${p}"
+            # Log to stderr: this function's stdout is captured by the
+            # caller's `pkgs="$(apt_keep_installable …)"` command
+            # substitution, so any skip text on stdout would be fed
+            # straight into `apt-get install` as bogus package names.
+            printf '   skip (no apt candidate on this release): %s\n' "${p}" >&2
         fi
     done
     printf '%s ' "${keep[@]}"

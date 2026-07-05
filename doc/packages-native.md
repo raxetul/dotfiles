@@ -159,7 +159,7 @@ no longer declared (`vim +PlugInstall +PlugClean!`, TPM
 |---|---|---|---|---|---|
 | arp-scan | arp-scan | arp-scan | arp-scan | arp-scan | — |
 | bandwhich | bandwhich | bandwhich (23.04+) | bandwhich | bandwhich | cargo install bandwhich; **AUR**: `bandwhich-bin` |
-| bind dnsutils (dig/host/nslookup) | bind | dnsutils | bind | bind-utils | — |
+| bind dnsutils (dig/host/nslookup) | bind | bind9-dnsutils | bind | bind-utils | apt: `dnsutils` was a transitional pkg dropped in Debian 13/trixie — use `bind9-dnsutils` |
 | wget | wget | wget | wget | wget | — |
 | curl | curl | curl | curl | curl | — |
 
@@ -224,7 +224,7 @@ candidate package sets; uncomment the one matching your install.
 | nautilus | nautilus | nautilus | nautilus | — |
 | obs-studio | obs-studio | obs-studio | obs-studio | — |
 | smplayer | smplayer | smplayer | smplayer | — |
-| telegram-desktop | telegram-desktop | telegram-desktop | telegram-desktop | Snap `telegram-desktop` |
+| telegram-desktop | — | telegram-desktop | — | not in Debian apt (trixie) or Fedora default repos; **Arch**: pacman `telegram-desktop`; Debian/Ubuntu & Fedora: Snap `telegram-desktop` |
 | discord | — | — | — (RPM Fusion: `discord`) | **AUR**: `discord`; Debian/Ubuntu: Snap `discord` or `.deb` from discord.com; Fedora: enable RPM Fusion |
 | veracrypt | — (PPA `unit193/encryption`) | — | — | **AUR**: `veracrypt`; Debian: PPA or release `.deb` from veracrypt.fr; Fedora: RPM Fusion or release `.rpm` |
 | qtcreator | qtcreator | qtcreator | qt-creator | — |

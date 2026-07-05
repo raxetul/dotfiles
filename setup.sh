@@ -189,7 +189,11 @@ elif [ "${OS}" = "Linux" ] && [ -f /etc/os-release ]; then
             if [ -n "${cand}" ] && [ "${cand}" != "(none)" ]; then
                 keep+=("${p}")
             else
-                say "  skip (no apt candidate on this release): ${p}"
+                # stderr, not `say` (stdout): this function's stdout is
+                # captured by `pkgs="$(apt_keep_installable …)"`, so a skip
+                # line on stdout would be passed to `apt-get install` as
+                # bogus package names ("Unable to locate package skip", …).
+                printf '  skip (no apt candidate on this release): %s\n' "${p}" >&2
             fi
         done
         printf '%s ' "${keep[@]}"

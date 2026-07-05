@@ -9,3 +9,4 @@
 
 # Only Linux desktop GUI apps with no apt/dnf path.
 discord
+telegram-desktop

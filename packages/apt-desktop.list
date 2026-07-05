@@ -20,7 +20,6 @@ kdiff3
 nautilus
 obs-studio
 smplayer
-telegram-desktop
 qtcreator
 
 # Tauri / GTK desktop-app build dependencies

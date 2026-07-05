@@ -20,7 +20,6 @@ kdiff3
 nautilus
 obs-studio
 smplayer
-telegram-desktop
 qt-creator
 
 # Tauri / GTK desktop-app build dependencies (Fedora equivalents of the Tauri

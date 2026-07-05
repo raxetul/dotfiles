@@ -51,7 +51,7 @@ mold
 
 # Networking / sysadmin
 arp-scan
-dnsutils
+bind9-dnsutils
 wget
 curl
 
