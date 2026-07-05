@@ -1,0 +1,7 @@
+# .shellcheckrc — repo-wide shellcheck config.
+#
+# Follow `source` / `.` into sibling scripts (e.g. every script that sources
+# scripts/dotfiles-state.sh) instead of emitting SC1091 "not following".
+# Equivalent to passing `-x` on the command line, but applied uniformly to
+# lefthook's pre-commit hook, the /check command, and manual runs.
+external-sources=true
