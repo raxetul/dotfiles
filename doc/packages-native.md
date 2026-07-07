@@ -146,6 +146,7 @@ no longer declared (`vim +PlugInstall +PlugClean!`, TPM
 | pinentry-curses | n/a | pinentry-curses | pinentry | pinentry | — |
 | lefthook | lefthook | — | — | — | apt/dnf fallback via `custom-install/lefthook/after.sh`: GitHub release binary → `~/.local/bin/lefthook`; **AUR**: `lefthook-bin` |
 | shellcheck | shellcheck | shellcheck | shellcheck | ShellCheck | — |
+| gh (GitHub CLI) | gh | gh (Ubuntu 22.04+) | github-cli | gh | Debian / RHEL / Rocky / Alma, or to guarantee the latest build: GitHub's official apt/dnf repo at `cli.github.com`; **AUR**: `github-cli` |
 | claude (Claude Code) | — | — | — | — | every platform via `custom-install/claude/after.sh`: upstream installer `curl -fsSL https://claude.ai/install.sh \| bash` → `~/.local/bin/claude`; handles platform/arch detection, idempotent on re-run |
 
 ## Language toolchains

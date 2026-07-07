@@ -38,6 +38,7 @@ git-delta
 gnupg
 pinentry-curses
 shellcheck
+gh
 
 # Language toolchains
 golang-go

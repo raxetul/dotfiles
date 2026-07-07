@@ -38,6 +38,7 @@ git-delta
 gnupg
 pinentry
 shellcheck
+github-cli
 
 # Language toolchains
 go
