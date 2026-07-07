@@ -22,17 +22,22 @@ global one, see [doc/agentic-promotion.md](doc/agentic-promotion.md).
    because it would fit — preserve the user's line breaks. This rule
    is repeated in the user's global `~/.claude/CLAUDE.md`; it's loud
    here because most of this repo is heavily multi-line by design.
-4. **Keep `doc/packages-native.md` in lockstep with the install
-   lists.** Adding a package to `packages/Brewfile` or any
-   `packages/*.list` (`apt.list`, `apt-desktop.list`, `pacman.list`,
+4. **Keep BOTH package docs in lockstep with the install lists.**
+   Adding a package to `packages/Brewfile` or any `packages/*.list`
+   (`apt.list`, `apt-desktop.list`, `pacman.list`,
    `pacman-desktop.list`, `dnf.list`, `dnf-desktop.list`, `aur.list`,
-   `snap.list`) requires a matching row in the right section of
-   [`doc/packages-native.md`](doc/packages-native.md) in the same
-   change. Fill every manager column (brew / apt / pacman / dnf)
-   — `—` is fine when the package isn't in that repo, but then the
-   *Fallback* column must say how it gets installed there. The
-   `post-tool-use.sh` hook will flag a `Write`/`Edit` to a list
-   that didn't touch the doc in the same turn.
+   `snap.list`) requires a matching row **in the same change** in:
+   - [`doc/packages-native.md`](doc/packages-native.md) — the detailed
+     reference: fill every manager column (brew / apt / pacman / dnf);
+     `—` is fine when the package isn't in that repo, but then the
+     *Fallback* column must say how it gets installed there.
+   - [`doc/packages-summary.md`](doc/packages-summary.md) — the flat
+     summary table (one row per package; per-OS cell = the install
+     *lane*: `brew`/`apt`/`arch`/`dnf`/`aur`/`snap`/`custom`/… per its
+     Legend). Removing or renaming a package updates both docs too.
+
+   The `post-tool-use.sh` hook flags a `Write`/`Edit` to a list that
+   didn't touch **either** doc in the same turn.
 5. **Preserve Nerd Font / PUA glyphs in `configurations/starship/starship.toml`
    (and any other terminal config that uses them: tmux, ghostty,
    waybar, vim status lines).** The prompt string, `[os.symbols]`,

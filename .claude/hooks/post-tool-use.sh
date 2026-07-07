@@ -3,12 +3,13 @@
 #
 # Reads the Claude Code hook payload from stdin (JSON). When the tool
 # call edited a file under packages/ (Brewfile or *.list), this hook
-# checks whether doc/packages-native.md was also touched in the same
-# turn. If not, it prints a warning to stderr — but the hook's exit
-# code stays 0 (advisory, not blocking).
+# checks whether BOTH package docs (doc/packages-native.md and
+# doc/packages-summary.md) were also touched in the same turn. If either
+# looks stale it prints a warning to stderr — but the hook's exit code
+# stays 0 (advisory, not blocking).
 #
-# Enforces CLAUDE.md §4: every package added to the install lists
-# needs a matching row in doc/packages-native.md.
+# Enforces CLAUDE.md §4: every package added to the install lists needs a
+# matching row in doc/packages-native.md AND doc/packages-summary.md.
 #
 # Wired up in .claude/settings.json under hooks.PostToolUse.
 #
@@ -60,31 +61,36 @@ else
 fi
 [ -n "${repo_root}" ] || exit 0
 
-doc_path_rel="doc/packages-native.md"
-doc_path_abs="${repo_root}/${doc_path_rel}"
+# Both package docs must move in lockstep with the install lists
+# (CLAUDE.md §4): the detailed per-manager reference AND the flat
+# summary table.
+doc_paths_rel="doc/packages-native.md doc/packages-summary.md"
 pkg_basename="$(basename "${file_path}")"
 
-if [ ! -f "${doc_path_abs}" ]; then
-    printf '\033[1;33mWARN:\033[0m  edited packages/%s but %s does not exist yet.\n' \
-        "${pkg_basename}" "${doc_path_rel}" >&2
-    printf '        See CLAUDE.md §4 — package additions need a doc row.\n' >&2
-    exit 0
-fi
-
-# We can't reliably know whether the doc was touched *in the same
-# turn* from a single PostToolUse invocation — Claude Code calls hooks
-# per tool, not per turn. Heuristic: compare mtimes within the last
-# 5 minutes. If the doc hasn't been touched recently, warn.
 pkg_mtime="$(stat -f '%m' "${file_path}" 2>/dev/null || stat -c '%Y' "${file_path}" 2>/dev/null || echo 0)"
-doc_mtime="$(stat -f '%m' "${doc_path_abs}" 2>/dev/null || stat -c '%Y' "${doc_path_abs}" 2>/dev/null || echo 0)"
 now="$(date +%s)"
 
-# If the list was just touched (within the last 60s) and the doc
-# hasn't been touched in the last 5 minutes, the doc is probably stale.
-if [ "$(( now - pkg_mtime ))" -le 60 ] && [ "$(( now - doc_mtime ))" -gt 300 ]; then
-    printf '\033[1;33mWARN:\033[0m  edited packages/%s; %s looks stale.\n' \
-        "${pkg_basename}" "${doc_path_rel}" >&2
-    printf '        Update both in the same turn (CLAUDE.md §4).\n' >&2
-fi
+# We can't reliably know whether a doc was touched *in the same turn*
+# from a single PostToolUse invocation — Claude Code calls hooks per
+# tool, not per turn. Heuristic: the list was just touched (≤60s) but a
+# doc hasn't moved in the last 5 minutes → probably stale. Check each
+# doc independently so a missed one is named specifically.
+for doc_path_rel in ${doc_paths_rel}; do
+    doc_path_abs="${repo_root}/${doc_path_rel}"
+
+    if [ ! -f "${doc_path_abs}" ]; then
+        printf '\033[1;33mWARN:\033[0m  edited packages/%s but %s does not exist yet.\n' \
+            "${pkg_basename}" "${doc_path_rel}" >&2
+        printf '        See CLAUDE.md §4 — package additions need a row in both docs.\n' >&2
+        continue
+    fi
+
+    doc_mtime="$(stat -f '%m' "${doc_path_abs}" 2>/dev/null || stat -c '%Y' "${doc_path_abs}" 2>/dev/null || echo 0)"
+    if [ "$(( now - pkg_mtime ))" -le 60 ] && [ "$(( now - doc_mtime ))" -gt 300 ]; then
+        printf '\033[1;33mWARN:\033[0m  edited packages/%s; %s looks stale.\n' \
+            "${pkg_basename}" "${doc_path_rel}" >&2
+        printf '        Update the lists and both docs in the same turn (CLAUDE.md §4).\n' >&2
+    fi
+done
 
 exit 0
