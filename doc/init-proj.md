@@ -1,0 +1,109 @@
+---
+status: source-of-truth
+maintainer: emrahurhan@buyutech.com.tr
+claude-rule: "The /init-proj-* command family is documented here and MUST be kept in lockstep with configurations/claude/commands/init-proj-*.md. Per-project standards live in the project's own ./CLAUDE.md, never in the global config. See CLAUDE.md §15."
+---
+
+# Project initialization — the `/init-proj-*` command family
+
+## Why this exists
+
+The global Claude config (`~/.claude/CLAUDE.md`) loads into **every**
+session, so anything put there costs context on **every** task,
+including ones where it's irrelevant. To keep that footprint small,
+per-project standards are **not** global. Instead, a family of slash
+commands writes the right rules into each **project's own
+`./CLAUDE.md`**, which Claude Code loads only when you work inside that
+project.
+
+One command scaffolds a project — git, hooks, conventional commits,
+test skeleton — **and** pins its engineering rules, so a fresh checkout
+on any machine is initialized the same way. The commands live in
+`configurations/claude/commands/` and are symlinked into
+`~/.claude/commands/`, so they travel with the dotfiles to every
+computer.
+
+## Layering
+
+```
+/init-proj-<type>          (backend, frontend, embedded-firmware,
+        │                   kernel-driver, cli, desktop, mobile)
+        │ runs first
+        ▼
+/init-proj-common          shared baseline (git, lefthook, common rules)
+        │ invokes
+        ▼
+building blocks            /logging   /rfc9457   /backend-stack
+```
+
+- A **type** command always runs **`/init-proj-common`** first, then
+  layers its type-specific rules and scaffolding.
+- Rules that already have a standalone command (`/logging`,
+  `/rfc9457`, `/backend-stack`) are **invoked** as building blocks, so
+  each rule's text is defined in exactly one place.
+- **`/init-proj-monorepo`** asks which types to include, lays the
+  baseline once at the root, and runs each type command per package.
+
+## The common baseline — `/init-proj-common`
+
+| Step | What it does |
+| --- | --- |
+| git | `git init` if not already a repo (skipped inside a monorepo) |
+| lefthook | `lefthook.yml` with a conventional-commit `commit-msg` hook + a `pre-commit` lint/test hook, then `lefthook install` |
+| rules → `./CLAUDE.md` | **Dependency injection**, **Unit testing**, **Conventional commits**, **Pre-CLI-command briefs** |
+| logging | invokes `/logging` (centralized multi-writer logging) |
+| project commands | `./.claude/commands/` gets a lefthook-aware `/commit` and a `/check` |
+| tests | a conventional test dir + one placeholder test |
+
+The four common rules in one line each:
+
+- **Dependency injection** — modules take collaborators through an
+  abstraction wired at a composition root; tests inject in-memory
+  fakes, production injects the real thing.
+- **Unit testing** — fast, hermetic, deterministic tests through that
+  DI seam; new behavior lands with tests.
+- **Conventional commits** — enforced by the lefthook `commit-msg`
+  regex.
+- **Pre-CLI-command briefs** — before running shell commands, print a
+  table (`# | Command | Action brief | Effect`) of what will run.
+
+## Type commands
+
+| Command | Layers on top of common |
+| --- | --- |
+| `/init-proj-backend` | `/backend-stack` + `/rfc9457`; layered handler→service→repository, injected config, versioned+validated API |
+| `/init-proj-frontend` | presentational/container split, centralized state, injectable API-client seam, accessibility |
+| `/init-proj-embedded-firmware` | MISRA C, ISO 26262 (ASIL-B) awareness, mockable HAL seam, no dynamic allocation, host test harness |
+| `/init-proj-kernel-driver` | kernel coding style + checkpatch, Kbuild skeleton, GPL/SPDX, KUnit, mock at subsystem boundaries |
+| `/init-proj-cli` | arg parsing + `--help`/`--version`, exit codes, stdout/stderr split, config precedence |
+| `/init-proj-desktop` | off-UI-thread work, MVVM/MVC boundary, injectable persistence, packaging |
+| `/init-proj-mobile` | MVVM/MVI, off-main-thread work, offline-first, injectable network/storage |
+
+## Monorepo — `/init-proj-monorepo`
+
+Asks (via a prompt) which project kinds to include and a layout dir
+(`packages/` or `apps/`). Git + lefthook are installed **once at the
+root**; each package gets its own nested `CLAUDE.md` from the matching
+type command. Because `/init-proj-common` is idempotent, its
+per-package run finds the root git/lefthook and skips them — no nested
+repos, no duplicated hooks. Root rules apply everywhere; package rules
+load only inside that package.
+
+## Contract shared by every command
+
+- **Idempotent** — re-running skips work already done (existing
+  `.git`, hook, or `CLAUDE.md` section).
+- **Pre-CLI briefs** — CLI steps are previewed in a table before they
+  run.
+- **Confirm destructive/outward-facing steps** before executing.
+- **Never commit automatically** — each command reports what it wrote
+  and suggests a Conventional Commit.
+- **Writes stay in the project** (`./CLAUDE.md`, `./.claude/`,
+  `lefthook.yml`, test dirs) — nothing lands in the global config.
+
+## Applying on another machine
+
+Clone the dotfiles and run the setup so `configurations/claude/` is
+symlinked into `~/.claude/`. Every `/init-proj-*` command is then
+available in Claude Code, identically to this machine. Run the one that
+matches the project you're starting.

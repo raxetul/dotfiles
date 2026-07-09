@@ -260,6 +260,30 @@ global one, see [doc/agentic-promotion.md](doc/agentic-promotion.md).
     stage. `setup.sh` only *bootstraps* the managers; the install/prune
     reconcile is an update concern, reachable via `/update` (or
     `update-dotfiles --only=configurations`).
+15. **Project initialization is the `/init-proj-*` command family, and
+    per-project standards live in the project — never in the global
+    Claude config.** The aim is a small global footprint: a rule loads
+    only inside the project it governs, so each session's context stays
+    lean. The family and its layering are documented in
+    [`doc/init-proj.md`](doc/init-proj.md) — keep that doc in lockstep
+    with the command files (same spirit as rule #4 for packages).
+    - `/init-proj-common` writes the shared baseline into a project's
+      own `./CLAUDE.md` + scaffolds it: `git init`, lefthook with
+      conventional-commit `commit-msg` + `pre-commit`, and the common
+      rules (dependency injection, unit testing, logging, pre-CLI
+      briefs).
+    - Each `/init-proj-<type>` (`backend`, `frontend`,
+      `embedded-firmware`, `kernel-driver`, `cli`, `desktop`, `mobile`)
+      runs `common` first (idempotent — it skips steps already done),
+      then layers type-specific rules and scaffolding, **invoking** the
+      standalone building blocks (`/logging`, `/rfc9457`,
+      `/backend-stack`) rather than duplicating their rule text.
+    - `/init-proj-monorepo` asks which types to include, lays down one
+      root baseline, and gives each package its own nested `CLAUDE.md`
+      via the matching type command.
+    - Every side-effecting step is previewed as a pre-CLI brief table
+      and every destructive one is confirmed before running. New types
+      follow this layering; new command files are committed (rule #13).
 
 ## Soft conventions
 
