@@ -278,6 +278,11 @@ global one, see [doc/agentic-promotion.md](doc/agentic-promotion.md).
       then layers type-specific rules and scaffolding, **invoking** the
       standalone building blocks (`/logging`, `/rfc9457`,
       `/backend-stack`) rather than duplicating their rule text.
+    - `common`'s features are **named and overridable** (defaults all
+      on); a type command may **disable** the ones that don't fit and
+      supply its own replacement — e.g. `kernel-driver` disables
+      `logging`, `dependency-injection`, and `unit-testing` in favor of
+      `pr_*`, `ops`-struct seams, and KUnit.
     - `/init-proj-monorepo` asks which types to include, lays down one
       root baseline, and gives each package its own nested `CLAUDE.md`
       via the matching type command.

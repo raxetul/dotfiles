@@ -17,15 +17,42 @@ hook, a section already present in `./CLAUDE.md`), and before running
 any CLI commands you **first print a pre-CLI brief table** (see the
 rule of the same name) and **confirm destructive steps**.
 
+## Overridable features
+
+The baseline is a set of **named features**, each with a **default** and
+an **overridable** flag. A command that invokes `/init-proj-common` may
+pass an **override list** — e.g. *"run `/init-proj-common` with
+overrides: `logging=off`, `dependency-injection=off`"*. When invoked
+with overrides you **MUST honor them**: for any feature set to `off`,
+**do nothing for it** — write no rule, run no step, create no file for
+that feature. The calling command then supplies its own replacement (in
+its own type rules) if the project needs one. Features marked not
+overridable are always applied. With no override list, apply every
+feature (all default on).
+
+| Key | Default | Overridable | What it does (step #) |
+| --- | --- | --- | --- |
+| `git` | on | yes — auto-off if already a repo | `git init` (2) |
+| `conventional-commits` | on | yes | lefthook `commit-msg` + `pre-commit` (3) and its rule (4) |
+| `dependency-injection` | on | yes | the DI rule (4) |
+| `unit-testing` | on | yes | the unit-testing rule (4) |
+| `logging` | on | yes | invoke `/logging` (5) |
+| `project-commands` | on | yes | `/commit` + `/check` in `./.claude/commands/` (6) |
+| `test-skeleton` | on | yes | test dir + placeholder (7) |
+| `pre-cli-briefs` | on | **no** | the pre-CLI brief rule (4) — always written |
+
 Procedure:
 
 1. **Locate the project root** (current directory, or the enclosing git
    root if one exists). Report it and confirm before writing.
 
-2. **git** — if there is no `.git`, run `git init`. Skip if already a
-   repository (the monorepo case: git lives at the root).
+2. **git** *(key `git`)* — if there is no `.git`, run `git init`. Skip
+   if already a repository (the monorepo case: git lives at the root)
+   or if disabled by an override.
 
-3. **lefthook + conventional commits** — if `lefthook.yml` is absent,
+3. **lefthook + conventional commits** *(key `conventional-commits`)* —
+   skip entirely if disabled by an override. Otherwise, if
+   `lefthook.yml` is absent,
    create it with:
    - a **`commit-msg`** hook rejecting anything that doesn't match
      `^(feat|fix|refactor|chore|docs|style|perf|build|ci|test|revert)(\(.+\))?!?: .+`
@@ -37,7 +64,12 @@ Procedure:
    guessing an install path.
 
 4. **Common rules → `./CLAUDE.md`** — create the file (or append the
-   missing sections; never duplicate an existing one):
+   missing sections; never duplicate an existing one). Write **only the
+   subsections whose feature is enabled**: Dependency injection (key
+   `dependency-injection`), Unit testing (key `unit-testing`),
+   Conventional commits (key `conventional-commits`); the Pre-CLI-command
+   briefs subsection is always written. Omit any subsection whose key is
+   `off`.
 
    ```
    ## Dependency injection
@@ -79,18 +111,22 @@ Procedure:
    confirmation for destructive or outward-facing actions.
    ```
 
-5. **Logging** — invoke the `/logging` building block so the centralized
-   multi-writer logging rule is pinned (defined in exactly one place,
-   not duplicated here).
+5. **Logging** *(key `logging`)* — unless disabled by an override,
+   invoke the `/logging` building block so the centralized multi-writer
+   logging rule is pinned (defined in exactly one place, not duplicated
+   here). Types that don't do userland logging (e.g. kernel drivers)
+   disable this and state their own convention.
 
-6. **Project-local commands → `./.claude/commands/`** — add thin,
-   project-aware `/commit` (build a Conventional Commit from the staged
-   diff, honoring the lefthook regex) and `/check` (run the project's
-   lint + tests) commands.
+6. **Project-local commands → `./.claude/commands/`** *(key
+   `project-commands`)* — unless disabled, add thin, project-aware
+   `/commit` (build a Conventional Commit from the staged diff, honoring
+   the lefthook regex) and `/check` (run the project's lint + tests)
+   commands.
 
-7. **Unit-test skeleton** — create the conventional test directory for
-   the detected language with one placeholder test, so the `pre-commit`
-   test step has something to run.
+7. **Unit-test skeleton** *(key `test-skeleton`)* — unless disabled,
+   create the conventional test directory for the detected language with
+   one placeholder test, so the `pre-commit` test step has something to
+   run.
 
 8. **Report** every file created/edited and CLI step run, and suggest
    committing with the project's own Conventional Commit convention —

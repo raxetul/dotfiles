@@ -67,6 +67,30 @@ The four common rules in one line each:
 - **Pre-CLI-command briefs** — before running shell commands, print a
   table (`# | Command | Action brief | Effect`) of what will run.
 
+### Overridable features
+
+The baseline features are **named** and **overridable**: a command that
+invokes `/init-proj-common` can pass an override list to **disable** the
+parts that don't fit that project type, then supply its own replacement.
+Defaults are all on, so a bare `/init-proj-common` applies everything.
+
+| Key | Overridable | Disabled by |
+| --- | --- | --- |
+| `git` | yes (auto-off if already a repo) | monorepo packages |
+| `conventional-commits` | yes | — |
+| `dependency-injection` | yes | `kernel-driver` |
+| `unit-testing` | yes | `kernel-driver` |
+| `logging` | yes | `kernel-driver` |
+| `project-commands` | yes | — |
+| `test-skeleton` | yes | — |
+| `pre-cli-briefs` | **no** (always applied) | — |
+
+Example: `/init-proj-kernel-driver` runs `/init-proj-common` with
+`logging=off, dependency-injection=off, unit-testing=off`, because
+kernel space uses `pr_*` logging, `ops`-struct/function-pointer seams,
+and KUnit — not the userland forms. It then writes those kernel-native
+rules itself. `git` and conventional commits stay on.
+
 ## Type commands
 
 | Command | Layers on top of common |

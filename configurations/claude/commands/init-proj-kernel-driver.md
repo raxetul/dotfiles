@@ -11,10 +11,14 @@ idempotent.
 
 Procedure:
 
-1. **Run the common baseline first** — invoke `/init-proj-common`
-   (idempotent; skips root-level steps inside a monorepo package). Note
-   the adaptations below: the DI "in-memory fake" idea maps to **mocking
-   at subsystem API boundaries**, and unit testing maps to **KUnit**.
+1. **Run the common baseline first, with kernel overrides** — invoke
+   `/init-proj-common` **with overrides: `logging=off`,
+   `dependency-injection=off`, `unit-testing=off`**. Kernel space
+   doesn't use userland logging, a composition-root/container DI style,
+   or host unit-test runners, so those three common rules are disabled
+   and **replaced** by the kernel-native forms in step 2 below. `git`
+   and the conventional-commit lefthook stay on. (Idempotent; skips
+   root-level steps inside a monorepo package.)
 
 2. **Kernel rules → `./CLAUDE.md`** (append the missing sections):
 
@@ -29,11 +33,14 @@ Procedure:
      reverse acquisition order; check every allocation.
    - **Licensing**: `MODULE_LICENSE("GPL")` and an SPDX header on every
      file (GPL-compatible — required for many kernel symbols).
-   - **Testing**: KUnit for unit tests; isolate logic behind subsystem
-     API wrappers so those can be mocked in KUnit — the kernel-space
-     analogue of the DI seam.
-   - **Logging** via `pr_debug`/`pr_info`/`dev_*`, not custom sinks
-     (overrides the common logging rule for kernel space).
+   - **Dependency seam** (replaces the common DI rule): decouple via
+     kernel idioms — `ops` structs / function-pointer tables and
+     subsystem API wrappers — not constructor injection or a container.
+   - **Testing** (replaces the common unit-testing rule): KUnit; mock
+     at those subsystem-API wrappers so logic is exercised without real
+     hardware.
+   - **Logging** (replaces the common logging rule): `pr_debug` /
+     `pr_info` / `dev_*`, not custom multi-writer sinks.
    ```
 
 3. **Kbuild scaffold** — create a `Makefile` (`obj-m += <name>.o`, with
