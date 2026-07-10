@@ -21,3 +21,14 @@ delivered by the `/init-proj-*` command family, which writes those
 rules into the *project's own* `./CLAUDE.md`. They therefore load only
 inside that project, keeping this always-loaded global file — and every
 session's context — small. See the dotfiles repo's `doc/init-proj.md`.
+
+## Visual-first documentation
+
+I'm a visual thinker: favor **visual representations** in documentation
+over walls of prose. Anything that gets documented — concepts, howtos,
+runbooks, test cases, architecture, workflows — should carry a diagram,
+table, flowchart, or sequence/state diagram (plus annotated examples),
+not just paragraphs. Use **Mermaid** (embeddable in Markdown) or DrawIO
+for diagrams. If a repo has no documentation style, or a concept isn't
+documented at all, create **informal** documentation for it rather than
+leaving it undocumented — a rough visual doc beats none.
