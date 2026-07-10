@@ -22,6 +22,23 @@ rules into the *project's own* `./CLAUDE.md`. They therefore load only
 inside that project, keeping this always-loaded global file — and every
 session's context — small. See the dotfiles repo's `doc/init-proj.md`.
 
+## Project type: personal vs work
+
+Every project is either **personal** or **work**. Before doing substantive
+work in a project, know which it is:
+- If the project's `./CLAUDE.md` records a type, use it.
+- Otherwise, if the project already has implementation or history (i.e. not a
+  brand-new empty repo), **ask me to classify it as personal or work** before
+  applying any work-specific conventions — then record my answer in that
+  project's `./CLAUDE.md` so I don't ask again.
+
+Apply by type:
+- **work** → the Büyütech organization conventions apply (task templates,
+  compliance/standards framing, etc.).
+- **personal** → skip those work-only conventions (task templates, ASPICE /
+  automotive-compliance framing, "customer" assumptions). General safety and
+  security practices still apply where relevant.
+
 ## Visual-first documentation
 
 I'm a visual thinker: favor **visual representations** in documentation
