@@ -55,6 +55,7 @@ COMMON_LINKS=(
   "configurations/claude/commands::.claude/commands"
   "configurations/claude/hooks/context-mode-cache-heal.mjs::.claude/hooks/context-mode-cache-heal.mjs"
   "configurations/claude/scripts::.claude/scripts"
+  "configurations/cargo/bin/cargo-test-tree::.cargo/bin/cargo-test-tree"
   "scripts::.scripts"
 )
 

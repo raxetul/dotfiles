@@ -1,0 +1,105 @@
+#!/usr/bin/env node
+// Custom cargo subcommand: `cargo test-tree [any cargo-test args]`.
+//
+// Runs `cargo test` with your arguments and re-emits the results as a YAML tree —
+// two-space indent, statuses as leaf values, the redundant "test"/"tests" tokens
+// stripped from every label. Exit code follows cargo's.
+//
+// Install once (self-contained — a symlink is enough):
+//   ln -sf "$(pwd)/scripts/cargo-test-tree.mjs" ~/.cargo/bin/cargo-test-tree
+//
+// Then, from backend/:
+//   cargo test-tree                    # full suite
+//   cargo test-tree --lib              # unit only
+//   cargo test-tree --test conversion  # one integration suite
+//   cargo test-tree --lib rbac         # filtered
+//
+// Also works as a pipe formatter: `cargo test 2>&1 | cargo-test-tree -`.
+// (Stable cargo cannot emit custom formats itself — libtest JSON is nightly-only —
+// so this parses the stable "pretty" output.)
+
+import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+
+function clean(label) {
+  return label
+    .replace(/\btests?\b/gi, "")
+    .replace(/\s+/g, " ")
+    .replace(/^[\s_-]+|[\s_-]+$/g, "")
+    .trim();
+}
+
+function insert(tree, segments, value) {
+  const parts = segments.map(clean).filter(Boolean);
+  if (parts.length === 0) return;
+  let node = tree;
+  for (const part of parts.slice(0, -1)) {
+    if (typeof node[part] !== "object" || node[part] === null) node[part] = {};
+    node = node[part];
+  }
+  node[parts.at(-1)] = value;
+}
+
+function toYaml(node, depth = 0) {
+  const pad = "  ".repeat(depth);
+  const lines = [];
+  for (const key of Object.keys(node).sort()) {
+    const printable = /[:#{}\[\],&*?|>'"%@`]/.test(key) ? JSON.stringify(key) : key;
+    const value = node[key];
+    if (typeof value === "object" && value !== null) {
+      lines.push(`${pad}${printable}:`);
+      lines.push(...toYaml(value, depth + 1));
+    } else {
+      lines.push(`${pad}${printable}: ${value}`);
+    }
+  }
+  return lines;
+}
+
+/// Parse interleaved cargo-test output ("Running …" headers + libtest result lines).
+function parse(out, tree) {
+  let suite = null;
+  for (const line of out.split("\n")) {
+    const running = line.match(/^\s*Running (?:unittests (\S+)|tests\/(\w+)\.rs)/);
+    if (running) {
+      suite = running[2] ?? (running[1] === "src/lib.rs" ? "unit" : null);
+      continue;
+    }
+    if (/^\s*Doc-tests\b/.test(line)) {
+      suite = null;
+      continue;
+    }
+    const m = line.match(/^test (\S+) \.\.\. (\w+)/);
+    if (m && suite) {
+      insert(tree, [suite, ...m[1].split("::")], m[2] === "ok" ? "ok" : m[2].toLowerCase());
+    }
+  }
+}
+
+// argv: [node, script, ("test-tree" when invoked via cargo), ...cargo-test args]
+let args = process.argv.slice(2);
+if (args[0] === "test-tree") args = args.slice(1);
+
+const tree = {};
+let exitCode = 0;
+
+if (args[0] === "-") {
+  parse(readFileSync(0, "utf8"), tree);
+} else {
+  // Merge stderr into stdout in order: cargo prints the "Running …" suite headers
+  // on stderr and the per-case results on stdout.
+  const quoted = args.map((a) => `'${a.replace(/'/g, "'\\''")}'`).join(" ");
+  const res = spawnSync("sh", ["-c", `cargo test ${quoted} 2>&1`], {
+    encoding: "utf8",
+    maxBuffer: 64 * 1024 * 1024,
+  });
+  exitCode = res.status ?? 1;
+  parse(res.stdout, tree);
+  if (exitCode !== 0 && Object.keys(tree).length === 0) {
+    // Compile error or similar — show cargo's own message instead of an empty tree.
+    process.stderr.write(res.stdout);
+  }
+}
+
+console.log(toYaml(tree).join("\n"));
+process.exit(exitCode);
