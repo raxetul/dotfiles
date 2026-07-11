@@ -23,6 +23,7 @@ Forwarded as-is to `scripts/update-dotfiles`:
 | `--only=packages`          | Packages layer only (git pull → brew/native install + upgrade + AUR/Snap fallback). |
 | `--only=configurations`    | Config layer only (symlinks → lefthook → reload caches).     |
 | `--only=symlinks` (`--symlinks`) | Symlinks stage only — plant new `configurations/<app>/` links without touching packages or hooks. |
+| `--only=cache-clean`       | On-demand disk reclaim via `scripts/clean-package-cache.sh`: package-manager caches + orphan removal + language-tool caches. Never runs in a normal `/update`. Honors `--dry-run` / `--yes`. |
 
 ## Behavior
 

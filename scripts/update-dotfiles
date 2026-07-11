@@ -24,6 +24,7 @@
 #   scripts/update-dotfiles --only=custom-install-before # only before.sh hooks
 #   scripts/update-dotfiles --only=custom-install-after  # only after.sh hooks
 #   scripts/update-dotfiles --only=script-install        # only script-install.list installers
+#   scripts/update-dotfiles --only=cache-clean           # package/lang cache cleanup (on demand)
 #
 # Exit codes:
 #   0   success
@@ -48,6 +49,7 @@ for arg in "$@"; do
         --only=custom-install-before) ONLY="custom-install-before" ;;
         --only=custom-install-after)  ONLY="custom-install-after" ;;
         --only=script-install)        ONLY="script-install" ;;
+        --only=cache-clean)           ONLY="cache-clean" ;;
         --only=*)
             echo "Unknown --only value: ${arg#--only=}" >&2
             echo "Valid: packages, configurations, symlinks, custom-install," >&2
@@ -327,6 +329,16 @@ stage_packages_script_install() {
         "${REPO_ROOT}/scripts/run-script-installers"
 }
 
+# On-demand disk reclaim: package-manager caches + orphans + language-tool
+# caches. Deliberately NOT part of run_packages — reachable only via
+# --only=cache-clean, since it uninstalls orphans and wipes re-downloadable
+# caches. DRY_RUN/YES flow through so `--dry-run`/`--yes` behave as expected.
+stage_packages_cache_clean() {
+    note "package/lang cache cleanup (caches + orphans + language tools)"
+    DOTFILES_DIR="${REPO_ROOT}" DRY_RUN="${DRY_RUN}" YES="${YES}" \
+        "${REPO_ROOT}/scripts/clean-package-cache.sh"
+}
+
 run_packages() {
     run_stage "git-pull"        stage_packages_git_pull
     run_stage "custom-before"   stage_packages_custom_before
@@ -441,6 +453,7 @@ case "${ONLY}" in
     custom-install-before)   run_stage "custom-before" stage_packages_custom_before ;;
     custom-install-after)    run_stage "custom-after"  stage_packages_custom_after ;;
     script-install)          run_stage "script-install" stage_packages_script_install ;;
+    cache-clean)             run_stage "cache-clean" stage_packages_cache_clean ;;
     custom-install)
         run_stage "custom-before" stage_packages_custom_before
         run_stage "custom-after"  stage_packages_custom_after
