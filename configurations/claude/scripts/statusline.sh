@@ -7,6 +7,16 @@
 #   │  model · vX.Y      │ │ [████░░░░░░░░░░░]      │ │ ○ <next phase>         │
 #   └────────────────────┘ └───────────────────────┘ └────────────────────────┘
 #
+# On a vertical / narrow terminal (mobile SSH, e.g. ConnectBot) it collapses to
+# ONE compact line — the model name, plus the current phase when the project
+# defines phases (the phase segment is hidden when it doesn't):
+#
+#   🤖 Opus 4.8  ▶ Module loader     (phases defined → current phase shown)
+#   🤖 Opus 4.8                      (no phases → phase segment hidden)
+#
+# Compact auto-engages when the terminal is portrait (LINES > COLUMNS) or under
+# 60 columns; force it with CLAUDE_STATUSLINE_COMPACT=1, disable with =0.
+#
 # Reads the status-line JSON payload from stdin. The left pane is intentionally
 # extensible — add rows under "LEFT PANE" below.
 #
@@ -69,14 +79,49 @@ mcell() {                        # $1 plaintext, $2 pre-colored, $3 fallback col
 }
 
 # ---------------------------------------------------------------------------
-# geometry
+# geometry — Claude Code exports COLUMNS/LINES (v2.1.153+); tput can't read the
+# real terminal from here (stdin is the JSON payload, stdout is captured).
 # ---------------------------------------------------------------------------
 W="${COLUMNS:-0}"
-[ "$W" -gt 0 ] 2>/dev/null || W="$(tput cols 2>/dev/null || echo 120)"
-[ "$W" -ge 60 ] 2>/dev/null || W=120
+[ "$W" -gt 0 ] 2>/dev/null || W="$(tput cols 2>/dev/null || echo 0)"
+[ "$W" -gt 0 ] 2>/dev/null || W=120           # default only when width is unknown
+ROWS="${LINES:-0}"
+[ "$ROWS" -gt 0 ] 2>/dev/null || ROWS=0
 SEP=" ${DIM}│${RST} "                 # 3 visible cols
 COLW=$(( (W - 6) / 3 ))
 [ "$COLW" -lt 12 ] && COLW=12
+
+# ---------------------------------------------------------------------------
+# compact mode — vertical / narrow terminals (mobile SSH, e.g. ConnectBot).
+# Emits ONE line: model, plus the current phase when the project defines phases
+# (hidden otherwise), then exits before the full 3-column layout runs.
+# ---------------------------------------------------------------------------
+compact=0
+case "${CLAUDE_STATUSLINE_COMPACT:-auto}" in
+  1|on|yes|true)  compact=1 ;;
+  0|off|no|false) compact=0 ;;
+  *) { [ "$ROWS" -gt 0 ] && [ "$ROWS" -gt "$W" ]; } && compact=1
+     [ "$W" -lt 60 ] && compact=1 ;;
+esac
+
+if [ "$compact" = 1 ]; then
+  c_plain="🤖 ${model}"
+  c_col="$(seg "🤖 ${model}" "$B$MAG")"
+  if [ -x "$PHASES" ] && "$PHASES" detect "$cwd" >/dev/null 2>&1; then
+    mapfile -t _pc < <("$PHASES" cells "$cwd" 2>/dev/null)
+    for _c in "${_pc[@]}"; do
+      if [ "${_c%%$'\t'*}" = current ]; then
+        _ct="${_c#*$'\t'}"
+        c_plain="${c_plain}  ▶ ${_ct}"
+        c_col="${c_col}  $(seg "▶ ${_ct}" "$B$YEL")"
+        break
+      fi
+    done
+  fi
+  if [ "$(vislen "$c_plain")" -le "$W" ]; then printf '%b' "$c_col"
+  else printf '%b' "$(seg "$(trunc "$c_plain" "$W")" "$B$MAG")"; fi
+  exit 0
+fi
 
 # ---------------------------------------------------------------------------
 # LEFT PANE — workspace (extend here: add a row -> L4, etc.)
