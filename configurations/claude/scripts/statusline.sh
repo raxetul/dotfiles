@@ -15,7 +15,9 @@
 #   🤖 Opus 4.8                      (no phases → phase segment hidden)
 #
 # Compact auto-engages when the terminal is portrait (LINES > COLUMNS) or under
-# 60 columns; force it with CLAUDE_STATUSLINE_COMPACT=1, disable with =0.
+# 60 columns; force it with CLAUDE_STATUSLINE_COMPACT=1, disable with =0. The
+# size is re-read live every render (herdr pane rect → /dev/tty → COLUMNS/LINES),
+# so it flips back to full-size when a mobile client closes and the pane grows.
 #
 # Reads the status-line JSON payload from stdin. The left pane is intentionally
 # extensible — add rows under "LEFT PANE" below.
@@ -79,14 +81,35 @@ mcell() {                        # $1 plaintext, $2 pre-colored, $3 fallback col
 }
 
 # ---------------------------------------------------------------------------
-# geometry — Claude Code exports COLUMNS/LINES (v2.1.153+); tput can't read the
-# real terminal from here (stdin is the JSON payload, stdout is captured).
+# geometry — pick the AUTHORITATIVE live terminal size, most-reliable first:
+#   1. herdr's current pane rect — correct even when a persistent session is
+#      reattached from a wider client and Claude's exported COLUMNS/LINES lag;
+#   2. the kernel pty winsize via /dev/tty;
+#   3. the COLUMNS/LINES Claude Code exports (v2.1.153+);  4. a sane default.
+# Re-read on every render, so compact flips back to full-size when a mobile
+# client closes and the pane grows again.
 # ---------------------------------------------------------------------------
-W="${COLUMNS:-0}"
-[ "$W" -gt 0 ] 2>/dev/null || W="$(tput cols 2>/dev/null || echo 0)"
-[ "$W" -gt 0 ] 2>/dev/null || W=120           # default only when width is unknown
-ROWS="${LINES:-0}"
+herdr_size() {                        # echo "COLS ROWS" from herdr's live layout
+  [ -n "${HERDR_ENV:-}" ] && [ -n "${HERDR_PANE_ID:-}" ] || return 1
+  command -v herdr >/dev/null 2>&1 || return 1
+  herdr pane layout --pane "$HERDR_PANE_ID" 2>/dev/null | jq -r --arg id "$HERDR_PANE_ID" '
+    .result.layout as $L
+    | ( ($L.panes[]? | select(.pane_id==$id) | .rect) // $L.area )
+    | "\(.width) \(.height)"' 2>/dev/null
+}
+
+W=0; ROWS=0
+_sz="$(herdr_size || true)"                          # 1. herdr pane rect
+[ -n "$_sz" ] && { W="${_sz%% *}"; ROWS="${_sz##* }"; }
+if ! [ "$W" -gt 0 ] 2>/dev/null; then                # 2. live pty winsize
+  _sz="$( (stty size </dev/tty) 2>/dev/null )"       #    ("ROWS COLS"); the
+  [ -n "$_sz" ] && { ROWS="${_sz%% *}"; W="${_sz##* }"; }  # subshell hides a
+fi                                                   # /dev/tty open failure
+[ "$W" -gt 0 ]    2>/dev/null || W="${COLUMNS:-0}"    # 3. Claude-exported
+[ "$ROWS" -gt 0 ] 2>/dev/null || ROWS="${LINES:-0}"
+[ "$W" -gt 0 ]    2>/dev/null || W=120               # 4. default
 [ "$ROWS" -gt 0 ] 2>/dev/null || ROWS=0
+
 SEP=" ${DIM}│${RST} "                 # 3 visible cols
 COLW=$(( (W - 6) / 3 ))
 [ "$COLW" -lt 12 ] && COLW=12
