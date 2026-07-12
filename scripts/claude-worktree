@@ -1,0 +1,111 @@
+#!/usr/bin/env bash
+# claude-worktree — spin up a git worktree + a parallel Claude session in herdr.
+#
+# Each parallel Claude runs on its own branch in its own *worktree* (a second
+# checkout that shares this repo's single .git), so sessions never fight over
+# the working tree. The new session is placed BESIDE the current one as a herdr
+# split pane by default — same repo, work side by side — or in a fresh tab with
+# --tab when splits get cramped.
+#
+# Worktrees live as siblings of the main checkout:
+#     ../<repo>.worktrees/<branch>          (branch slashes → "-")
+#
+# Usage:
+#   claude-worktree <branch> [--base <ref>] [--tab] [--split down]
+#                            [--no-focus] [--no-claude] [-- <extra claude args>]
+#   claude-worktree list
+#   claude-worktree rm <branch> [--force]
+#
+# Examples:
+#   claude-worktree feature-x                 # new branch from HEAD, split pane, launch claude
+#   claude-worktree hotfix --base main --tab  # from main, in a new tab
+#   claude-worktree review-pr-42 --no-claude  # just make the worktree; I'll start claude myself
+#
+# herdr is used only to PLACE the session; the worktree itself is plain git, so
+# --no-claude / a herdr-less shell still get a usable worktree.
+set -euo pipefail
+
+die() { printf 'claude-worktree: %s\n' "$*" >&2; exit 1; }
+
+git rev-parse --is-inside-work-tree >/dev/null 2>&1 \
+  || die "not inside a git repository"
+
+# main checkout = first worktree git reports; siblings hang next to it
+main_wt="$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')"
+repo="$(basename "$main_wt")"
+wt_base="$(dirname "$main_wt")/${repo}.worktrees"
+
+slug() { printf '%s' "${1//\//-}"; }             # branch -> filesystem-safe dir
+
+# ---------------------------------------------------------------------------
+# subcommands: list / rm
+# ---------------------------------------------------------------------------
+case "${1:-}" in
+  ""|-h|--help)
+    sed -n '2,28p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+  list)
+    git worktree list; exit 0 ;;
+  rm)
+    [ $# -ge 2 ] || die "rm needs a <branch>"
+    force=""; [ "${3:-}" = "--force" ] && force="--force"
+    wt_path="$wt_base/$(slug "$2")"
+    git worktree remove $force "$wt_path"
+    printf 'removed worktree %s (branch "%s" kept; delete it with: git branch -d %s)\n' \
+      "$wt_path" "$2" "$2"
+    exit 0 ;;
+esac
+
+# ---------------------------------------------------------------------------
+# create
+# ---------------------------------------------------------------------------
+branch="$1"; shift
+case "$branch" in -*) die "first argument must be a branch name, got: $branch";; esac
+
+base="HEAD"; launch=1; focus="--focus"
+place=(--split right)                              # default: split beside current
+extra=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --base)      base="${2:?--base needs a ref}"; shift 2 ;;
+    --tab)       place=(); shift ;;                # empty → new-tab path below
+    --split)     place=(--split "${2:-right}"); shift 2 ;;
+    --no-focus)  focus="--no-focus"; shift ;;
+    --no-claude) launch=0; shift ;;
+    --)          shift; extra=("$@"); break ;;
+    *)           die "unknown option: $1" ;;
+  esac
+done
+
+wt_path="$wt_base/$(slug "$branch")"
+mkdir -p "$wt_base"
+
+if git worktree list --porcelain | grep -qxF "worktree $wt_path"; then
+  printf 'reusing existing worktree %s\n' "$wt_path"
+elif git show-ref --verify --quiet "refs/heads/$branch"; then
+  git worktree add "$wt_path" "$branch"            # existing branch
+else
+  git worktree add -b "$branch" "$wt_path" "$base" # new branch from base
+fi
+
+[ "$launch" = 1 ] || { printf 'worktree ready: %s\n' "$wt_path"; exit 0; }
+
+if [ -z "${HERDR_ENV:-}" ] || ! command -v herdr >/dev/null 2>&1; then
+  printf 'herdr not active — worktree ready at %s\n  cd %q && claude\n' "$wt_path" "$wt_path"
+  exit 0
+fi
+
+if [ "${#place[@]}" -gt 0 ]; then
+  # split pane beside the current session
+  herdr agent start claude --cwd "$wt_path" "${place[@]}" "$focus" -- claude "${extra[@]}"
+else
+  # fresh tab: create it (labelled with the branch), then start claude inside
+  tab_id="$(herdr tab create --cwd "$wt_path" --label "$branch" --no-focus --json 2>/dev/null \
+            | jq -r '.result.tab.tab_id // .result.tab_id // empty' 2>/dev/null)"
+  if [ -n "$tab_id" ]; then
+    herdr agent start claude --cwd "$wt_path" --tab "$tab_id" "$focus" -- claude "${extra[@]}"
+  else
+    # fall back to herdr's default placement if the tab id couldn't be parsed
+    herdr agent start claude --cwd "$wt_path" "$focus" -- claude "${extra[@]}"
+  fi
+fi
+printf 'launched claude in %s (branch "%s")\n' "$wt_path" "$branch"

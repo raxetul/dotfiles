@@ -37,3 +37,7 @@ claude() {
       fi ;;
   esac
 }
+
+# cwt — spin up a git worktree + a parallel Claude session in herdr.
+# See scripts/claude-worktree (on PATH via ~/.scripts) and doc/claude-worktrees.md.
+alias cwt='claude-worktree'
