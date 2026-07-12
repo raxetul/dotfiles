@@ -34,6 +34,7 @@ graph TD
 | `scripts/update-dotfiles` | (inline help) — refresh entrypoint |
 | `scripts/dotfiles-state.sh` | [state-management.md](state-management.md) — realized-state ledger |
 | `scripts/gpg-setup.sh` | (inline help) — GPG signing wizard |
+| `scripts/claude-worktree` | [claude-worktrees.md](claude-worktrees.md) — parallel Claude sessions in git worktrees |
 | `scripts/nix-uninstall.sh` | (inline help) — legacy Nix cleanup |
 
 ## Packages
@@ -41,6 +42,7 @@ graph TD
 | Doc                                              | Purpose                                                                 |
 | ------------------------------------------------ | ----------------------------------------------------------------------- |
 | [packages-native.md](packages-native.md)         | Single lookup table — every package, per OS, with fallback notes.       |
+| [packages-summary.md](packages-summary.md)       | Flat summary — one row per package, per-OS install lane.                |
 
 ## Slash commands (`.claude/commands/*.md`)
 
@@ -70,5 +72,7 @@ graph TD
 | Topic              | Doc                                                                                                 |
 | ------------------ | --------------------------------------------------------------------------------------------------- |
 | Theming            | [theming.md](theming.md) — Catppuccin Mocha palette + per-app mapping.                              |
+| Project init       | [init-proj.md](init-proj.md) — the `/init-proj-*` command family and how per-project standards layer. |
+| Parallel Claude    | [claude-worktrees.md](claude-worktrees.md) — `claude-worktree` / `cwt`: a worktree + Claude session per branch. |
 | Footprint / state  | [state-management.md](state-management.md) — the realized-state ledger that records what got planted (and what we may safely remove). |
 | Agentic promotion  | [agentic-promotion.md](agentic-promotion.md) — lifting rules from repo-local `.claude/` to global. |
