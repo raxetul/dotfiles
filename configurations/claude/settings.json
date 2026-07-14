@@ -1,80 +1,83 @@
 {
-  "enabledPlugins": {
-    "context-mode@context-mode": true
-  },
   "env": {
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
   },
-  "extraKnownMarketplaces": {
-    "context-mode": {
-      "source": {
-        "repo": "mksglu/claude-context-mode",
-        "source": "github"
-      }
-    }
-  },
-  "model": "claude-fable-5[1m]",
+  "model": "opus[1m]",
   "hooks": {
     "PostToolUse": [
       {
+        "matcher": "Bash",
         "hooks": [
           {
-            "command": "atuin hook claude-code",
-            "type": "command"
+            "type": "command",
+            "command": "atuin hook claude-code"
           }
-        ],
-        "matcher": "Bash"
+        ]
       }
     ],
     "PostToolUseFailure": [
       {
+        "matcher": "Bash",
         "hooks": [
           {
-            "command": "atuin hook claude-code",
-            "type": "command"
+            "type": "command",
+            "command": "atuin hook claude-code"
           }
-        ],
-        "matcher": "Bash"
+        ]
       }
     ],
     "PreToolUse": [
       {
+        "matcher": "Bash",
         "hooks": [
           {
-            "command": "atuin hook claude-code",
-            "type": "command"
+            "type": "command",
+            "command": "atuin hook claude-code"
           }
-        ],
-        "matcher": "Bash"
+        ]
       }
     ],
     "SessionStart": [
       {
         "hooks": [
           {
-            "command": "\"$HOME/.claude/hooks/context-mode-cache-heal.mjs\"",
-            "type": "command"
+            "type": "command",
+            "command": "\"$HOME/.claude/hooks/context-mode-cache-heal.mjs\""
           }
         ]
       },
       {
+        "matcher": "*",
         "hooks": [
           {
+            "type": "command",
             "command": "bash \"$HOME/.claude/hooks/herdr-agent-state.sh\" session",
-            "timeout": 10,
-            "type": "command"
+            "timeout": 10
           }
-        ],
-        "matcher": "*"
+        ]
       }
     ]
   },
   "statusLine": {
+    "type": "command",
     "command": "$HOME/.claude/scripts/statusline.sh",
-    "padding": 0,
-    "type": "command"
+    "padding": 0
   },
-  "teammateMode": "tmux",
+  "enabledPlugins": {
+    "context-mode@context-mode": true
+  },
+  "extraKnownMarketplaces": {
+    "context-mode": {
+      "source": {
+        "source": "github",
+        "repo": "mksglu/claude-context-mode"
+      }
+    }
+  },
+  "tui": "fullscreen",
   "theme": "dark",
-  "tui": "fullscreen"
+  "teammateMode": "tmux",
+  "permissions": {
+    "defaultMode": "auto"
+  }
 }
