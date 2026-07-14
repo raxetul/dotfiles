@@ -3,23 +3,46 @@
 #
 # Each parallel Claude runs on its own branch in its own *worktree* (a second
 # checkout that shares this repo's single .git), so sessions never fight over
-# the working tree. The new session is placed BESIDE the current one as a herdr
-# split pane by default — same repo, work side by side — or in a fresh tab with
-# --tab when splits get cramped.
+# the working tree. Sessions are arranged as a TEAM inside the current tab: the
+# pane you launch from is the team LEADER on the left; every new session joins
+# as a team MEMBER stacked vertically down the right-hand column.
+#
+#     +-----------+-----------+
+#     |           | member 1  |
+#     |  leader   +-----------+
+#     |  (left)   | member 2  |
+#     |           +-----------+
+#     |           | member 3  |
+#     +-----------+-----------+
+#
+# The first member splits the leader to the right (opening the column); each
+# later member splits down off the bottom of that column. Placement is found by
+# walking herdr's pane graph, so it works no matter which pane you run from.
 #
 # Worktrees live as siblings of the main checkout:
 #     ../<repo>.worktrees/<branch>          (branch slashes → "-")
 #
 # Usage:
-#   claude-worktree <branch> [--base <ref>] [--tab] [--split down]
-#                            [--no-focus] [--no-claude] [-- <extra claude args>]
+#   claude-worktree <branch> [--base <ref>] [--tab] [--split right|down]
+#                            [--focus-member] [--no-focus] [--no-claude]
+#                            [-- <extra claude args>]
 #   claude-worktree list
 #   claude-worktree rm <branch> [--force]
 #
+# Placement:
+#   (default)       team layout — leader left, members stacked down the right column.
+#   --tab           put the member in its own new tab instead of the column.
+#   --split D       override: plain split (right|down) off the current pane.
+#
+# Focus (where the cursor lands after launch):
+#   (default)       the team LEADER keeps focus — orchestrate from the left.
+#   --focus-member  jump to the newly spawned member instead.
+#   --no-focus      leave focus on the pane you launched from.
+#
 # Examples:
-#   claude-worktree feature-x                 # new branch from HEAD, split pane, launch claude
-#   claude-worktree hotfix --base main --tab  # from main, in a new tab
-#   claude-worktree review-pr-42 --no-claude  # just make the worktree; I'll start claude myself
+#   claude-worktree feature-x                 # new member in the team column
+#   claude-worktree hotfix --base main --tab  # from main, in its own tab
+#   claude-worktree review-pr-42 --no-claude  # just make the worktree; start claude myself
 #
 # herdr is used only to PLACE the session; the worktree itself is plain git, so
 # --no-claude / a herdr-less shell still get a usable worktree.
@@ -42,7 +65,7 @@ slug() { printf '%s' "${1//\//-}"; }             # branch -> filesystem-safe dir
 # ---------------------------------------------------------------------------
 case "${1:-}" in
   ""|-h|--help)
-    sed -n '2,28p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    sed -n '2,48p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
   list)
     git worktree list; exit 0 ;;
   rm)
@@ -61,18 +84,19 @@ esac
 branch="$1"; shift
 case "$branch" in -*) die "first argument must be a branch name, got: $branch";; esac
 
-base="HEAD"; launch=1; focus="--focus"
-place=(--split right)                              # default: split beside current
+base="HEAD"; launch=1; focus_mode="leader"         # team default: focus stays on the leader
+mode="team"; split_dir="right"                     # default: team layout (leader + column)
 extra=()
 while [ $# -gt 0 ]; do
   case "$1" in
-    --base)      base="${2:?--base needs a ref}"; shift 2 ;;
-    --tab)       place=(); shift ;;                # empty → new-tab path below
-    --split)     place=(--split "${2:-right}"); shift 2 ;;
-    --no-focus)  focus="--no-focus"; shift ;;
-    --no-claude) launch=0; shift ;;
-    --)          shift; extra=("$@"); break ;;
-    *)           die "unknown option: $1" ;;
+    --base)         base="${2:?--base needs a ref}"; shift 2 ;;
+    --tab)          mode="tab"; shift ;;
+    --split)        mode="manual"; split_dir="${2:-right}"; shift 2 ;;
+    --focus-member) focus_mode="member"; shift ;;
+    --no-focus)     focus_mode="none"; shift ;;
+    --no-claude)    launch=0; shift ;;
+    --)             shift; extra=("$@"); break ;;
+    *)              die "unknown option: $1" ;;
   esac
 done
 
@@ -94,18 +118,74 @@ if [ -z "${HERDR_ENV:-}" ] || ! command -v herdr >/dev/null 2>&1; then
   exit 0
 fi
 
-if [ "${#place[@]}" -gt 0 ]; then
-  # split pane beside the current session
-  herdr agent start claude --cwd "$wt_path" "${place[@]}" "$focus" -- claude "${extra[@]}"
-else
-  # fresh tab: create it (labelled with the branch), then start claude inside
-  tab_id="$(herdr tab create --cwd "$wt_path" --label "$branch" --no-focus --json 2>/dev/null \
-            | jq -r '.result.tab.tab_id // .result.tab_id // empty' 2>/dev/null)"
-  if [ -n "$tab_id" ]; then
-    herdr agent start claude --cwd "$wt_path" --tab "$tab_id" "$focus" -- claude "${extra[@]}"
-  else
-    # fall back to herdr's default placement if the tab id couldn't be parsed
-    herdr agent start claude --cwd "$wt_path" "$focus" -- claude "${extra[@]}"
-  fi
-fi
+# --- herdr pane-geometry helpers ---------------------------------------------
+cur_pane() { herdr pane current | jq -r '.result.pane.pane_id // empty'; }
+# The team layout is read from pane RECTANGLES: `herdr pane layout --current`
+# lists every pane in the current tab with its {x,y,w,h}. (herdr's `pane
+# neighbor` reports focus-movement targets, not spatial adjacency, so it can't
+# be walked.) leader = leftmost pane (min x); right column = panes to its right
+# (x > leader.x); the column's bottom pane = the one with the greatest y.
+# The new member grabs focus only with --focus-member; otherwise we place the
+# member with --no-focus and move focus ourselves afterwards (see below), so a
+# split always happens relative to the pane we deliberately focused first.
+sf="--no-focus"; [ "$focus_mode" = member ] && sf="--focus"
+# herdr requires a UNIQUE agent name per workspace; the branch slug is unique
+# per worktree. (This is only herdr's label — Claude is still detected as a
+# "claude" agent at runtime via its integration hooks, regardless of the label.)
+label="$(slug "$branch")"
+# start_member <split-direction> — split claude off the currently focused pane.
+start_member() {
+  herdr agent start "$label" --cwd "$wt_path" --split "$1" "$sf" -- claude "${extra[@]}"
+}
+
+origin="$(cur_pane)"                               # the pane the user launched from
+leader=""
+
+case "$mode" in
+  manual)
+    # power-user override: plain split off the current pane
+    start_member "$split_dir" ;;
+  tab)
+    # member in its own new tab, labelled with the branch
+    tab_id="$(herdr tab create --cwd "$wt_path" --label "$branch" --no-focus --json 2>/dev/null \
+              | jq -r '.result.tab.tab_id // .result.tab_id // empty' 2>/dev/null)"
+    if [ -n "$tab_id" ]; then
+      herdr agent start "$label" --cwd "$wt_path" --tab "$tab_id" "$sf" -- claude "${extra[@]}"
+    else
+      # fall back to herdr's default placement if the tab id couldn't be parsed
+      herdr agent start "$label" --cwd "$wt_path" "$sf" -- claude "${extra[@]}"
+    fi ;;
+  team|*)
+    # team layout: leader = leftmost pane in this tab; members stack down the
+    # right column. Read the geometry once, then open the column or stack under
+    # it. Works from any pane (leader is spatial, not the pane you launched in).
+    layout="$(herdr pane layout --current 2>/dev/null || true)"
+    leader="$(printf '%s' "$layout" \
+      | jq -r '.result.layout.panes | sort_by(.rect.x, .rect.y) | .[0].pane_id // empty' 2>/dev/null)"
+    if [ -z "$leader" ]; then
+      start_member right                           # can't read layout → best-effort
+    else
+      lx="$(printf '%s' "$layout" \
+        | jq -r '.result.layout.panes | sort_by(.rect.x, .rect.y) | .[0].rect.x // 0' 2>/dev/null)"
+      bottom="$(printf '%s' "$layout" | jq -r --argjson lx "${lx:-0}" \
+        '.result.layout.panes | map(select(.rect.x > $lx)) | sort_by(.rect.y) | last | .pane_id // empty' 2>/dev/null)"
+      if [ -z "$bottom" ]; then
+        herdr agent focus "$leader" >/dev/null     # no right column yet → open it
+        start_member right
+      else
+        herdr agent focus "$bottom" >/dev/null     # stack under the column bottom
+        start_member down
+      fi
+    fi ;;
+esac
+
+# land focus where the user wants it (default: the team leader, so you keep
+# orchestrating from the left rather than being yanked into each new member).
+case "$focus_mode" in
+  member) : ;;                                     # agent start already focused it
+  none)   [ -n "$origin" ] && herdr agent focus "$origin" >/dev/null 2>&1 || true ;;
+  leader|*)
+    ftarget="${leader:-$origin}"
+    [ -n "$ftarget" ] && herdr agent focus "$ftarget" >/dev/null 2>&1 || true ;;
+esac
 printf 'launched claude in %s (branch "%s")\n' "$wt_path" "$branch"
