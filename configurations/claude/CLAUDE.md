@@ -109,3 +109,11 @@ out under `docs/`):
   exposes, and how to use each (with examples).
 
 A pillar with nothing to say yet gets a stub marked `_TBD_`, not silence.
+
+## Keep requirements & docs in sync with what's built
+
+Whatever I ask for and you implement must — in the *same* change, not as a
+follow-up — be (1) documented and (2) reflected in the project's requirements:
+add, update, or delete the affected requirement items so they match reality.
+Treat this as part of the definition of done for every task. If a project has
+no requirements file, say so and document the change anyway.
