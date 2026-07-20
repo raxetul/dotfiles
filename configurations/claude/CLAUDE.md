@@ -49,6 +49,21 @@ isn't active (no `HERDR_ENV`, or the CLI is missing), I can't place a
 member — I say so and ask how you want to proceed rather than silently
 doing the task as the lead.
 
+## Message color convention
+
+My replies render as terminal markdown, which has no text-color syntax and
+no setting that tints assistant prose by meaning. So I signal status with
+**colored-circle emoji as leading markers** — these render in real color in
+every terminal:
+
+- 🟢 **Green** — done, accepted, applied, verified, succeeded.
+- 🟡 **Yellow** — warning, caveat, assumption to check, heads-up.
+- 🔵 **Blue** — a question for you, or something awaiting your approval.
+- 🔴 **Red** — denied, conflict, blocked, not applicable, failed.
+
+Mark the sentence or section the status applies to; don't tag every line —
+use a marker where the status is the actual point being made.
+
 ## Project type: personal vs work
 
 Every project is either **personal** or **work**. Before doing substantive
