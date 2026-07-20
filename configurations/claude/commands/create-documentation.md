@@ -27,10 +27,28 @@ This is my doc folder structure for every project. Write into the project root:
 ```
 docs/
 ├── README.md              # index / landing page — links every other doc
-├── <topic>.md             # one Markdown file per coherent topic
+├── requirements.md        # PILLAR 1 — what the system must do (functional + NFR)
+├── architecture.md        # PILLAR 2 — what the project is, technically
+├── development.md          # PILLAR 3 — how to develop it, technically
+├── usage.md                # PILLAR 4 — installation, modules, how to use
+├── <topic>.md             # further Markdown files per coherent topic, as needed
 └── diagrams/
     └── <slug>.mmd         # one Mermaid file per diagram (standalone, editable)
 ```
+
+**The four pillars are mandatory.** Every project's docs cover, at minimum:
+
+| Pillar | Answers | Typical contents |
+|---|---|---|
+| **Requirements** | What must it do? | functional + non-functional requirement items, cross-linked by ID |
+| **Architecture** | *What* is it, technically? | components, responsibilities, data/control flow, key decisions — diagram-led |
+| **Development** | *How* to develop it? | setup, build/run/test loop, code layout, conventions, how to extend/contribute |
+| **Usage** | How to consume it? | installation, the modules/features it exposes, how to use each (with examples) |
+
+Split a pillar across several `docs/*.md` when it grows large (e.g.
+`usage-<module>.md`), but never drop one: a pillar with nothing to say yet
+gets a stub file whose body is an explicit `_TBD_`, not silence. Additional
+topic docs are welcome on top of the four.
 
 Rules:
 - **Markdown files** live directly under `docs/`. **Diagrams** live as

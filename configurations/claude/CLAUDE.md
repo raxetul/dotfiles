@@ -49,3 +49,21 @@ not just paragraphs. Use **Mermaid** (embeddable in Markdown) or DrawIO
 for diagrams. If a repo has no documentation style, or a concept isn't
 documented at all, create **informal** documentation for it rather than
 leaving it undocumented — a rough visual doc beats none.
+
+## Documentation structure
+
+Every project's documentation covers these four pillars (a doc, section,
+or set of docs per pillar — the `/create-documentation` command lays them
+out under `docs/`):
+
+- **Requirements** — what the system must do (functional + non-functional
+  requirement items, kept in sync per the rule below).
+- **Architecture** — *what* the project is, technically: components,
+  their responsibilities, data/control flow, key decisions. Diagram-led
+  per "Visual-first documentation".
+- **Development** — *how* to develop it, technically: setup, build/run/test
+  loop, code layout, conventions, how to extend it, how to contribute.
+- **Usage** — how to consume it: installation, the modules/features it
+  exposes, and how to use each (with examples).
+
+A pillar with nothing to say yet gets a stub marked `_TBD_`, not silence.
