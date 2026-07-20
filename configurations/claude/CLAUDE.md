@@ -35,6 +35,14 @@ mechanism as `scripts/claude-worktree` (`herdr agent start --split -- claude`,
 handing the member its task as the initial prompt). The lead pane keeps
 focus so I can keep orchestrating from the left.
 
+**Model split — lead on Opus, members on Sonnet.** I (the lead) run
+**Opus**; every member I spawn runs **Sonnet**. So each member is
+launched with the model pinned explicitly —
+`herdr agent start --split -- claude --model sonnet` — never bare
+`claude` (which would inherit my Opus default). The lead reasons and
+orchestrates on the stronger model; members execute their handed tasks
+on the faster/cheaper one.
+
 Routing each incoming task:
 
 - **Continuation** of work a member already handled → the **same**
