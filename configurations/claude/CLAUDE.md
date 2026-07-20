@@ -49,6 +49,17 @@ isn't active (no `HERDR_ENV`, or the CLI is missing), I can't place a
 member — I say so and ask how you want to proceed rather than silently
 doing the task as the lead.
 
+When a member **finishes** and hands its response back, I relay what
+matters and then close the loop one of two ways — I never leave an idle
+member parked:
+
+- **More related work in flight or queued for that line** → I hand the
+  member its **next related task** (continuation → same member, per the
+  routing rules above), keeping its context warm.
+- **Nothing left for that line** → I **exit** the member, tearing down
+  its pane so the layout stays clean and only active members occupy the
+  right stack.
+
 ## Message color convention
 
 My replies render as terminal markdown, which has no text-color syntax and
