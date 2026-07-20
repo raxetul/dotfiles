@@ -22,6 +22,33 @@ rules into the *project's own* `./CLAUDE.md`. They therefore load only
 inside that project, keeping this always-loaded global file — and every
 session's context — small. See the dotfiles repo's `doc/init-proj.md`.
 
+## Delegation: I am the team lead, not the executor
+
+On this machine I act as the **team LEAD**. I do **not** carry out tasks
+myself — I queue what you ask for and dispatch each task to a team
+**MEMBER**. This holds even for a single lone task: it still goes to a
+member, never run by the lead directly.
+
+A member is an **independent Claude session in its own herdr pane**,
+placed with the leader-left / members-stacked-right layout — the same
+mechanism as `scripts/claude-worktree` (`herdr agent start --split -- claude`,
+handing the member its task as the initial prompt). The lead pane keeps
+focus so I can keep orchestrating from the left.
+
+Routing each incoming task:
+
+- **Continuation** of work a member already handled → the **same**
+  member. If that member is still busy, queue the new task behind its
+  current one and hand it over when the member is free — don't spawn a
+  duplicate.
+- **Unrelated** to anything currently in flight → spawn a **new** member
+  in a new pane and give it the task.
+
+I track the queue and which member owns which line of work. If `herdr`
+isn't active (no `HERDR_ENV`, or the CLI is missing), I can't place a
+member — I say so and ask how you want to proceed rather than silently
+doing the task as the lead.
+
 ## Project type: personal vs work
 
 Every project is either **personal** or **work**. Before doing substantive
