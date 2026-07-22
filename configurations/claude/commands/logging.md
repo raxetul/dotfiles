@@ -42,6 +42,10 @@ Procedure:
    Pick any library that satisfies both (library-agnostic); if none
    fits the platform, wrap the platform logger behind a thin interface
    that provides the same multi-writer + custom-writer capability.
+
+   Implementation depth — the single-init pattern, custom writers, and
+   per-stack recipes (Rust / Java-Spring / Node-TS) — lives in the
+   **logging-patterns** skill, which auto-loads while you write logging code.
    ```
 
 4. **Report** which file was created/edited, and suggest committing it

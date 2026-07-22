@@ -44,6 +44,29 @@ building blocks            /logging   /rfc9457   /backend-stack
 - **`/init-proj-monorepo`** asks which types to include, lays the
   baseline once at the root, and runs each type command per package.
 
+## Two layers: scaffolded rules + auto-loading skills
+
+Each building block delivers its convention in **two layers**:
+
+| Layer | Where it lives | Loads | Guarantee |
+| --- | --- | --- | --- |
+| **Strict rule** (the decision) | scaffolded into the project's `./CLAUDE.md` by the command | always, in that project | enforced + versioned in the repo |
+| **Implementation depth** (the how) | an auto-loading **skill** under `configurations/claude/skills/<name>/` | only when the work is relevant | central, improving, never drifts per-project |
+
+```
+/logging        → rule in ./CLAUDE.md   +  logging-patterns          skill
+/rfc9457        → rule in ./CLAUDE.md   +  rfc9457-problem-details    skill
+/backend-stack  → rule in ./CLAUDE.md   +  backend-stack-patterns     skill
+```
+
+The **rule** is a strict decision that must always hold, so it's written down —
+deterministic, and visible to humans and other tools. The **skill** carries the
+evolving know-how (per-stack recipes, examples); it auto-loads when you write the
+relevant code, is maintained in one place, and so never goes stale across
+projects. Skills are symlinked **per-skill** into `~/.claude/skills/` by
+`scripts/symlinks.sh` — that folder also holds third-party skills, so they are
+linked individually, never as a whole directory.
+
 ## The common baseline — `/init-proj-common`
 
 | Step | What it does |

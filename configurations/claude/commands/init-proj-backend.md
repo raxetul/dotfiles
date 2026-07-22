@@ -40,3 +40,10 @@ Procedure:
 
 5. **Report** files created/edited and building-block commands invoked;
    suggest committing with the Conventional Commit convention.
+
+Note — two layers: this command (and its building blocks) scaffold the
+**strict, enforced rules** into `./CLAUDE.md`. The matching **auto-loading
+skills** carry the evolving implementation depth and load only when relevant:
+`backend-stack-patterns`, `rfc9457-problem-details`, `logging-patterns`. Rules
+are guaranteed and versioned in the repo; skills are maintained centrally and
+never drift into each project.

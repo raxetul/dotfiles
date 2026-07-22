@@ -33,6 +33,10 @@ Procedure:
 
    This project's backend is built with <framework> (<language>). Use it
    for new backend services in this repo unless explicitly told otherwise.
+
+   Idiomatic layout and layering for this framework live in the
+   **backend-stack-patterns** skill, which auto-loads while you scaffold or
+   structure backend code.
    ```
 
 5. **Report** which file was created/edited and the framework pinned.
