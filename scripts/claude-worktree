@@ -120,8 +120,19 @@ fi
 
 # --- herdr pane-geometry helpers ---------------------------------------------
 cur_pane() { herdr pane current | jq -r '.result.pane.pane_id // empty'; }
-# The team layout is read from pane RECTANGLES: `herdr pane layout --current`
-# lists every pane in the current tab with its {x,y,w,h}. (herdr's `pane
+
+# The invoking pane IS the lead dispatching this member, and herdr exports its
+# identity into every pane's shell (HERDR_PANE_ID/TAB/WORKSPACE). Trust that
+# over `herdr pane current` / `--current`, which resolve against GLOBAL focus:
+# at spawn time focus may sit in a totally different project's workspace, and
+# splitting relative to it drops the member into the wrong project — exactly the
+# "panes of one project in another's workspace" leak. Anchoring every placement
+# to the lead's own workspace makes cross-project contamination impossible.
+lead_pane="${HERDR_PANE_ID:-$(cur_pane)}"
+lead_ws="${HERDR_WORKSPACE_ID:-}"
+# The team layout is read from pane RECTANGLES: `herdr pane layout --pane
+# "$lead_pane"` lists every pane in the LEAD's tab with its {x,y,w,h} (scoped
+# to the lead, not global focus, so members stay in this project). (herdr's `pane
 # neighbor` reports focus-movement targets, not spatial adjacency, so it can't
 # be walked.) leader = leftmost pane (min x); right column = panes to its right
 # (x > leader.x); the column's bottom pane = the one with the greatest y.
@@ -133,12 +144,14 @@ sf="--no-focus"; [ "$focus_mode" = member ] && sf="--focus"
 # per worktree. (This is only herdr's label — Claude is still detected as a
 # "claude" agent at runtime via its integration hooks, regardless of the label.)
 label="$(slug "$branch")"
-# start_member <split-direction> — split claude off the currently focused pane.
+# start_member <split-direction> — split claude off the focused pane, PINNED to
+# the lead's workspace so the member can never land in another project's tree.
 start_member() {
-  herdr agent start "$label" --cwd "$wt_path" --split "$1" "$sf" -- claude "${extra[@]}"
+  herdr agent start "$label" --cwd "$wt_path" \
+    ${lead_ws:+--workspace "$lead_ws"} --split "$1" "$sf" -- claude "${extra[@]}"
 }
 
-origin="$(cur_pane)"                               # the pane the user launched from
+origin="$lead_pane"                                # the lead pane dispatching this member
 leader=""
 
 case "$mode" in
@@ -147,19 +160,21 @@ case "$mode" in
     start_member "$split_dir" ;;
   tab)
     # member in its own new tab, labelled with the branch
-    tab_id="$(herdr tab create --cwd "$wt_path" --label "$branch" --no-focus --json 2>/dev/null \
+    tab_id="$(herdr tab create ${lead_ws:+--workspace "$lead_ws"} --cwd "$wt_path" \
+              --label "$branch" --no-focus --json 2>/dev/null \
               | jq -r '.result.tab.tab_id // .result.tab_id // empty' 2>/dev/null)"
     if [ -n "$tab_id" ]; then
       herdr agent start "$label" --cwd "$wt_path" --tab "$tab_id" "$sf" -- claude "${extra[@]}"
     else
-      # fall back to herdr's default placement if the tab id couldn't be parsed
-      herdr agent start "$label" --cwd "$wt_path" "$sf" -- claude "${extra[@]}"
+      # fall back to the lead's workspace if the tab id couldn't be parsed
+      herdr agent start "$label" --cwd "$wt_path" \
+        ${lead_ws:+--workspace "$lead_ws"} "$sf" -- claude "${extra[@]}"
     fi ;;
   team|*)
     # team layout: leader = leftmost pane in this tab; members stack down the
     # right column. Read the geometry once, then open the column or stack under
     # it. Works from any pane (leader is spatial, not the pane you launched in).
-    layout="$(herdr pane layout --current 2>/dev/null || true)"
+    layout="$(herdr pane layout --pane "$lead_pane" 2>/dev/null || true)"
     leader="$(printf '%s' "$layout" \
       | jq -r '.result.layout.panes | sort_by(.rect.x, .rect.y) | .[0].pane_id // empty' 2>/dev/null)"
     if [ -z "$leader" ]; then

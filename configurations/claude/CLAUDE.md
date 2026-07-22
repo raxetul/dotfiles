@@ -38,10 +38,19 @@ focus so I can keep orchestrating from the left.
 **Model split — lead on Opus, members on Sonnet.** I (the lead) run
 **Opus**; every member I spawn runs **Sonnet**. So each member is
 launched with the model pinned explicitly —
-`herdr agent start --split -- claude --model sonnet` — never bare
-`claude` (which would inherit my Opus default). The lead reasons and
-orchestrates on the stronger model; members execute their handed tasks
-on the faster/cheaper one.
+`claude --model sonnet` — never bare `claude` (which would inherit my
+Opus default). The lead reasons and orchestrates on the stronger model;
+members execute their handed tasks on the faster/cheaper one.
+
+**Workspace anchoring — a member always lands in its lead's workspace.**
+herdr's `--split` and `pane layout --current` resolve against *global
+focus*, so spawning while focus sits in another project drops the member
+into that project's workspace (the "panes of one project in another's
+workspace" leak). I never spawn by bare split: I anchor placement to my
+own pane, whose identity herdr exports as `HERDR_PANE_ID` /
+`HERDR_WORKSPACE_ID`, and pass `--workspace "${HERDR_WORKSPACE_ID}"` to
+`herdr agent start`. `scripts/claude-worktree` does exactly this, so it's
+the mechanism to use rather than a hand-rolled `herdr agent start`.
 
 Routing each incoming task:
 

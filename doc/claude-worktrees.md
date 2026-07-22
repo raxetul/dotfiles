@@ -85,22 +85,34 @@ cwt feature-x
   ├─ git worktree add -b feature-x  ../<repo>.worktrees/feature-x  HEAD
   │      (plain git — portable, exact path, works without herdr)
   │
-  └─ place in the team layout (read `herdr pane layout --current` geometry):
-        leader = pane with the smallest x (leftmost) in the current tab
+  └─ place in the team layout (read `herdr pane layout --pane "$lead_pane"`):
+        leader = pane with the smallest x (leftmost) in the LEAD's tab
         right column = panes with x > leader.x ; its bottom = greatest y
         • no right column yet → focus leader,       agent start … --split right
         • column exists       → focus column bottom, agent start … --split down
         then focus the leader again (default) / the member / the origin
-      (herdr only PLACES the session; --tab routes it to a fresh tab instead,
+      (every agent start is pinned with --workspace "$HERDR_WORKSPACE_ID";
+       herdr only PLACES the session; --tab routes it to a fresh tab instead,
        and --split right|down forces a plain split off the current pane)
 ```
+
+**Workspace anchoring (why members stay in their own project).** herdr's
+`--split` and `pane layout --current` resolve against *global focus*, not the
+pane you launched from. Spawning a member while focus sits in another project's
+workspace would split the member into *that* workspace — the "panes of one
+project in another's workspace" leak. The script defeats this by anchoring
+every placement to the lead pane's own identity, which herdr exports into each
+pane's shell as `HERDR_PANE_ID` / `HERDR_WORKSPACE_ID`: layout is read with
+`--pane "$lead_pane"` and each `herdr agent start` is pinned with
+`--workspace "$lead_ws"`. A member therefore can never land outside its lead's
+workspace, regardless of where focus happens to be at spawn time.
 
 Placement is read from pane **rectangles**, not `pane neighbor` — that command
 reports focus-movement targets within the split tree, not spatial adjacency, so
 it can't be walked. Reading `x`/`y` from the layout finds the leftmost (leader)
 and greatest-`y` right-column (column tail) panes deterministically, from
 whichever pane you run `cwt` in. If the layout can't be parsed, it falls back to
-a plain split-right so a member is still placed.
+a plain split-right (still workspace-pinned) so a member is still placed.
 
 Each member is started under a **unique herdr agent name** (the branch slug),
 because herdr rejects a duplicate name in the workspace; Claude is still
@@ -128,7 +140,7 @@ its commits.
 - **The team lives in one tab.** Leader + members share the current tab; the
   members are the right-hand column. Use `--tab` to break a session out into
   its own tab when the column gets crowded.
-- Team placement parses `herdr pane layout --current` at
+- Team placement parses `herdr pane layout --pane "$lead_pane"` at
   `.result.layout.panes[].{pane_id,rect}` to find the leader (min `x`) and the
   right column's bottom (max `y` among `x > leader.x`). If a herdr update changes
   that shape, adjust the two `jq` filters in the `team` branch of
