@@ -13,6 +13,7 @@ Implement a phase of the project, **gated on full requirements coverage across t
 4. Collect every requirement mapped to that phase (from the mapping table), plus the cross-cutting requirements (e.g. TR-00-001 TDD).
 5. Honor the locked project decisions documented in the repo (language, auth, stack, conventions).
 6. Follow **TDD** (TR-00-001): for each requirement, write failing tests from its **Accept** criteria first (red), implement until green, then refactor. Add no behavior without a test in the same change.
-7. When all of the phase's requirements pass their tests, mark the phase `- [x]` in `PHASES.md`.
+7. **Update the project's development documentation in the same change** (e.g. `docs/development.md` where it exists): any new/changed modules, control flows, endpoints, configuration keys, or diagrams introduced by the phase must be reflected there before the phase counts as done. Regenerate affected generated diagrams; never regenerate hand-edited ones.
+8. When all of the phase's requirements pass their tests **and the documentation is in sync**, mark the phase `- [x]` in `PHASES.md`.
 
-Report which requirements you covered (by ID) and the tests proving each.
+Report which requirements you covered (by ID), the tests proving each, and the documentation sections you updated.
