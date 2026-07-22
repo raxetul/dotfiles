@@ -52,6 +52,12 @@ own pane, whose identity herdr exports as `HERDR_PANE_ID` /
 `herdr agent start`. `scripts/claude-worktree` does exactly this, so it's
 the mechanism to use rather than a hand-rolled `herdr agent start`.
 
+This is **enforced**, not just convention: the `herdr-workspace-guard.sh`
+PreToolUse hook (wired in `settings.json`) **denies any `herdr agent start`
+that lacks `--workspace`/`--tab`**, so an un-pinned member spawn can never
+execute — even a hand-rolled one. It's rejected with a message telling me to
+re-run pinned to `${HERDR_WORKSPACE_ID}`.
+
 Routing each incoming task:
 
 - **Continuation** of work a member already handled → the **same**

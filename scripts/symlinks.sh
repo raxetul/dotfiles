@@ -55,6 +55,7 @@ COMMON_LINKS=(
   "configurations/claude/commands::.claude/commands"
   "configurations/claude/hooks/context-mode-cache-heal.mjs::.claude/hooks/context-mode-cache-heal.mjs"
   "configurations/claude/hooks/herdr-agent-state.sh::.claude/hooks/herdr-agent-state.sh"
+  "configurations/claude/hooks/herdr-workspace-guard.sh::.claude/hooks/herdr-workspace-guard.sh"
   "configurations/claude/scripts::.claude/scripts"
   "configurations/claude/skills/logging-patterns::.claude/skills/logging-patterns"
   "configurations/claude/skills/rfc9457-problem-details::.claude/skills/rfc9457-problem-details"
