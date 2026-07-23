@@ -73,12 +73,12 @@ linked individually, never as a whole directory.
 | --- | --- |
 | git | `git init` if not already a repo (skipped inside a monorepo) |
 | lefthook | `lefthook.yml` with a conventional-commit `commit-msg` hook + a `pre-commit` lint/test hook, then `lefthook install` |
-| rules → `./CLAUDE.md` | **Dependency injection**, **Unit testing**, **Conventional commits**, **Pre-CLI-command briefs** |
+| rules → `./CLAUDE.md` | **Dependency injection**, **Unit testing**, **Conventional commits**, **Diagram layout**, **Pre-CLI-command briefs** |
 | logging | invokes `/logging` (centralized multi-writer logging) |
 | project commands | `./.claude/commands/` gets a lefthook-aware `/commit` and a `/check` |
 | tests | a conventional test dir + one placeholder test |
 
-The four common rules in one line each:
+The five common rules in one line each:
 
 - **Dependency injection** — modules take collaborators through an
   abstraction wired at a composition root; tests inject in-memory
@@ -87,6 +87,10 @@ The four common rules in one line each:
   DI seam; new behavior lands with tests.
 - **Conventional commits** — enforced by the lefthook `commit-msg`
   regex.
+- **Diagram layout** — in draw.io diagrams, edge labels sit only on
+  non-overlapping vertical segments; two edges share a vertical only
+  when they share an endpoint; keep ≥20px between parallel segments;
+  avoid crossings.
 - **Pre-CLI-command briefs** — before running shell commands, print a
   table (`# | Command | Action brief | Effect`) of what will run.
 
@@ -106,6 +110,7 @@ Defaults are all on, so a bare `/init-proj-common` applies everything.
 | `logging` | yes | `kernel-driver` |
 | `project-commands` | yes | — |
 | `test-skeleton` | yes | — |
+| `diagram-layout` | yes | — |
 | `pre-cli-briefs` | **no** (always applied) | — |
 
 Example: `/init-proj-kernel-driver` runs `/init-proj-common` with
@@ -135,6 +140,29 @@ type command. Because `/init-proj-common` is idempotent, its
 per-package run finds the root git/lefthook and skips them — no nested
 repos, no duplicated hooks. Root rules apply everywhere; package rules
 load only inside that package.
+
+## Re-applying to an existing project — `/apply-updated-init`
+
+The `/init-proj-*` commands **initialize** a fresh project. When the
+scaffolding later gains a new rule (or an existing one changes),
+`/apply-updated-init` **re-applies** the current scaffolding to an
+**already-initialized** project so it catches up without a manual redo.
+
+It (1) detects the project's type(s) — including monorepo root + each
+package, (2) re-invokes the matching `/init-proj-*` command(s), whose
+**idempotency** appends only the missing/changed `./CLAUDE.md` sections,
+and (3) — the part a plain re-scaffold doesn't do — **conforms the
+project's existing artifacts** to each new/changed rule (e.g. a new
+*Diagram layout* rule → regenerate the diagrams via the project's own
+generator and verify), keeping living docs/requirements in sync. Same
+family contract: idempotent, pre-CLI briefs, confirm before writing,
+never auto-commit.
+
+```
+/init-proj-*        initialize a new project
+/apply-updated-init reconcile an existing project to the current rules
+                    + bring its artifacts into compliance
+```
 
 ## Contract shared by every command
 

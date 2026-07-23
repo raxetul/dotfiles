@@ -32,8 +32,8 @@ Procedure:
    live at the **root** and cover every package. Each package under
    `<layout>/` owns a nested `CLAUDE.md` with its type-specific rules;
    those load only when working inside that package. Root-level rules
-   (DI, unit testing, logging, pre-CLI briefs, conventional commits)
-   apply everywhere and are not repeated per package.
+   (DI, unit testing, logging, diagram layout, pre-CLI briefs, conventional
+   commits) apply everywhere and are not repeated per package.
    ```
 
 3. **Each package** — for every selected `<layout>/<name>` + kind:

@@ -1,5 +1,5 @@
 ---
-description: Scaffold the shared baseline for the current project — git init, lefthook + conventional commits, and the common rules (dependency injection, unit testing, logging, pre-CLI briefs) written into the project's own ./CLAUDE.md.
+description: Scaffold the shared baseline for the current project — git init, lefthook + conventional commits, and the common rules (dependency injection, unit testing, logging, diagram layout, pre-CLI briefs) written into the project's own ./CLAUDE.md.
 allowed-tools: Read, Write, Edit, Skill, Bash(git*), Bash(lefthook*), Bash(mkdir*), Bash(ls*), Bash(test*), Bash(cat*)
 ---
 
@@ -39,6 +39,7 @@ feature (all default on).
 | `logging` | on | yes | invoke `/logging` (5) |
 | `project-commands` | on | yes | `/commit` + `/check` in `./.claude/commands/` (6) |
 | `test-skeleton` | on | yes | test dir + placeholder (7) |
+| `diagram-layout` | on | yes | the draw.io diagram-layout rule (4) |
 | `pre-cli-briefs` | on | **no** | the pre-CLI brief rule (4) — always written |
 
 Procedure:
@@ -67,9 +68,9 @@ Procedure:
    missing sections; never duplicate an existing one). Write **only the
    subsections whose feature is enabled**: Dependency injection (key
    `dependency-injection`), Unit testing (key `unit-testing`),
-   Conventional commits (key `conventional-commits`); the Pre-CLI-command
-   briefs subsection is always written. Omit any subsection whose key is
-   `off`.
+   Conventional commits (key `conventional-commits`), Diagram layout (key
+   `diagram-layout`); the Pre-CLI-command briefs subsection is always
+   written. Omit any subsection whose key is `off`.
 
    ```
    ## Dependency injection
@@ -100,6 +101,19 @@ Procedure:
    `revert`; scope optional. The `commit-msg` lefthook hook rejects
    anything not matching the regex above; `pre-commit` runs the
    project's formatters/linters/tests.
+
+   ## Diagram layout (draw.io)
+
+   Connector lines in draw.io diagrams obey these layout rules:
+   - **Labels ride the vertical** — place edge text (cardinalities, role
+     names) only on a **vertical** segment of the line, and only where
+     that segment is clear; **never on top of another line**.
+   - **Share a vertical only when an endpoint is shared** — two edges may
+     run on the same vertical x **only if** they share a source or a
+     target (a merge trunk); otherwise their verticals **never** overlap.
+   - **≥20px between parallels** — when the shared-endpoint rule does not
+     apply, keep at least **20px** between parallel line segments.
+   - **Avoid crossing lines** wherever possible.
 
    ## Pre-CLI-command briefs
 
