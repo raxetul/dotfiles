@@ -13,6 +13,7 @@
 #   herdr-team read  <target> [herdr agent read flags...]
 #   herdr-team wait  <target> [herdr agent wait flags...]
 #   herdr-team spawn <branch> [claude-worktree flags...]
+#   herdr-team name  <role>
 #   herdr-team exit  <target>
 #
 # <target> accepts a workspace-prefixed pane id ("${HERDR_WORKSPACE_ID}:p1")
@@ -23,11 +24,28 @@
 # `spawn` delegates to scripts/claude-worktree (kept as the single mechanism
 # for placing a new member pane); every other subcommand talks to herdr
 # directly, scoped to ${HERDR_WORKSPACE_ID}.
+#
+# `name <role>` allocates the next free herdr agent name for a logical ROLE
+# (frontend / backend / embedded / documentor / tooling / ... — free text,
+# not a fixed list) scoped to MY OWN workspace, and prints it to stdout:
+#   1. <role> itself, if nothing in my workspace already has that name.
+#   2. <role>-<mascot>, trying each mascot in $team_mascots order, first FREE
+#      one wins.
+#   3. <role>-2, <role>-3, ... once the mascot pool is exhausted.
+# This is the ONE place naming is decided — claude-worktree calls it instead
+# of duplicating the allocation logic.
 set -euo pipefail
 
 die() { printf 'herdr-team: %s\n' "$*" >&2; exit 1; }
 
-usage() { sed -n '2,25p' "$0" | sed 's/^# \{0,1\}//'; }
+# Mascot pool for role-name collisions (anime helper robot/android characters).
+# Edit this array to add/reorder mascots; first FREE one in this order wins.
+team_mascots=(
+  haro tachikoma sumomo canti pino nono arale metabee rokusho doraemon
+  ropponmatsu logicoma chachamaru dorothy pinoko atom
+)
+
+usage() { sed -n '2,36p' "$0" | sed 's/^# \{0,1\}//'; }
 
 case "${1:-}" in
   ""|-h|--help) usage; exit 0 ;;
@@ -120,6 +138,40 @@ cmd_spawn() {
   exec "$script_dir/claude-worktree" "$@"
 }
 
+# name_taken <candidate> <newline-separated-pool> — true if <candidate> is
+# already an agent name somewhere in <pool>.
+name_taken() {
+  printf '%s\n' "$2" | grep -qxF "$1"
+}
+
+cmd_name() {
+  [ $# -ge 1 ] || die "name needs a <role>"
+  local role="$1" existing mascot candidate i
+
+  existing="$(herdr agent list | jq -r --arg ws "$own_ws" '
+    .result.agents[] | select(.workspace_id == $ws) | .name // empty
+  ')"
+
+  if ! name_taken "$role" "$existing"; then
+    printf '%s\n' "$role"
+    return 0
+  fi
+
+  for mascot in "${team_mascots[@]}"; do
+    candidate="${role}-${mascot}"
+    if ! name_taken "$candidate" "$existing"; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+
+  i=2
+  while name_taken "${role}-${i}" "$existing"; do
+    i=$((i + 1))
+  done
+  printf '%s-%s\n' "$role" "$i"
+}
+
 sub="$1"; shift
 case "$sub" in
   list)  cmd_list "$@" ;;
@@ -127,6 +179,7 @@ case "$sub" in
   read)  cmd_read "$@" ;;
   wait)  cmd_wait "$@" ;;
   spawn) cmd_spawn "$@" ;;
+  name)  cmd_name "$@" ;;
   exit)  cmd_exit "$@" ;;
   *) die "unknown subcommand: $sub (see --help)" ;;
 esac

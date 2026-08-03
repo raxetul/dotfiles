@@ -64,6 +64,7 @@ leave focus on the pane you launched from.
 | --- | --- |
 | `cwt <branch>` | New branch from `HEAD`, worktree at `../<repo>.worktrees/<branch>`, launch Claude as a team member in the right-hand column |
 | `cwt <branch> --base <ref>` | Branch off `<ref>` instead of `HEAD` |
+| `cwt <branch> --role <name>` | Name the member's herdr agent / pane label after its logical role (`frontend`, `backend`, …) instead of the branch slug — see [Member naming](#member-naming--role--mascot) |
 | `cwt <branch> --tab` | Place the session in its own new tab instead of the team column |
 | `cwt <branch> --split right\|down` | Override the team layout with a plain split off the current pane |
 | `cwt <branch> --focus-member` | Jump into the new member instead of keeping focus on the leader |
@@ -114,13 +115,74 @@ and greatest-`y` right-column (column tail) panes deterministically, from
 whichever pane you run `cwt` in. If the layout can't be parsed, it falls back to
 a plain split-right (still workspace-pinned) so a member is still placed.
 
-Each member is started under a **unique herdr agent name** (the branch slug),
-because herdr rejects a duplicate name in the workspace; Claude is still
-detected as a `claude` agent at runtime via its integration hooks regardless of
-that label.
+Each member is started under a **unique herdr agent name** — by default its
+**role** (`--role frontend` → agent name `frontend`), falling back to the
+branch slug with a one-line warning if `--role` is omitted — because herdr
+rejects a duplicate name in the workspace. See
+[Member naming](#member-naming--role--mascot) for how the name is picked, and
+`herdr pane rename` re-labels the pane to match so the border reads the same
+name. Claude is still detected as a `claude` agent at runtime via its
+integration hooks regardless of that label.
 
 Worktrees are plain git, so `--no-claude` (or running outside herdr) still
 leaves a usable checkout — the script prints the `cd … && claude` line.
+
+## Member naming — role + mascot
+
+A member's herdr agent name (and pane label) is its **logical role**, not the
+branch slug — the slug still keys the worktree *path*
+(`../<repo>.worktrees/<branch>`), it just stopped being the *name*. Free text,
+kebab-case, whatever function fits the task:
+
+| Role | Example use |
+| --- | --- |
+| `frontend` | UI / client-side work |
+| `backend` | API / server-side work |
+| `embedded` | firmware / MCU work |
+| `documentor` | writing or syncing docs |
+| `tooling` | scripts, CI, dev tooling — e.g. pane `w3:p4`, renamed to `tooling` |
+| `infra` | deployment / infrastructure |
+| `test` | test-writing or test-fixing |
+| `requirements` | requirements authoring |
+| `review` | reviewing someone else's change |
+
+A **second** member doing the same role can't reuse that name (herdr agent
+names are unique per workspace), so it gets a mascot suffix instead — drawn
+in order from an anime helper-robot/android pool:
+
+```
+haro, tachikoma, sumomo, canti, pino, nono, arale, metabee, rokusho,
+doraemon, ropponmatsu, logicoma, chachamaru, dorothy, pinoko, atom
+```
+
+The pool lives as a single array (`team_mascots`) in `scripts/herdr-team` —
+edit it there to add or reorder mascots. Once the pool is exhausted, naming
+falls back to a numeric suffix (`<role>-2`, `<role>-3`, …). The existing
+first member of a role is **never** retroactively renamed when a second one
+arrives.
+
+Allocation is decided in exactly **one** place — `herdr-team name <role>` —
+scoped to `${HERDR_WORKSPACE_ID}` (own workspace only, per
+[Team scoping](#team-scoping--cwd-is-never-identity)). `claude-worktree
+--role <name>` calls it rather than re-deriving the logic itself, so the two
+scripts can never disagree on the next free name:
+
+```mermaid
+flowchart TD
+    A["cwt &lt;branch&gt; --role frontend"] --> B["herdr-team name frontend"]
+    B --> C{"'frontend' free in\nmy workspace?"}
+    C -- yes --> D["use 'frontend'"]
+    C -- no --> E{"'frontend-&lt;mascot&gt;' free?\n(try haro, tachikoma, ... in order)"}
+    E -- "yes, first free mascot" --> F["use 'frontend-&lt;mascot&gt;'"]
+    E -- "pool exhausted" --> G["use 'frontend-2', 'frontend-3', ..."]
+    D --> H["herdr agent start &lt;name&gt; ...\nherdr pane rename &lt;pane_id&gt; &lt;name&gt;"]
+    F --> H
+    G --> H
+```
+
+Omitting `--role` still works — `claude-worktree` falls back to the branch
+slug — but it prints a one-line warning rather than silently reusing the old
+behavior, so a forgotten `--role` is never invisible.
 
 ## Cleanup
 
@@ -183,6 +245,7 @@ flowchart TD
   | `herdr-team read <target> [flags]` | `herdr agent read`, same workspace gate. |
   | `herdr-team wait <target> [flags]` | `herdr agent wait`, same workspace gate. |
   | `herdr-team spawn <branch> [flags]` | Delegates straight to `scripts/claude-worktree` (which already anchors placement to my own workspace). |
+  | `herdr-team name <role>` | Prints the next free agent name for `<role>` in **my own** workspace — see [Member naming](#member-naming--role--mascot). |
   | `herdr-team exit <target>` | Resolves `<target>` to a pane and closes it — only if it's mine. |
 
   `<target>` can be a workspace-prefixed id (`w3:p4`) or a bare agent name;
@@ -231,11 +294,19 @@ the thing that locks up a shell.
   that shape, adjust the two `jq` filters in the `team` branch of
   `scripts/claude-worktree`; on any parse failure the script falls back to a
   plain split-right so a member is still placed.
-- **Agent names must be unique per workspace** — the script labels each member
-  with the branch slug for that reason. Re-running `cwt` for a branch that
-  already has a live member in the workspace will be rejected by herdr with
-  `agent_name_taken`.
+- **Agent names must be unique per workspace** — the script names each member
+  after its `--role` (falling back to the branch slug if `--role` is
+  omitted), with `herdr-team name <role>` resolving collisions via the mascot
+  pool per [Member naming](#member-naming--role--mascot). Re-running `cwt`
+  for a branch that already has a live member under that exact name will
+  still be rejected by herdr with `agent_name_taken` — pass a different
+  `--role` (or none, to fall back to the branch slug) to work around it.
 - The new-tab path assumes `herdr tab create --json` returns a tab id under
   `.result.tab.tab_id` (falls back to herdr's default placement if not).
   Adjust the one `jq` line in `scripts/claude-worktree` if a herdr update
   changes that shape.
+- **Pane relabeling assumes `herdr agent start --json` returns the spawned
+  pane id** under `.result.agent.pane_id`, and that `herdr pane rename
+  <pane_id> <name>` exists. If a herdr update changes either shape, adjust
+  `rename_started_pane()` in `scripts/claude-worktree` — the agent name
+  itself is unaffected either way, only the pane's visual label.

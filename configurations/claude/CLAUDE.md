@@ -31,9 +31,10 @@ member, never run by the lead directly.
 
 A member is an **independent Claude session in its own herdr pane**,
 placed with the leader-left / members-stacked-right layout — the same
-mechanism as `scripts/claude-worktree` (`herdr agent start --split -- claude`,
-handing the member its task as the initial prompt). The lead pane keeps
-focus so I can keep orchestrating from the left.
+mechanism as `scripts/claude-worktree --role <name>` (`herdr agent start
+--split -- claude`, handing the member its task as the initial prompt). The
+lead pane keeps focus so I can keep orchestrating from the left. See "Member
+naming" below for how `<name>` is picked.
 
 **Model split — lead on Opus, members on Sonnet.** I (the lead) run
 **Opus**; every member I spawn runs **Sonnet**. So each member is
@@ -94,6 +95,22 @@ pinned to `${HERDR_WORKSPACE_ID}` / `${HERDR_PANE_ID}`, or pointing me at
 `scripts/herdr-team`. Read-only reconnaissance (`pane list`, `pane layout`,
 `pane current`, `agent list`) is never policed — it can't move or send
 anything into the wrong workspace.
+
+**Member naming — role, not branch.** A member's herdr agent name (and pane
+label) is its **logical role** — `frontend`, `backend`, `embedded`,
+`documentor`, `tooling`, `infra`, `test`, `requirements`, `review`, … — never
+the branch slug; the slug still keys the worktree *path*
+(`../<repo>.worktrees/<branch>`) so `list`/`rm` keep working, it just isn't
+the name anymore. A second member doing the same role gets a mascot suffix
+drawn from an anime helper-robot/android pool, in order: `haro`, `tachikoma`,
+`sumomo`, `canti`, `pino`, `nono`, `arale`, `metabee`, `rokusho`, `doraemon`,
+`ropponmatsu`, `logicoma`, `chachamaru`, `dorothy`, `pinoko`, `atom` — falling
+back to `<role>-2`, `<role>-3`, … once the pool is exhausted. An existing
+first member of a role is never retroactively renamed. Naming is decided in
+exactly ONE place, `herdr-team name <role>`, so `scripts/claude-worktree
+--role <name>` calls it rather than re-deriving names itself. I always pass
+`--role` when spawning; omitting it still works but prints a warning and
+falls back to the branch slug.
 
 Routing each incoming task:
 

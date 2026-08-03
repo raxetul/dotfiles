@@ -23,7 +23,8 @@
 #     ../<repo>.worktrees/<branch>          (branch slashes → "-")
 #
 # Usage:
-#   claude-worktree <branch> [--base <ref>] [--tab] [--split right|down]
+#   claude-worktree <branch> [--base <ref>] [--role <name>] [--tab]
+#                            [--split right|down]
 #                            [--focus-member] [--no-focus] [--no-claude]
 #                            [-- <extra claude args>]
 #   claude-worktree list
@@ -34,15 +35,25 @@
 #   --tab           put the member in its own new tab instead of the column.
 #   --split D       override: plain split (right|down) off the current pane.
 #
+# Naming (herdr agent name + pane label — NOT the worktree path, which always
+# keys off the branch slug so `list`/`rm` keep working):
+#   --role <name>   logical function this member does — frontend / backend /
+#                   embedded / documentor / tooling / infra / test / ... (free
+#                   text, kebab-case). Allocated via `herdr-team name <role>`:
+#                   the role itself if free, else <role>-<mascot>, else
+#                   <role>-N. See doc/claude-worktrees.md for the mascot pool.
+#   (omitted)       falls back to the branch slug, WITH a one-line warning —
+#                   never silently.
+#
 # Focus (where the cursor lands after launch):
 #   (default)       the team LEADER keeps focus — orchestrate from the left.
 #   --focus-member  jump to the newly spawned member instead.
 #   --no-focus      leave focus on the pane you launched from.
 #
 # Examples:
-#   claude-worktree feature-x                 # new member in the team column
-#   claude-worktree hotfix --base main --tab  # from main, in its own tab
-#   claude-worktree review-pr-42 --no-claude  # just make the worktree; start claude myself
+#   claude-worktree feature-x --role frontend  # new member, pane labelled "frontend"
+#   claude-worktree hotfix --base main --tab   # from main, in its own tab
+#   claude-worktree review-pr-42 --no-claude   # just make the worktree; start claude myself
 #
 # herdr is used only to PLACE the session; the worktree itself is plain git, so
 # --no-claude / a herdr-less shell still get a usable worktree.
@@ -65,7 +76,7 @@ slug() { printf '%s' "${1//\//-}"; }             # branch -> filesystem-safe dir
 # ---------------------------------------------------------------------------
 case "${1:-}" in
   ""|-h|--help)
-    sed -n '2,48p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    sed -n '2,59p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
   list)
     git worktree list; exit 0 ;;
   rm)
@@ -86,10 +97,12 @@ case "$branch" in -*) die "first argument must be a branch name, got: $branch";;
 
 base="HEAD"; launch=1; focus_mode="leader"         # team default: focus stays on the leader
 mode="team"; split_dir="right"                     # default: team layout (leader + column)
+role=""                                            # logical function; empty -> branch-slug fallback
 extra=()
 while [ $# -gt 0 ]; do
   case "$1" in
     --base)         base="${2:?--base needs a ref}"; shift 2 ;;
+    --role)         role="${2:?--role needs a name}"; shift 2 ;;
     --tab)          mode="tab"; shift ;;
     --split)        mode="manual"; split_dir="${2:-right}"; shift 2 ;;
     --focus-member) focus_mode="member"; shift ;;
@@ -99,6 +112,11 @@ while [ $# -gt 0 ]; do
     *)              die "unknown option: $1" ;;
   esac
 done
+
+case "$role" in
+  '') : ;;
+  *[!a-z0-9-]*) die "--role must be short kebab-case (lowercase letters, digits, hyphens): $role" ;;
+esac
 
 wt_path="$wt_base/$(slug "$branch")"
 mkdir -p "$wt_base"
@@ -140,15 +158,38 @@ lead_ws="${HERDR_WORKSPACE_ID:-}"
 # member with --no-focus and move focus ourselves afterwards (see below), so a
 # split always happens relative to the pane we deliberately focused first.
 sf="--no-focus"; [ "$focus_mode" = member ] && sf="--focus"
-# herdr requires a UNIQUE agent name per workspace; the branch slug is unique
-# per worktree. (This is only herdr's label — Claude is still detected as a
-# "claude" agent at runtime via its integration hooks, regardless of the label.)
-label="$(slug "$branch")"
+# herdr requires a UNIQUE agent name per workspace. Prefer a ROLE-based name
+# (frontend/backend/embedded/documentor/...) over the branch slug so panes read
+# as "what is this member doing" rather than "which branch is it on" — the
+# worktree PATH above still keys off the branch slug (unaffected by --role),
+# only the herdr agent name / pane label change. Allocation (role -> role-mascot
+# -> role-N on collision) lives in ONE place, `herdr-team name`, so this script
+# and herdr-team never disagree on the next free name.
+if [ -n "$role" ]; then
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  label="$("$script_dir/herdr-team" name "$role")"
+else
+  label="$(slug "$branch")"
+  printf 'claude-worktree: no --role given — falling back to branch-slug agent name %s (pass --role <name> for a readable pane label)\n' \
+    "$label" >&2
+fi
+# rename_started_pane <herdr-agent-start-json> — herdr agent start returns the
+# spawned pane id under .result.agent.pane_id (--json); relabel the pane to
+# match the agent name so the border reads "frontend"/"frontend-haro" instead
+# of a raw pane id, regardless of which mode (manual/tab/team) spawned it.
+rename_started_pane() {
+  local pane_id
+  pane_id="$(printf '%s' "$1" | jq -r '.result.agent.pane_id // .result.pane_id // empty' 2>/dev/null)"
+  [ -n "$pane_id" ] && herdr pane rename "$pane_id" "$label" >/dev/null 2>&1
+  return 0
+}
 # start_member <split-direction> — split claude off the focused pane, PINNED to
 # the lead's workspace so the member can never land in another project's tree.
 start_member() {
-  herdr agent start "$label" --cwd "$wt_path" \
-    ${lead_ws:+--workspace "$lead_ws"} --split "$1" "$sf" -- claude "${extra[@]}"
+  local out
+  out="$(herdr agent start "$label" --cwd "$wt_path" \
+    ${lead_ws:+--workspace "$lead_ws"} --split "$1" "$sf" --json -- claude "${extra[@]}")"
+  rename_started_pane "$out"
 }
 
 origin="$lead_pane"                                # the lead pane dispatching this member
@@ -164,12 +205,13 @@ case "$mode" in
               --label "$branch" --no-focus --json 2>/dev/null \
               | jq -r '.result.tab.tab_id // .result.tab_id // empty' 2>/dev/null)"
     if [ -n "$tab_id" ]; then
-      herdr agent start "$label" --cwd "$wt_path" --tab "$tab_id" "$sf" -- claude "${extra[@]}"
+      out="$(herdr agent start "$label" --cwd "$wt_path" --tab "$tab_id" "$sf" --json -- claude "${extra[@]}")"
     else
       # fall back to the lead's workspace if the tab id couldn't be parsed
-      herdr agent start "$label" --cwd "$wt_path" \
-        ${lead_ws:+--workspace "$lead_ws"} "$sf" -- claude "${extra[@]}"
-    fi ;;
+      out="$(herdr agent start "$label" --cwd "$wt_path" \
+        ${lead_ws:+--workspace "$lead_ws"} "$sf" --json -- claude "${extra[@]}")"
+    fi
+    rename_started_pane "$out" ;;
   team|*)
     # team layout: leader = leftmost pane in this tab; members stack down the
     # right column. Read the geometry once, then open the column or stack under
@@ -203,4 +245,4 @@ case "$focus_mode" in
     ftarget="${leader:-$origin}"
     [ -n "$ftarget" ] && herdr agent focus "$ftarget" >/dev/null 2>&1 || true ;;
 esac
-printf 'launched claude in %s (branch "%s")\n' "$wt_path" "$branch"
+printf 'launched claude "%s" in %s (branch "%s")\n' "$label" "$wt_path" "$branch"
