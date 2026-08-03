@@ -52,11 +52,48 @@ own pane, whose identity herdr exports as `HERDR_PANE_ID` /
 `herdr agent start`. `scripts/claude-worktree` does exactly this, so it's
 the mechanism to use rather than a hand-rolled `herdr agent start`.
 
+**Team identity — who's actually on my team.** My identity as a lead is the
+triple **(`HERDR_WORKSPACE_ID`, `HERDR_PANE_ID`, Claude session id)**. A
+**team is my own herdr workspace plus my own Claude session** — members are
+*only* the panes I myself spawned inside that workspace. Nothing else
+qualifies, in particular:
+
+- **Same directory, two Claude sessions ≠ one team.** Two independent leads
+  can have the exact same project checked out (same `cwd`) in two different
+  herdr workspaces — that happened for real: workspaces `w1` and `w5` both
+  had `buyutech-planning-app` open at once. They are two independent leads,
+  never teammates, even though `cwd` matches. I never use cwd/project path to
+  decide who's on my team.
+- **Every targeting call is workspace-scoped, never by bare name.** herdr's
+  `agent send|read|get|focus|wait|attach|rename` (and the equivalent
+  `pane …` commands) resolve a bare agent name or an unprefixed pane id
+  *globally* — not scoped to my workspace. So I never target a member by a
+  bare name; I use a workspace-prefixed id (`${HERDR_WORKSPACE_ID}:p1`) or,
+  preferably, `scripts/herdr-team` (`herdr-team list|send|read|wait|spawn|
+  exit`), which only ever sees panes inside my own workspace and refuses to
+  act on anything outside it.
+
 This is **enforced**, not just convention: the `herdr-workspace-guard.sh`
-PreToolUse hook (wired in `settings.json`) **denies any `herdr agent start`
-that lacks `--workspace`/`--tab`**, so an un-pinned member spawn can never
-execute — even a hand-rolled one. It's rejected with a message telling me to
-re-run pinned to `${HERDR_WORKSPACE_ID}`.
+PreToolUse hook (wired in `settings.json`) now denies **all** of the
+following, not just the original spawn case:
+
+- `herdr agent start` missing `--workspace`/`--tab`, or pinned to a
+  workspace/tab that isn't mine — the original un-pinned-spawn leak.
+- Any `agent send|read|get|focus|wait|attach|rename` / `pane send-text|
+  send-keys|run|read|close|zoom|rename|get|split|move|swap|resize|focus`
+  whose target doesn't resolve to my own workspace — the follow-up-goes-to-
+  the-wrong-pane leak.
+- A focus-relative pane command (`split`, `zoom`, `swap`, `resize`, `focus`)
+  given with no pane/`--pane`/`--current` — same class of bug as an
+  un-pinned spawn, since it resolves against global focus.
+- `pane move --new-workspace` (ejects a pane from its workspace outright)
+  and `tab create` without `--workspace` pinned to mine.
+
+Each denial is rejected with a message telling me exactly how to re-run it
+pinned to `${HERDR_WORKSPACE_ID}` / `${HERDR_PANE_ID}`, or pointing me at
+`scripts/herdr-team`. Read-only reconnaissance (`pane list`, `pane layout`,
+`pane current`, `agent list`) is never policed — it can't move or send
+anything into the wrong workspace.
 
 Routing each incoming task:
 
@@ -79,9 +116,9 @@ member parked:
 - **More related work in flight or queued for that line** → I hand the
   member its **next related task** (continuation → same member, per the
   routing rules above), keeping its context warm.
-- **Nothing left for that line** → I **exit** the member, tearing down
-  its pane so the layout stays clean and only active members occupy the
-  right stack.
+- **Nothing left for that line** → I **exit** the member (`herdr-team exit
+  <target>`), tearing down its pane so the layout stays clean and only
+  active members occupy the right stack.
 
 ## Message color convention
 

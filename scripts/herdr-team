@@ -1,0 +1,132 @@
+#!/usr/bin/env bash
+# herdr-team — the ONE true way for a lead to talk to its own herdr-workspace
+# members. herdr's own `agent`/`pane` targeting is GLOBAL: a bare agent name
+# or an unprefixed pane id can resolve to a pane in a completely different
+# workspace (two leads can have the exact same project checked out in two
+# different workspaces — cwd is never proof of team membership). Every
+# subcommand here resolves its target first and refuses to act on anything
+# outside ${HERDR_WORKSPACE_ID} — no silent cross-workspace action, ever.
+#
+# Usage:
+#   herdr-team list
+#   herdr-team send  <target> <text...>
+#   herdr-team read  <target> [herdr agent read flags...]
+#   herdr-team wait  <target> [herdr agent wait flags...]
+#   herdr-team spawn <branch> [claude-worktree flags...]
+#   herdr-team exit  <target>
+#
+# <target> accepts a workspace-prefixed pane id ("${HERDR_WORKSPACE_ID}:p1")
+# or a bare agent name; bare names are resolved and workspace-checked before
+# use. A target outside your workspace, or one that can't be resolved at
+# all, is rejected with a plain-language error instead of acting on it.
+#
+# `spawn` delegates to scripts/claude-worktree (kept as the single mechanism
+# for placing a new member pane); every other subcommand talks to herdr
+# directly, scoped to ${HERDR_WORKSPACE_ID}.
+set -euo pipefail
+
+die() { printf 'herdr-team: %s\n' "$*" >&2; exit 1; }
+
+usage() { sed -n '2,25p' "$0" | sed 's/^# \{0,1\}//'; }
+
+case "${1:-}" in
+  ""|-h|--help) usage; exit 0 ;;
+esac
+
+[ -n "${HERDR_ENV:-}" ] \
+  || die "not running inside herdr (HERDR_ENV is unset) — herdr-team only works inside a herdr-managed pane."
+command -v herdr >/dev/null 2>&1 || die "herdr CLI not found on PATH."
+command -v jq >/dev/null 2>&1 || die "jq not found on PATH (needed to parse herdr's JSON output)."
+
+own_ws="${HERDR_WORKSPACE_ID:-}"
+[ -n "$own_ws" ] \
+  || die "HERDR_WORKSPACE_ID is unset — can't tell which workspace is 'my team'."
+
+# Resolve a target (workspace-prefixed pane id, or bare agent name) to its
+# workspace id. Prints the workspace id on success, prints nothing and
+# returns nonzero if it can't be resolved.
+resolve_ws() {
+  local target="$1" ws
+  case "$target" in
+    *:*) printf '%s' "${target%%:*}"; return 0 ;;
+  esac
+  ws="$(herdr agent get "$target" 2>/dev/null | jq -r '.result.agent.workspace_id // empty' 2>/dev/null || true)"
+  if [ -z "$ws" ]; then
+    ws="$(herdr pane get "$target" 2>/dev/null | jq -r '.result.pane.workspace_id // empty' 2>/dev/null || true)"
+  fi
+  [ -n "$ws" ] || return 1
+  printf '%s' "$ws"
+}
+
+# Die unless $1 resolves to our own workspace — the "not in your team" gate
+# every targeting subcommand goes through before touching herdr.
+require_own_team() {
+  local target="$1" ws
+  ws="$(resolve_ws "$target")" \
+    || die "couldn't resolve '$target' to any pane/agent — not in your team ($own_ws)."
+  [ "$ws" = "$own_ws" ] \
+    || die "'$target' belongs to workspace '$ws', not yours ('$own_ws') — not in your team."
+}
+
+cmd_list() {
+  {
+    printf 'PANE\tAGENT-NAME\tSTATUS\tCLAUDE-SESSION\tCWD\n'
+    herdr agent list | jq -r --arg ws "$own_ws" '
+      .result.agents[]
+      | select(.workspace_id == $ws)
+      | [.pane_id, (.name // "-"), .agent_status, (.agent_session.value // "-"), .cwd]
+      | @tsv
+    '
+  } | column -t -s "$(printf '\t')"
+}
+
+cmd_send() {
+  [ $# -ge 2 ] || die "send needs <target> <text>"
+  local target="$1"; shift
+  require_own_team "$target"
+  herdr agent send "$target" "$*"
+}
+
+cmd_read() {
+  [ $# -ge 1 ] || die "read needs <target>"
+  local target="$1"; shift
+  require_own_team "$target"
+  herdr agent read "$target" "$@"
+}
+
+cmd_wait() {
+  [ $# -ge 1 ] || die "wait needs <target>"
+  local target="$1"; shift
+  require_own_team "$target"
+  herdr agent wait "$target" "$@"
+}
+
+cmd_exit() {
+  [ $# -ge 1 ] || die "exit needs <target>"
+  local target="$1" pane_id
+  require_own_team "$target"
+  case "$target" in
+    *:*) pane_id="$target" ;;
+    *) pane_id="$(herdr agent get "$target" 2>/dev/null | jq -r '.result.agent.pane_id // empty')" ;;
+  esac
+  [ -n "$pane_id" ] || die "couldn't resolve '$target' to a pane id."
+  herdr pane close "$pane_id"
+}
+
+cmd_spawn() {
+  [ $# -ge 1 ] || die "spawn needs <branch> [claude-worktree flags...]"
+  local script_dir
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  exec "$script_dir/claude-worktree" "$@"
+}
+
+sub="$1"; shift
+case "$sub" in
+  list)  cmd_list "$@" ;;
+  send)  cmd_send "$@" ;;
+  read)  cmd_read "$@" ;;
+  wait)  cmd_wait "$@" ;;
+  spawn) cmd_spawn "$@" ;;
+  exit)  cmd_exit "$@" ;;
+  *) die "unknown subcommand: $sub (see --help)" ;;
+esac

@@ -1,7 +1,7 @@
 ---
 status: source-of-truth
 maintainer: emrahurhan@buyutech.com.tr
-claude-rule: "The claude-worktree command is documented here and MUST be kept in lockstep with scripts/claude-worktree."
+claude-rule: "The claude-worktree and herdr-team commands are documented here and MUST be kept in lockstep with scripts/claude-worktree and scripts/herdr-team, and with the herdr-workspace-guard.sh hook."
 ---
 
 # Parallel Claude sessions with git worktrees
@@ -132,6 +132,91 @@ git branch -d feature-x   # delete the branch too, once merged
 When the Claude process in a pane/tab exits, close that pane/tab in herdr
 as usual. `cwt rm` only removes the worktree checkout, never the branch or
 its commits.
+
+## Team scoping — cwd is never identity
+
+Two independent leads can have the **exact same project** checked out in
+**two different herdr workspaces** at once — this has happened for real: two
+separate workspaces both had the same project directory open simultaneously.
+They are two unrelated leads, never teammates, even though the directory
+matches. So "same project" / "same cwd" is never how membership is decided.
+
+What actually defines a team:
+
+```mermaid
+flowchart TD
+    subgraph WA["herdr workspace wA"]
+        direction TB
+        LA["lead pane wA:p1<br/>Claude session S1<br/>HERDR_WORKSPACE_ID=wA"]
+        MA["member pane wA:p4<br/>Claude session S2<br/>spawned BY the lead above"]
+        LA -. "spawns, same workspace" .-> MA
+    end
+
+    subgraph WB["herdr workspace wB — a DIFFERENT team"]
+        direction TB
+        LB["lead pane wB:p1<br/>Claude session S3"]
+        MB["member pane wB:p2<br/>Claude session S4"]
+        LB -. "spawns, same workspace" .-> MB
+    end
+
+    WA -. "same cwd as WB is possible<br/>and proves NOTHING about team membership" .-> WB
+
+    classDef team fill:#a6e3a1,stroke:#40a02b,color:#1e1e2e;
+    classDef otherteam fill:#f38ba8,stroke:#d20f39,color:#1e1e2e;
+    class LA,MA team
+    class LB,MB otherteam
+```
+
+- A **lead's identity** is the triple `(HERDR_WORKSPACE_ID, HERDR_PANE_ID,
+  Claude session id)`.
+- A **team** = one herdr workspace + the panes that lead itself spawned
+  inside it. Nothing outside that workspace is a teammate, no matter what
+  directory it has open.
+- **`scripts/herdr-team`** is the only sanctioned way to list/target
+  members — every subcommand filters `herdr agent list` down to
+  `workspace_id == $HERDR_WORKSPACE_ID` and refuses to act on anything else:
+
+  | Command | Does |
+  | --- | --- |
+  | `herdr-team list` | Table of panes in **my own** workspace: pane id, agent name, status, Claude session id, cwd. |
+  | `herdr-team send <target> <text>` | `herdr agent send`, but rejects `<target>` if it's not in my workspace. |
+  | `herdr-team read <target> [flags]` | `herdr agent read`, same workspace gate. |
+  | `herdr-team wait <target> [flags]` | `herdr agent wait`, same workspace gate. |
+  | `herdr-team spawn <branch> [flags]` | Delegates straight to `scripts/claude-worktree` (which already anchors placement to my own workspace). |
+  | `herdr-team exit <target>` | Resolves `<target>` to a pane and closes it — only if it's mine. |
+
+  `<target>` can be a workspace-prefixed id (`w3:p4`) or a bare agent name;
+  bare names are resolved and workspace-checked before anything runs.
+
+## Enforcement — herdr-workspace-guard.sh
+
+The `herdr-workspace-guard.sh` PreToolUse hook (see
+`configurations/claude/hooks/herdr-workspace-guard.sh`, wired in
+`configurations/claude/settings.json`) makes the rule above unbypassable —
+even a hand-rolled `herdr …` call gets denied, not just calls through
+`herdr-team`:
+
+| Command (run from workspace `w3`) | Result |
+| --- | --- |
+| `herdr agent send w3:p4 "go"` | ✅ allow — target is in my own workspace |
+| `herdr agent send w1:p1 "go"` | ⛔ deny — target belongs to workspace `w1` |
+| `herdr agent send some-bare-name "go"` | ⛔ deny if that name resolves outside `w3`; ✅ allow if it resolves inside `w3` |
+| `herdr agent start foo --workspace w3 -- claude` | ✅ allow — pinned to my own workspace |
+| `herdr agent start foo -- claude` | ⛔ deny — no `--workspace`/`--tab`, would land wherever focus is |
+| `herdr agent start foo --workspace w1 -- claude` | ⛔ deny — pinned to a workspace that isn't mine |
+| `herdr pane split --pane w3:p4 --direction right` | ✅ allow — explicit, own pane |
+| `herdr pane split --direction right` (no pane given) | ⛔ deny — resolves against global focus, not necessarily mine |
+| `herdr pane split --current --direction right` | ⛔ deny — `--current` is *also* global focus, not "my pane" |
+| `herdr pane move w3:p4 --new-workspace` | ⛔ deny — always; ejects the pane from its workspace outright |
+| `herdr tab create --workspace w3` | ✅ allow |
+| `herdr tab create` (no `--workspace`) | ⛔ deny |
+| `herdr pane list`, `herdr pane layout`, `herdr agent list` | ✅ always allowed — read-only, can't leak anything into another workspace |
+| `git commit -m "feat: herdr agent start docs"` | ✅ allowed — not a real invocation, just text |
+| `... -- claude "please run herdr agent start"` | ✅ allowed — that's the member's prompt, not a command |
+
+Outside a herdr-managed pane (no `HERDR_ENV`), or without `herdr`/`jq` on
+`PATH`, the hook exits immediately and polices nothing — it must never be
+the thing that locks up a shell.
 
 ## Notes / assumptions
 
