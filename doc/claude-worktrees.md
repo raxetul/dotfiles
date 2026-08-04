@@ -195,6 +195,44 @@ When the Claude process in a pane/tab exits, close that pane/tab in herdr
 as usual. `cwt rm` only removes the worktree checkout, never the branch or
 its commits.
 
+## Member lifecycle
+
+A member's pane only ever ends its life two ways: closed, or respawned for
+the next task. There is no third path where a finished member sits idle
+and receives a follow-up message in place — the channel that would need
+(`agent send` / `pane send-keys` reaching the running TUI) doesn't work.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Working: cwt <branch> --role <name>\n(task as spawn-time argv prompt)
+    Working --> Idle: pane reports idle/done
+    Idle --> WaitingOnInput: last output is a question,\napproval request, or trust dialog
+    WaitingOnInput --> Working: human answers\n(this is the only thing that reaches a live pane)
+    Idle --> Closed: last output is NOT a question\n-> herdr-team exit / herdr pane close
+    Idle --> Respawned: more related work is queued
+    Respawned --> Working: fresh member, same worktree/branch,\ntask as spawn-time argv prompt
+    Closed --> [*]
+```
+
+Why respawn instead of handing the idle pane its next task in place:
+
+| Channel | Reaches a running/idle member? | Note |
+| --- | --- | --- |
+| `herdr agent send` / `herdr pane run` | ❌ | writes into the prompt box, Enter never delivered |
+| `herdr pane send-keys` (Enter, ctrl+u, escape, backspace, ctrl+c) | ❌ | accepted by herdr, no effect on the TUI — verified 2026-08-04, Claude Code v2.1.220 + herdr; likely a kitty keyboard protocol encoding mismatch |
+| close + spawn fresh, task as spawn-time argv prompt | ✅ | only reliable channel for continuation |
+
+Two corollaries this puts on the lead:
+
+- **Close on sight.** A member reporting idle/done with a non-question last
+  output is closed immediately (`herdr-team exit <target>`) — never left
+  parked waiting for a task that can't reach it anyway.
+- **Trust dialogs are the one real exception.** A pane stuck on "do you
+  trust this folder" is *not* idle-to-close — it's blocked on input, and
+  since that input can't be sent programmatically either, a human has to
+  click it. Check `hasTrustDialogAccepted` for the target cwd in
+  `~/.claude.json` before spawning to avoid the lock in the first place.
+
 ## Team scoping — cwd is never identity
 
 Two independent leads can have the **exact same project** checked out in

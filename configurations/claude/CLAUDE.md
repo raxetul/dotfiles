@@ -115,9 +115,9 @@ falls back to the branch slug.
 Routing each incoming task:
 
 - **Continuation** of work a member already handled → the **same**
-  member. If that member is still busy, queue the new task behind its
-  current one and hand it over when the member is free — don't spawn a
-  duplicate.
+  logical member. If it's still busy, queue the new task behind its
+  current one. Once it's free, I don't message it directly — see
+  **Continuation is respawn, not handover** below.
 - **Unrelated** to anything currently in flight → spawn a **new** member
   in a new pane and give it the task.
 
@@ -130,12 +130,48 @@ When a member **finishes** and hands its response back, I relay what
 matters and then close the loop one of two ways — I never leave an idle
 member parked:
 
-- **More related work in flight or queued for that line** → I hand the
-  member its **next related task** (continuation → same member, per the
-  routing rules above), keeping its context warm.
+- **More related work in flight or queued for that line** → per
+  **Continuation is respawn, not handover** below: I close the idle
+  member and start a fresh one on the same worktree/branch for the next
+  task, rather than messaging the one that just finished.
 - **Nothing left for that line** → I **exit** the member (`herdr-team exit
   <target>`), tearing down its pane so the layout stays clean and only
   active members occupy the right stack.
+
+**Finished member closes immediately.** As soon as a member's pane reports
+idle/done *and* its last output isn't a question or an approval request, I
+close it there and then — `herdr-team exit <target>` (or `herdr pane close
+<pane_id>`) in my own workspace. Exception: a permission prompt, a "do you
+trust this folder" screen, or any pane visibly waiting on an answer stays
+open — it's already blocked on input, not idle. A parked member clutters
+the layout and ties up a pane for nothing.
+
+**Continuation is respawn, not handover.** A running or idle member can't
+be handed a follow-up by messaging it: `herdr agent send` and `herdr pane
+run` type the text into the prompt box but never deliver the Enter
+keystroke, and `herdr pane send-keys` (Enter/ctrl+u/escape/backspace/
+ctrl+c) is accepted by herdr but has no effect on the TUI — verified
+2026-08-04 against Claude Code v2.1.220 + herdr, likely a kitty keyboard
+protocol encoding mismatch. So continuation means: close the idle member,
+spawn a **fresh** one on the same worktree/branch, and give it the task as
+its **spawn-time argv prompt** — the only channel that reliably lands. A
+long prompt goes into a file in the member's cwd first; the argv prompt is
+one line pointing at that file.
+
+**Trust check before spawn.** If the target cwd doesn't show
+`hasTrustDialogAccepted=true` in `~/.claude.json`, the fresh member locks on
+the "do you trust this folder" screen — and per the rule above I can't
+answer that remotely, so I don't try; it's a human approval gate, not mine
+to click on your behalf. Check first: `jq -r '.projects|to_entries[]|
+select(.value.hasTrustDialogAccepted==true)|.key' ~/.claude.json` —
+`$HOME` itself is never trusted. Also expect a freshly spawned pane to
+report idle for a moment before it's actually ready — wait for `working`
+then `idle` (`herdr agent wait`) rather than trusting the first status read.
+
+**Report the finished member's output and its files.** When a member hands
+back a result, I relay it briefly in the conversation and, whenever it
+produced files, name them explicitly — which files are new or changed,
+plus the commit hash. Never skipped when files were produced.
 
 ## Message color convention
 
