@@ -36,6 +36,30 @@ Procedure:
      never leak internal errors — map them to RFC 9457 problems.
    - **Persistence** and outbound calls go through repository/client
      interfaces with in-memory fakes for tests.
+
+   ## Schema, migrations & seed data
+
+   - **Schema comes only from migrations** — the ORM/DB framework's own
+     migration mechanism (Loco/SeaORM, Flyway or Liquibase, TypeORM or
+     Prisma). No hand-edited schema dumps, no schema changes applied
+     directly to a database; every change is a migration committed to
+     the repo.
+   - **Every migration change updates seed data in the SAME commit** —
+     adding, editing, or deleting a migration, and squashing pre-release
+     migrations, all included. A migration with stale seed data is an
+     incomplete change.
+   - **Seed filenames stay parallel to migration filenames** — same
+     timestamp/sequence number and slug, e.g.
+     `migrations/20260804120000_create_users.*` ↔
+     `seeds/20260804120000_create_users.*`. If migrations are squashed,
+     seeds are squashed the same way and remapped to the new names.
+   - **Migrations freeze once released** — a later change is a new
+     migration (and its own new seed file), never an edit to a released
+     one.
+   - **Docker: separate `migrate` and `seed` containers** consume these
+     files; the app container never runs migrations. Compose order is
+     `migrate` → `seed` → `app` (via `depends_on` + healthchecks), and
+     both containers read the same migration/seed directories as the repo.
    ```
 
 5. **Report** files created/edited and building-block commands invoked;
