@@ -60,6 +60,33 @@ Procedure:
      files; the app container never runs migrations. Compose order is
      `migrate` → `seed` → `app` (via `depends_on` + healthchecks), and
      both containers read the same migration/seed directories as the repo.
+
+   ## Time, timezones & DST
+
+   - **Instants are stored in UTC, paired with the source IANA zone id** —
+     e.g. `occurred_at timestamptz` + `occurred_at_tz text` = `Europe/Istanbul`.
+     `timestamptz` alone only captures the instant; without the zone id the
+     record's original local reading can't be reconstructed. Storing a fixed
+     offset (`+03:00`) instead of the zone id is FORBIDDEN: the offset drifts
+     across DST, the zone id doesn't.
+   - **No naive timestamps** (`timestamp without time zone`), no relying on
+     server/session zone; containers run with `TZ=UTC` and include tzdata.
+   - **Records carrying human-facing time** — events, `task_due_date`,
+     reminders — also store the creator's zone, so the record can be
+     reproduced the way its author saw it.
+   - **Future wall-clock times are stored as local wall-clock + zone id**,
+     with the UTC instant derived at read time: pinning a future instant to
+     UTC goes wrong if the zone's DST rules change later.
+   - **The API serves both readings together**: the UTC instant (ISO 8601),
+     the creator's zone id, and the creator-local rendering; the viewer's own
+     zone comes from their profile or the request, and the client renders
+     with it. A user must be able to see both "the time in my zone" and "the
+     time where it was created".
+   - Because the zone id is stored, historical records re-render with the
+     DST offset actually in effect on that date — DST transitions don't
+     corrupt hindsight.
+   - Tests cover a **DST transition boundary** (e.g. a record created the
+     night of a spring-forward change).
    ```
 
 5. **Report** files created/edited and building-block commands invoked;
