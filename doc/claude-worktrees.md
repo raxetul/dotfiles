@@ -289,6 +289,13 @@ flowchart TD
   `<target>` can be a workspace-prefixed id (`w3:p4`) or a bare agent name;
   bare names are resolved and workspace-checked before anything runs.
 
+  Because `herdr-team spawn` is a straight delegation to
+  `scripts/claude-worktree` rather than its own implementation, the two
+  scripts share every spawn-path bug and every fix — see the `--json`-flag
+  fix and the `herdr-workspace-guard.sh` normalization fixes below, both of
+  which applied to `claude-worktree` and therefore to `herdr-team spawn` in
+  the same change.
+
 ## Enforcement — herdr-workspace-guard.sh
 
 The `herdr-workspace-guard.sh` PreToolUse hook (see
@@ -318,6 +325,43 @@ even a hand-rolled `herdr …` call gets denied, not just calls through
 Outside a herdr-managed pane (no `HERDR_ENV`), or without `herdr`/`jq` on
 `PATH`, the hook exits immediately and polices nothing — it must never be
 the thing that locks up a shell.
+
+### Accepted `--workspace` / `--pane` / `--tab` forms
+
+`--workspace`/`--tab` values (on `agent start`, `tab create`, `pane move
+--new-tab`) and every send/read/focus/… target are **normalized** before
+being compared to the caller's own workspace/pane/tab — one layer of
+surrounding quotes is stripped, then a known `$VAR`/`${VAR}` reference is
+resolved to this shell's own value. A literal id and the env-var form are
+therefore equally valid:
+
+| Form | Example | Accepted? |
+| --- | --- | --- |
+| Literal id | `--workspace w3` | ✅ |
+| Unbraced env var | `--workspace $HERDR_WORKSPACE_ID` | ✅ |
+| Braced env var | `--workspace "${HERDR_WORKSPACE_ID}"` | ✅ |
+| Single-quoted env var | `--workspace '${HERDR_WORKSPACE_ID}'` | ✅ |
+| Embedded in a compound target | `herdr agent send "${HERDR_WORKSPACE_ID}:p1" hi` | ✅ (resolves to `w3:p1`) |
+| Any other/unknown `$VAR` | `--workspace $SOME_OTHER_VAR` | ⛔ deny — left unresolved, can't match anything real (fail-closed, never upgraded to allow) |
+
+`HERDR_WORKSPACE_ID`, `HERDR_PANE_ID`, and `HERDR_TAB_ID` are the only
+references resolved; the same normalization runs for every `--workspace`/
+`--tab`/target argument the guard checks, not just `agent start`.
+
+### Command-position scope
+
+A `herdr …` invocation is only recognized where it could actually run as a
+command — never inside narrative text — which is: the start of the string;
+right after a shell separator (`;` `&` `|` `&&` `||`); right after a
+subshell/command-substitution opener (`(` or a backtick — this also covers
+`$(`, and therefore `VAR="$(herdr …)"` assignments, since the position right
+after that `(` is where `herdr` starts); right after a command-group opener
+`{ ` (note the required trailing space, so this can never be confused with
+`${HERDR_WORKSPACE_ID}`-style parameter expansion, which has no space after
+its `{`); or right after the keyword `then`/`do`/`else`. Everything after
+the member's own ` -- ` prompt-tail separator is stripped before any of this
+scanning happens, so a prompt that itself mentions `herdr agent start` is
+never mistaken for a real invocation.
 
 ## Notes / assumptions
 

@@ -49,11 +49,35 @@
 #      inside a herdr-managed pane.
 #   F. The member's prompt tail (everything after the first ` -- `, e.g.
 #      `-- claude "<prompt>"`) is stripped before any scanning, and every verb
-#      is only recognized at a real command position (start of the command, or
-#      right after a shell separator ; & | && ||, allowing optional leading
-#      VAR=val assignments / the `command` builtin) — so free text in commit
-#      messages, echoed JSON, or a member's own prompt can never be mistaken
-#      for a genuine herdr invocation.
+#      is only recognized at a real command position: start of the command;
+#      right after a shell separator `;` `&` `|` `&&` `||`; right after a
+#      subshell/command-substitution opener `(` or `` ` `` (which also covers
+#      `$(` — the closing `(` is what matters — and therefore
+#      `VAR="$(herdr …)"` assignments too, since the position right after that
+#      `(` is where `herdr` starts); right after a command-group opener `{ `
+#      (note the required trailing space — see below); or right after the
+#      keyword `then`/`do`/`else`. Optional leading VAR=val assignments / the
+#      `command` builtin are still allowed between the position and the verb.
+#      `{`/`}` are deliberately NOT split on blindly the way `(`/`` ` `` are:
+#      a bare-char split would also fire inside `${HERDR_WORKSPACE_ID}` and
+#      mangle the very env-var form point G below needs to recognize, so `{`
+#      is only recognized as a command-group opener when followed by
+#      whitespace (`${VAR}` never has a space after its `{`). This is best-
+#      effort text scanning, not a shell parser, so free text in commit
+#      messages, echoed JSON, or a member's own prompt can still never be
+#      mistaken for a genuine herdr invocation.
+#   G. `--workspace`/`--tab` values (on `agent start`, `tab create`, `pane
+#      move --new-tab`) and every send/read/focus/… target are normalized
+#      before comparison: one layer of surrounding `'…'`/`"…"` quoting is
+#      stripped, then `$HERDR_WORKSPACE_ID`, `${HERDR_WORKSPACE_ID}`,
+#      `$HERDR_PANE_ID`, `${HERDR_PANE_ID}`, `$HERDR_TAB_ID`, `${HERDR_TAB_ID}`
+#      are resolved to this shell's own values (embedded forms like
+#      `"${HERDR_WORKSPACE_ID}:p1"` resolve too). A literal id
+#      (`--workspace w3`) and the env-var form (`--workspace
+#      "${HERDR_WORKSPACE_ID}"`) are therefore both accepted when they name
+#      the caller's own workspace/pane/tab. Any other `$VAR` is left
+#      unresolved, which simply can't match anything real — fail-closed is
+#      unchanged, never upgraded to an allow.
 #
 # Registered as a PreToolUse hook (matcher: Bash) in settings.json. Every
 # command that doesn't mention "herdr " at all passes through untouched.
@@ -73,6 +97,7 @@ esac
 
 own_ws="${HERDR_WORKSPACE_ID:-}"
 own_pane="${HERDR_PANE_ID:-}"
+own_tab="${HERDR_TAB_ID:-}"
 
 # Fail-open outside a herdr-managed shell, or without the tooling to resolve
 # targets — this guard must never be the thing that locks up a session.
@@ -91,11 +116,45 @@ deny() {
   exit 0
 }
 
+# Strip one layer of surrounding matching quotes ('...' or "..."), if present.
+strip_quotes() {
+  local v="$1"
+  if [ "${#v}" -ge 2 ] && [ "${v:0:1}" = '"' ] && [ "${v: -1}" = '"' ]; then
+    v="${v:1:${#v}-2}"
+  elif [ "${#v}" -ge 2 ] && [ "${v:0:1}" = "'" ] && [ "${v: -1}" = "'" ]; then
+    v="${v:1:${#v}-2}"
+  fi
+  printf '%s' "$v"
+}
+
+# Normalize a captured --workspace/--tab value or a send/read/focus/… target:
+# strip one layer of surrounding quotes, then resolve $VAR / ${VAR} references
+# for HERDR_WORKSPACE_ID, HERDR_PANE_ID, HERDR_TAB_ID to this shell's own
+# values (embedded forms like "${HERDR_WORKSPACE_ID}:p1" resolve too). Any
+# other $VAR is left as literal, unresolved text — it just won't match
+# anything real downstream, so fail-closed behavior is unchanged.
+# shellcheck disable=SC2016 # intentional: these hold the LITERAL "$VAR"/
+# "${VAR}" text to match as a pattern below, not an expansion to perform here.
+normalize_val() {
+  local v ws_b='${HERDR_WORKSPACE_ID}' ws_u='$HERDR_WORKSPACE_ID'
+  local pane_b='${HERDR_PANE_ID}' pane_u='$HERDR_PANE_ID'
+  local tab_b='${HERDR_TAB_ID}' tab_u='$HERDR_TAB_ID'
+  v="$(strip_quotes "$1")"
+  v="${v//$ws_b/$own_ws}"
+  v="${v//$ws_u/$own_ws}"
+  v="${v//$pane_b/$own_pane}"
+  v="${v//$pane_u/$own_pane}"
+  v="${v//$tab_b/$own_tab}"
+  v="${v//$tab_u/$own_tab}"
+  printf '%s' "$v"
+}
+
 # Resolve a target (workspace-prefixed pane/tab id, or a bare agent name) to
 # its workspace id. Prints the workspace id and returns 0, or prints nothing
 # and returns nonzero if it can't be resolved.
 resolve_ws() {
-  local target="$1" ws
+  local target ws
+  target="$(normalize_val "$1")"
   case "$target" in
     *:*) printf '%s' "${target%%:*}"; return 0 ;;
   esac
@@ -118,17 +177,34 @@ check_target() {
   fi
 }
 
-# Command position: start of command, or right after a shell separator,
-# allowing optional leading VAR=val assignments and/or the `command` builtin.
-# (Matches the existing spawn-detection convention, extended to every verb.)
-prefix_re='(^|[;&|]|&&|\|\|)[[:space:]]*([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*(command[[:space:]]+)?herdr[[:space:]]+'
+# Command position: start of command, right after a shell separator, right
+# after `{ ` (command-group open — REQUIRES the trailing space so this never
+# matches the `${VAR}`/`${VAR:...}` parameter-expansion syntax, which has no
+# space after its `{`), or right after the keyword then/do/else, allowing
+# optional leading VAR=val assignments and/or the `command` builtin. (`$(`,
+# backtick, `(` — the other command-position openers, including
+# `VAR="$(herdr …)"` — don't need an entry here: the clause split below
+# already breaks the line at each of those chars, so the command position
+# they open becomes `^` in its own clause. `{`/`}` are deliberately NOT in
+# that char-split set for the same reason they get their own regex
+# alternative: blind splitting on bare `{`/`}` would also fire inside
+# `${HERDR_WORKSPACE_ID}` and mangle the very env-var form this guard needs
+# to recognize.)
+prefix_re='(^|[;&|]|&&|\|\||\{[[:space:]]|[[:space:]](then|do|else)[[:space:]])[[:space:]]*([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*(command[[:space:]]+)?herdr[[:space:]]+'
 
-# Split into clauses on shell separators so each invocation is scanned in
-# isolation (best-effort — doesn't parse quoting, same philosophy as the rest
-# of this script: a misparse of an UNRELATED clause can't cause a false deny,
-# because a policed verb only ever triggers on ITS OWN clause).
-# shellcheck disable=SC2020 # intentional: each char (;, &, |) is its own
-# separator, so translating the set char-by-char (not word-by-word) is correct.
+# Split into clauses on shell separators AND subshell/command-substitution
+# openers so each invocation is scanned in isolation (best-effort — doesn't
+# parse quoting, same philosophy as the rest of this script: a misparse of an
+# UNRELATED clause can't cause a false deny, because a policed verb only ever
+# triggers on ITS OWN clause). `(` covers both `( … )` subshells and `$( … )`
+# command substitution — splitting on the `(` itself is enough, since that's
+# the character right before where a nested `herdr` invocation starts,
+# regardless of what precedes it (`$`, `VAR="$`, …). `{`/`}` are intentionally
+# excluded from this char-split (see prefix_re comment above); they're instead
+# matched with a whitespace-anchored regex alternative that can't collide with
+# `${VAR}`.
+# shellcheck disable=SC2020 # intentional: each char is its own separator, so
+# translating the set char-by-char (not word-by-word) is correct.
 while IFS= read -r raw_clause; do
   [ -n "$raw_clause" ] || continue
   printf '%s' "$raw_clause" | grep -Eq "$prefix_re" || continue
@@ -141,14 +217,14 @@ while IFS= read -r raw_clause; do
   if [[ $clause =~ ^agent[[:space:]]+start([[:space:]]|$) ]]; then
     ws_val=""
     if [[ $raw_clause =~ --workspace[[:space:]=]+([^[:space:]]+) ]]; then
-      ws_val="${BASH_REMATCH[1]}"
+      ws_val="$(normalize_val "${BASH_REMATCH[1]}")"
       [ "$ws_val" = "$own_ws" ] && continue
-      deny "herdr-workspace-guard: 'herdr agent start' is pinned to --workspace $ws_val, not yours ($own_ws) — the member would land in the wrong project. Re-run pinned to --workspace \"\${HERDR_WORKSPACE_ID}\", or use scripts/claude-worktree / scripts/herdr-team spawn."
+      deny "herdr-workspace-guard: 'herdr agent start' is pinned to --workspace ${BASH_REMATCH[1]}, not yours ($own_ws) — the member would land in the wrong project. Re-run pinned to your own workspace — either --workspace $own_ws or --workspace \"\${HERDR_WORKSPACE_ID}\" both work — or use scripts/claude-worktree / scripts/herdr-team spawn."
     elif [[ $raw_clause =~ --tab[[:space:]=]+([^[:space:]]+) ]]; then
-      tab_val="${BASH_REMATCH[1]}"
+      tab_val="$(normalize_val "${BASH_REMATCH[1]}")"
       case "$tab_val" in
         "${own_ws}:"*) continue ;;
-        *) deny "herdr-workspace-guard: 'herdr agent start' is pinned to --tab $tab_val, which isn't in your workspace ($own_ws). Re-run with a tab id prefixed \"\${HERDR_WORKSPACE_ID}:\", or use scripts/claude-worktree / scripts/herdr-team spawn." ;;
+        *) deny "herdr-workspace-guard: 'herdr agent start' is pinned to --tab ${BASH_REMATCH[1]}, which isn't in your workspace ($own_ws). Re-run with a tab id prefixed with your workspace — \"${own_ws}:...\" or \"\${HERDR_WORKSPACE_ID}:...\" both work — or use scripts/claude-worktree / scripts/herdr-team spawn." ;;
       esac
     else
       deny "herdr-workspace-guard: this 'herdr agent start' has no --workspace/--tab, so the member would land in whichever workspace currently has focus (the cross-workspace leak), not your own ($own_ws). Re-run it pinned to your workspace: add --workspace \"\${HERDR_WORKSPACE_ID}\" — or use scripts/claude-worktree / scripts/herdr-team spawn, which pin it for you."
@@ -175,8 +251,8 @@ while IFS= read -r raw_clause; do
       deny "herdr-workspace-guard: 'pane move --new-workspace' ejects the pane from its workspace entirely — that's the leak this guard exists to stop. Not allowed."
     elif [[ $raw_clause =~ --new-tab ]]; then
       if [[ $raw_clause =~ --workspace[[:space:]=]+([^[:space:]]+) ]]; then
-        ws_val="${BASH_REMATCH[1]}"
-        [ "$ws_val" = "$own_ws" ] || deny "herdr-workspace-guard: 'pane move --new-tab' is pinned to --workspace $ws_val, not yours ($own_ws)."
+        ws_val="$(normalize_val "${BASH_REMATCH[1]}")"
+        [ "$ws_val" = "$own_ws" ] || deny "herdr-workspace-guard: 'pane move --new-tab' is pinned to --workspace ${BASH_REMATCH[1]}, not yours ($own_ws)."
       fi
     elif [[ $raw_clause =~ --tab[[:space:]=]+([^[:space:]]+) ]]; then
       check_target "${BASH_REMATCH[1]}" "$raw_clause"
@@ -213,13 +289,13 @@ while IFS= read -r raw_clause; do
   # --- D: tab create — always requires --workspace pinned to our own --------
   if [[ $clause =~ ^tab[[:space:]]+create([[:space:]]|$) ]]; then
     if [[ $raw_clause =~ --workspace[[:space:]=]+([^[:space:]]+) ]]; then
-      ws_val="${BASH_REMATCH[1]}"
+      ws_val="$(normalize_val "${BASH_REMATCH[1]}")"
       [ "$ws_val" = "$own_ws" ] && continue
-      deny "herdr-workspace-guard: 'herdr tab create' is pinned to --workspace $ws_val, not yours ($own_ws)."
+      deny "herdr-workspace-guard: 'herdr tab create' is pinned to --workspace ${BASH_REMATCH[1]}, not yours ($own_ws)."
     else
       deny "herdr-workspace-guard: 'herdr tab create' has no --workspace, so it would create the tab in whichever workspace currently has focus, not necessarily yours. Re-run with --workspace \"\${HERDR_WORKSPACE_ID}\"."
     fi
   fi
-done < <(printf '%s\n' "$head" | tr ';&|' '\n\n\n')
+done < <(printf '%s\n' "$head" | tr ';&|(`' '\n\n\n\n\n')
 
 exit 0
