@@ -123,7 +123,7 @@ rules itself. `git` and conventional commits stay on.
 
 | Command | Layers on top of common |
 | --- | --- |
-| `/init-proj-backend` | `/backend-stack` + `/rfc9457`; layered handler→service→repository, injected config, versioned+validated API |
+| `/init-proj-backend` | `/backend-stack` + `/rfc9457`; layered handler→service→repository, injected config, versioned+validated API; migrations-only schema with paired seed data (frozen once released); UTC+zone-id time storage with DST-safe future wall-clock times |
 | `/init-proj-frontend` | presentational/container split, centralized state, injectable API-client seam, accessibility |
 | `/init-proj-embedded-firmware` | MISRA C, ISO 26262 (ASIL-B) awareness, mockable HAL seam, no dynamic allocation, host test harness |
 | `/init-proj-kernel-driver` | kernel coding style + checkpatch, Kbuild skeleton, GPL/SPDX, KUnit, mock at subsystem boundaries |
