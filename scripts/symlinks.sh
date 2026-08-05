@@ -2,12 +2,19 @@
 # symlinks.sh — install or remove the symlinks the dotfiles repo plants under $HOME.
 #
 # Usage:
-#   scripts/symlinks.sh install         # create all symlinks (idempotent)
-#   scripts/symlinks.sh uninstall       # remove only symlinks this script plants
-#   scripts/symlinks.sh list            # print the active mapping
+#   scripts/symlinks.sh install           # create all symlinks (idempotent)
+#   scripts/symlinks.sh uninstall         # remove only symlinks this script plants
+#   scripts/symlinks.sh list              # print the active mapping
+#   scripts/symlinks.sh skills-install    # same, scoped to ~/.claude/skills/* only
+#   scripts/symlinks.sh skills-uninstall  # (used by scripts/claude-skills link)
+#   scripts/symlinks.sh skills-list
 #
 # Env:
 #   DOTFILES_DESKTOP=1  add Linux desktop links (waybar, dunst) on Linux
+#   CLAUDE_SKILLS_DIR   remote-less claude-skills repo to link ~/.claude/skills/*
+#                        from (default: ${HOME}/gel-ort/claude-skills). See
+#                        doc/claude-skills.md — never a fixed skill list here,
+#                        every top-level entry in that repo gets linked.
 #
 # Phase 3 of v3-native: replaces Home Manager's xdg.configFile / home.file
 # layer. Phase 4 wires this into setup.sh.
@@ -57,17 +64,6 @@ COMMON_LINKS=(
   "configurations/claude/hooks/herdr-agent-state.sh::.claude/hooks/herdr-agent-state.sh"
   "configurations/claude/hooks/herdr-workspace-guard.sh::.claude/hooks/herdr-workspace-guard.sh"
   "configurations/claude/scripts::.claude/scripts"
-  "configurations/claude/skills/logging-patterns::.claude/skills/logging-patterns"
-  "configurations/claude/skills/rfc9457-problem-details::.claude/skills/rfc9457-problem-details"
-  "configurations/claude/skills/backend-development::.claude/skills/backend-development"
-  "configurations/claude/skills/brand-design::.claude/skills/brand-design"
-  "configurations/claude/skills/cso::.claude/skills/cso"
-  "configurations/claude/skills/frontend-design-guidelines::.claude/skills/frontend-design-guidelines"
-  "configurations/claude/skills/learn::.claude/skills/learn"
-  "configurations/claude/skills/page-load-animations::.claude/skills/page-load-animations"
-  "configurations/claude/skills/product-review::.claude/skills/product-review"
-  "configurations/claude/skills/roast-my-product::.claude/skills/roast-my-product"
-  "configurations/claude/skills/SKILL_ROUTER.md::.claude/skills/SKILL_ROUTER.md"
   "configurations/cargo/bin/cargo-test-tree::.cargo/bin/cargo-test-tree"
   "scripts::.scripts"
 )
@@ -86,6 +82,13 @@ LINUX_DESKTOP_LINKS=(
   "configurations/waybar/style.css::.config/waybar/style.css"
 )
 
+# Claude skills live outside this repo entirely, in a remote-less local git
+# repo (see doc/claude-skills.md and hard rule in configurations/claude/CLAUDE.md).
+# Never a fixed array here — every top-level entry the skills repo currently
+# holds gets linked, so dropping a new skill in there needs no edit to this
+# script.
+CLAUDE_SKILLS_DIR="${CLAUDE_SKILLS_DIR:-${HOME}/gel-ort/claude-skills}"
+
 # === Helpers ===
 
 _os() {
@@ -94,6 +97,24 @@ _os() {
     Linux)  echo "linux"  ;;
     *)      echo "other"  ;;
   esac
+}
+
+# Emit "<abs-src-in-claude-skills-repo>::.claude/skills/<name>" for every
+# top-level entry (skill dir or stray *.md like SKILL_ROUTER.md) currently in
+# the skills repo. Absolute src (outside REPO_ROOT) so _resolve_src passes it
+# through unchanged. Silently empty if the repo doesn't exist yet — setup.sh
+# creates it (Step 4.5) before calling this, but `symlinks.sh list` on a bare
+# checkout should not fail.
+_skill_links() {
+  [ -d "${CLAUDE_SKILLS_DIR}" ] || return 0
+  local entry name
+  for entry in "${CLAUDE_SKILLS_DIR}"/*; do
+    [ -e "${entry}" ] || continue
+    name="$(basename "${entry}")"
+    # README.md is the skills repo's own metadata, not a skill — skip it.
+    [ "${name}" = "README.md" ] && continue
+    printf '%s::.claude/skills/%s\n' "${entry}" "${name}"
+  done
 }
 
 # Emit the active mapping (one entry per line) for the current OS + profile.
@@ -108,11 +129,23 @@ _active_links() {
       fi
       ;;
   esac
+  _skill_links
+}
+
+# Entries are normally repo-relative (resolved against REPO_ROOT); the
+# skills repo sits outside REPO_ROOT, so _skill_links emits absolute paths
+# instead — pass those through unchanged.
+_resolve_src() {
+  case "$1" in
+    /*) printf '%s\n' "$1" ;;
+    *)  printf '%s/%s\n' "${REPO_ROOT}" "$1" ;;
+  esac
 }
 
 _install_one() {
-  local src="${REPO_ROOT}/$1"
-  local dst="${HOME}/$2"
+  local src dst
+  src="$(_resolve_src "$1")"
+  dst="${HOME}/$2"
   local dst_dir
   dst_dir="$(dirname "$dst")"
 
@@ -140,8 +173,9 @@ _install_one() {
 }
 
 _uninstall_one() {
-  local src="${REPO_ROOT}/$1"
-  local dst="${HOME}/$2"
+  local src dst
+  src="$(_resolve_src "$1")"
+  dst="${HOME}/$2"
 
   if [ -L "$dst" ] && [ "$(readlink "$dst")" = "$src" ]; then
     rm "$dst"
@@ -156,34 +190,42 @@ cmd_install() {
   local suffix=""
   [ "${DOTFILES_DESKTOP:-0}" = "1" ] && suffix=" + desktop"
   printf '==> installing symlinks (%s%s)\n' "$(_os)" "$suffix"
+  local links_fn="${1:-_active_links}"
   while IFS= read -r entry; do
     [ -z "$entry" ] && continue
     local src="${entry%%::*}"
     local dst="${entry##*::}"
     _install_one "$src" "$dst"
-  done < <(_active_links)
+  done < <("$links_fn")
 }
 
 cmd_uninstall() {
+  local links_fn="${1:-_active_links}"
   printf '==> removing symlinks\n'
   while IFS= read -r entry; do
     [ -z "$entry" ] && continue
     local src="${entry%%::*}"
     local dst="${entry##*::}"
     _uninstall_one "$src" "$dst"
-  done < <(_active_links)
+  done < <("$links_fn")
 }
 
 cmd_list() {
-  _active_links
+  local links_fn="${1:-_active_links}"
+  "$links_fn"
 }
 
 case "${1:-install}" in
-  install)   cmd_install ;;
-  uninstall) cmd_uninstall ;;
-  list)      cmd_list ;;
+  install)          cmd_install ;;
+  uninstall)        cmd_uninstall ;;
+  list)             cmd_list ;;
+  # Skills-only scope: used by scripts/claude-skills link, so a skills
+  # refresh never has to walk (and touch) every other dotfiles symlink.
+  skills-install)   cmd_install _skill_links ;;
+  skills-uninstall) cmd_uninstall _skill_links ;;
+  skills-list)      cmd_list _skill_links ;;
   *)
-    printf 'usage: %s [install|uninstall|list]\n' "$0" >&2
+    printf 'usage: %s [install|uninstall|list|skills-install|skills-uninstall|skills-list]\n' "$0" >&2
     exit 1
     ;;
 esac

@@ -1,40 +1,150 @@
 ---
 status: source-of-truth
 maintainer: emrahurhan@buyutech.com.tr
-claude-rule: "configurations/claude/skills/ is the taxonomy of record for this machine's Claude skills. New technology variety inside a skill is expressed as a references/ file, never a new skill. Solana/crypto/hackathon-specific skills live outside the repo at ${HOME}/gel-ort/claude-skills-archive/, archived not deleted."
+claude-rule: "Claude skills live ONLY in ${CLAUDE_SKILLS_DIR} (default ${HOME}/gel-ort/claude-skills) — a local git repo, deliberately without a remote. They are never vendored inside configurations/claude/skills/ (or any other path) in this dotfiles repo, and never pushed to any remote, public or private. scripts/symlinks.sh links ~/.claude/skills/<name> from that repo dynamically (every top-level entry, not a fixed list); scripts/claude-skills manages the repo itself (init/status/commit/bundle/restore/link/list). New technology variety inside a skill is still expressed as a references/ file, never a new skill. Solana/crypto/hackathon-specific skills stay archived outside both, at ${HOME}/gel-ort/claude-skills-archive/."
 ---
 
-# Claude skills — taxonomy, references pattern, archive
+# Claude skills — the remote-less global repo
 
 ## Why this exists
 
-`~/.claude/skills/` accumulates skills from every source that gets installed on this machine —
-this repo's own (`backend-development`, `logging-patterns`, `rfc9457-problem-details`, …) and
-third-party packs (a Solana/crypto-focused skill pack, in this case). Left unmanaged, that
-directory mixes domain-agnostic engineering skills (frontend, security, review, learning) with
-skills scoped to one product domain, and grows a new skill for every technology combination a
-skill's guidance needs to cover.
+Skills used to live inside this repo, at `configurations/claude/skills/`, symlinked into
+`~/.claude/skills/` like any other managed config. That broke a hard rule that was never written
+down until it was violated: **skills must never be exposed to git remotes, public or private.**
+`raxetul/dotfiles` was confirmed to be a **public** GitHub repository, and 11 skills had already
+been pushed to it. This doc — and the migration it records — replaces that setup with a
+**separate, remote-less local git repository** that this repo only *links into*, never vendors.
 
-This doc records the two decisions that keep that directory sane:
+The two things that changed and the one thing that didn't:
 
-1. **Technology variety is a `references/` file, not a new skill.** A project can run PostgreSQL
-   and ClickHouse side by side, or Loco one month and Spring Boot the next — the combinations
-   would explode the skill count if each got its own skill. One skill owns the domain-agnostic
-   depth (layering, DI, schema discipline); `references/<category>/<technology>.md` owns the
-   technology-specific mechanics. See `configurations/claude/skills/backend-development/SKILL.md`
-   for the reference implementation of this pattern.
-2. **Domain-agnostic skills are tracked in this repo; domain-specific ones are archived outside
-   it.** A skill with engineering value independent of any one product domain (frontend/design,
-   security, review, learning, a router file) is symlinked in like any other repo-managed config
-   (hard rule #12 in the root `CLAUDE.md`). A skill scoped to one product domain (this machine's
-   case: Solana/crypto/hackathon workflows) doesn't belong in a general-purpose dotfiles repo — it
-   moves to `${HOME}/gel-ort/claude-skills-archive/`, kept (not deleted) in case that domain's work
-   resumes.
+- **Changed — where skills live.** Not `configurations/claude/skills/` inside `dotfiles` anymore.
+  Now `${CLAUDE_SKILLS_DIR}` (default `${HOME}/gel-ort/claude-skills`), a git repo of its own.
+- **Changed — how they're backed up.** Not `git push`. `git bundle`, via
+  `scripts/claude-skills bundle`, written to `${CLAUDE_SKILLS_BUNDLE_DIR}` (default
+  `${HOME}/gel-ort/backups`), retaining the last 5.
+- **Unchanged — the taxonomy decisions.** Technology variety inside a skill is still a
+  `references/` file, not a new skill (see below). Domain-specific skills (this machine's case:
+  Solana/crypto/hackathon) still don't belong in a general-purpose skills store — they stay
+  archived, untouched by this migration, at `${HOME}/gel-ort/claude-skills-archive/`.
+
+## Why remote-less, specifically
+
+Versioning skills with git is still valuable — full history, diffs, `git log` on every change to
+a skill's guidance. What's not acceptable is a *remote*, because a remote is exactly the mechanism
+that leaked 11 skills into a public repo in the first place. So the skills repo is git, deliberately
+without a remote:
+
+```sh
+git -C "${CLAUDE_SKILLS_DIR}" remote -v   # must always print nothing
+```
+
+`scripts/claude-skills status` checks and warns loudly if that ever stops being true. Backups are
+`git bundle` files, not a push target — a bundle is a single file that carries full repo history
+and can restore a complete clone, with no server, no network call, and no remote left behind (see
+"Bundle backup discipline" below for exactly how `restore` avoids leaving one).
+
+## Repo location and layout
+
+```
+${CLAUDE_SKILLS_DIR}                    (default: ${HOME}/gel-ort/claude-skills)
+├── README.md                           # not a skill — repo-level note, excluded from symlinking
+├── SKILL_ROUTER.md                     # flat file, symlinked as-is (like any top-level entry)
+├── backend-development/
+│   ├── SKILL.md
+│   └── references/…
+├── brand-design/ · cso/ · frontend-design-guidelines/ · learn/ · logging-patterns/
+├── page-load-animations/ · product-review/ · rfc9457-problem-details/ · roast-my-product/
+├── browse-shotato/ · camera-shotato/ · design-system-shotato/ · navigation-shotato/
+├── preview-shotato/ · storage-shotato/                 # migrated from the shotato project
+├── add-script-task/ · add-systemd-service/             # migrated from the my-installation project
+└── quick-test.md                                       # migrated from the claude-demo project
+```
+
+Every top-level entry is a skill: normally a directory with `SKILL.md` (optionally a `references/`
+subtree), occasionally a flat `.md` file (`SKILL_ROUTER.md`, `quick-test.md`). `README.md` is the
+one deliberate exception — repo metadata, not a skill, and `scripts/symlinks.sh` skips it by name.
+
+## Symlink flow
+
+`scripts/symlinks.sh` never hardcodes a skill list. A dedicated function, `_skill_links`, walks
+every top-level entry currently in `${CLAUDE_SKILLS_DIR}` and emits one
+`<abs-path-in-repo>::.claude/skills/<name>` mapping per entry — so dropping a new skill into the
+repo is picked up on the next `install`, with no script edit. `_active_links` folds those into the
+same install/uninstall/list machinery every other dotfiles symlink uses, plus three skills-scoped
+actions that touch nothing else:
+
+```sh
+scripts/symlinks.sh skills-install     # (re)plant only ~/.claude/skills/* symlinks
+scripts/symlinks.sh skills-uninstall   # remove only those symlinks
+scripts/symlinks.sh skills-list        # print only the skills mapping
+```
+
+`scripts/claude-skills link` is a thin wrapper over `skills-install`, so day-to-day use never has
+to touch `symlinks.sh` directly.
+
+```mermaid
+flowchart LR
+    subgraph GLOBAL["${CLAUDE_SKILLS_DIR} — local git, NO remote"]
+        direction TB
+        S1[backend-development]
+        S2["… 8 more domain-agnostic skills"]
+        S3["browse-shotato · camera-shotato · …\n(migrated from shotato)"]
+        S4["add-script-task · add-systemd-service\n(migrated from my-installation)"]
+        S5["quick-test.md\n(migrated from claude-demo)"]
+        RM[README.md — NOT symlinked]
+    end
+
+    SL["scripts/symlinks.sh\n_skill_links() — dynamic, walks every top-level entry"]
+    HOME["~/.claude/skills/<name>\n(one symlink per entry)"]
+
+    GLOBAL -->|discovered by| SL -->|plants| HOME
+    RM -.->|excluded by name| SL
+
+    subgraph DOTFILES["dotfiles repo"]
+        direction TB
+        CS["scripts/claude-skills\ninit · status · commit · bundle · restore · link · list"]
+        SETUP["setup.sh Step 4.5\ngit init if missing — NEVER clones a remote"]
+    end
+
+    CS -.->|manages| GLOBAL
+    SETUP -.->|bootstraps empty repo on new host| GLOBAL
+
+    BUNDLE["${CLAUDE_SKILLS_BUNDLE_DIR}/claude-skills-<date>.bundle\n(last 5 kept)"]
+    GLOBAL -->|"claude-skills bundle"| BUNDLE
+    BUNDLE -->|"claude-skills restore <bundle>\n(git fetch, never git remote add)"| GLOBAL
+
+    ARCHIVE["${HOME}/gel-ort/claude-skills-archive/\n(untracked, Solana/crypto skills, kept not deleted)"]
+    GLOBAL -.->|separate from, never merges with| ARCHIVE
+```
+
+## Bundle backup discipline
+
+`scripts/claude-skills bundle` runs `git bundle create <dir>/claude-skills-<YYYY-MM-DD>.bundle
+--all` against `${CLAUDE_SKILLS_DIR}`, then prunes `${CLAUDE_SKILLS_BUNDLE_DIR}` down to the 5
+most recent bundles (filenames sort lexically in date order, so this is a plain `sort`, not a
+`stat`-based mtime scan). Run it after any batch of skill edits — there's no automatic trigger by
+design; a skill change is deliberate enough to deserve a deliberate backup step.
+
+`scripts/claude-skills restore <bundle>` rebuilds the repo from a bundle **without ever adding a
+remote**: it runs `git fetch <bundle-file> 'refs/heads/*:refs/heads/*'` — a one-off fetch with an
+explicit path argument, which git never records as a named remote — instead of `git clone
+<bundle-file> <dest>`, which would leave `origin` pointing at the bundle path. It also refuses to
+run against a `${CLAUDE_SKILLS_DIR}` that already has commit history, to avoid silently discarding
+work; move the existing repo aside first if a full replace is really intended.
+
+On a brand-new host, `setup.sh` (Step 4.5) and `scripts/claude-skills init` both create the repo
+**empty** via `git init` if it doesn't exist yet — never by cloning a remote, because by design
+there isn't one. Restoring real content onto a fresh host is a deliberate, manual
+`scripts/claude-skills restore <bundle>` from whatever bundle was last backed up, copied over by
+hand (USB, scp, whatever out-of-band channel — never a git remote).
 
 ## The `references/` pattern
 
+Unaffected by the repo relocation — still the mechanism for covering technology variety inside one
+skill instead of spawning a new skill per technology combination:
+
 ```
-configurations/claude/skills/backend-development/
+${CLAUDE_SKILLS_DIR}/backend-development/
 ├── SKILL.md                          # framework-independent depth + routing table
 └── references/
     ├── frameworks/
@@ -50,9 +160,6 @@ configurations/claude/skills/backend-development/
         └── _template.md              # blank skeleton for the next tool
 ```
 
-Every reference file follows the same six-section skeleton, so any reference reads the same way
-regardless of which technology it covers:
-
 | Section | Purpose |
 | --- | --- |
 | When to read | The concrete project signal that points here (a dependency, a config key, a docker-compose service name) |
@@ -62,72 +169,27 @@ regardless of which technology it covers:
 | Docker (migrate + seed snippet) | A concrete `migrate → seed → app` compose fragment, or an explicit "not applicable" |
 | Pitfalls | Mistakes specific to this technology |
 
-**Adding a new technology never means adding a new skill.** Copy the matching `_template.md`,
-fill it in, add a row to `SKILL.md`'s routing table. Flag anything you're not fully certain of
-(exact CLI flags, config key names, package names) rather than guessing — several of the current
-reference files carry a "YOU SHOULD VERIFY THIS" note for exactly that reason.
+**Adding a new technology never means adding a new skill.** Copy the matching `_template.md`, fill
+it in, add a row to `SKILL.md`'s routing table.
 
-## Skill tree
+## Provenance — where every current skill came from
 
-```mermaid
-flowchart TD
-    subgraph repo["configurations/claude/skills/ (tracked, symlinked into ~/.claude/skills/)"]
-        direction TB
-        BD["backend-development\n(layering + schema discipline)"]
-        BD --> FW["references/frameworks/\nloco · spring-boot · nestjs"]
-        BD --> DB["references/databases/\npostgresql · clickhouse · _template"]
-        BD --> OT["references/observability/\nopentelemetry · _template"]
-        LP[logging-patterns]
-        RFC[rfc9457-problem-details]
-        BRAND[brand-design]
-        FDG[frontend-design-guidelines]
-        PLA[page-load-animations]
-        CSO[cso]
-        LEARN[learn]
-        PR[product-review]
-        RMP[roast-my-product]
-        ROUTER[SKILL_ROUTER.md]
-    end
+| Source | Skills | Notes |
+| --- | --- | --- |
+| `raxetul/dotfiles` (`configurations/claude/skills/`) | `backend-development`, `brand-design`, `cso`, `frontend-design-guidelines`, `learn`, `logging-patterns`, `page-load-animations`, `product-review`, `rfc9457-problem-details`, `roast-my-product`, `SKILL_ROUTER.md` | The original 11 that had leaked to the public remote; moved out, not deleted |
+| `~/gel-ort/workspace/shotato` (`.claude/skills/`) | `browse-shotato`, `camera-shotato`, `design-system-shotato`, `navigation-shotato`, `preview-shotato`, `storage-shotato` | Untracked in the shotato repo; an identical duplicate copy under a linked git worktree (`.claude/worktrees/tdd-setup`, plus a stray filesystem copy of that same worktree under `shotato.worktrees/fix-android-nav-bar-insets/`) was removed rather than re-imported |
+| `~/gel-ort/github/claude-demo` (`.claude/skills/quick-test.md`) | `quick-test.md` | Was git-tracked; staged for removal there (`git rm -r --cached`), not committed — that repo's own commit is the user's call |
+| `~/gel-ort/ops/ansible/my-installation` (`.claude/skills/`) | `add-script-task`, `add-systemd-service` | Same as above: git-tracked, staged for removal, not committed |
 
-    subgraph archive["${HOME}/gel-ort/claude-skills-archive/ (untracked, kept not deleted)"]
-        direction TB
-        SOLANA["Solana build/deploy/launch skills\napply-grant · build-* · launch-token\nscaffold-project · deploy-to-mainnet · debug-program\nsolana-beginner · virtual-solana-incubator"]
-        CRYPTOBIZ["Crypto idea/market skills\nfind-next-crypto-idea · validate-idea\ncompetitive-landscape · defillama-research\ncolosseum-copilot · create-pitch-deck\nsubmit-to-hackathon"]
-        CRYPTOCONTENT["Crypto-scoped content skills\ndesign-taste · number-formatting\nreview-and-iterate · navigate-skills\nmarketing-video · video-craft"]
-        DATA["data/ (shared datasets for the above)"]
-    end
+No name collisions occurred across these four sources — nothing needed the `<name>-<project>`
+disambiguation the migration was prepared to apply.
 
-    HOME["~/.claude/skills/"] -->|symlink, hard rule #12| repo
-    HOME -.->|moved out, not linked| archive
-```
+## Classification table — domain-agnostic vs. archived
 
-## Symlink record
-
-`scripts/symlinks.sh` `COMMON_LINKS` plants one entry per tracked skill (and the router file):
-
-| Repo path | Live path |
-| --- | --- |
-| `configurations/claude/skills/logging-patterns` | `~/.claude/skills/logging-patterns` |
-| `configurations/claude/skills/rfc9457-problem-details` | `~/.claude/skills/rfc9457-problem-details` |
-| `configurations/claude/skills/backend-development` | `~/.claude/skills/backend-development` |
-| `configurations/claude/skills/brand-design` | `~/.claude/skills/brand-design` |
-| `configurations/claude/skills/cso` | `~/.claude/skills/cso` |
-| `configurations/claude/skills/frontend-design-guidelines` | `~/.claude/skills/frontend-design-guidelines` |
-| `configurations/claude/skills/learn` | `~/.claude/skills/learn` |
-| `configurations/claude/skills/page-load-animations` | `~/.claude/skills/page-load-animations` |
-| `configurations/claude/skills/product-review` | `~/.claude/skills/product-review` |
-| `configurations/claude/skills/roast-my-product` | `~/.claude/skills/roast-my-product` |
-| `configurations/claude/skills/SKILL_ROUTER.md` | `~/.claude/skills/SKILL_ROUTER.md` |
-
-`backend-stack-patterns` (the skill `backend-development` replaces) is removed from both the repo
-and the symlink mapping — its three per-framework sections became
-`references/frameworks/{loco,spring-boot,nestjs}.md` verbatim, with no content dropped.
-
-## Classification table
-
-Every local skill that was under `~/.claude/skills/` and not already repo-tracked was classified
-KEEP (domain-agnostic engineering value — moved into this repo) or ARCHIVE (Solana/crypto/
-hackathon-specific — moved to `${HOME}/gel-ort/claude-skills-archive/`, not deleted).
+Applies to the original 11 (from `~/.claude/skills/` before ANY of it was repo-tracked): every
+local skill was classified KEEP (domain-agnostic engineering value — now in the global repo) or
+ARCHIVE (Solana/crypto/hackathon-specific — moved to `${HOME}/gel-ort/claude-skills-archive/`, not
+deleted). This table is historical record and hasn't changed with the remote-less migration.
 
 | Skill | Decision | Reason |
 | --- | --- | --- |
@@ -139,42 +201,21 @@ hackathon-specific — moved to `${HOME}/gel-ort/claude-skills-archive/`, not de
 | `product-review` | KEEP | UX/product-quality review framework is domain-agnostic |
 | `roast-my-product` | KEEP | Harsh product critique framework is domain-agnostic |
 | `SKILL_ROUTER.md` | KEEP | Router-file pattern itself has engineering value; content trimmed to only route to kept skills |
-| `apply-grant` | ARCHIVE | Prepares a Solana Earn grant application specifically |
-| `build-data-pipeline` | ARCHIVE | Solana on-chain data pipeline/indexer guidance |
-| `build-defi-protocol` | ARCHIVE | Solana DeFi protocol (AMM/lending/vault) guidance |
-| `build-mobile` | ARCHIVE | Solana mobile dApp guidance specifically |
-| `build-with-claude` | ARCHIVE | Solana MVP step-by-step guidance |
-| `colosseum-copilot` | ARCHIVE | Solana hackathon project search/analysis |
-| `competitive-landscape` | ARCHIVE | Crypto product competitive mapping, built on Solana-ecosystem catalogs |
-| `create-pitch-deck` | ARCHIVE | Pitch deck creation scoped to crypto projects |
-| `data` | ARCHIVE | Shared datasets (colosseum/defi/ideas/solana-knowledge) feeding the archived Solana skills |
-| `debug-program` | ARCHIVE | Debugging a Solana program/transaction specifically |
-| `defillama-research` | ARCHIVE | DeFi protocol/TVL market research |
-| `deploy-to-mainnet` | ARCHIVE | Solana devnet→mainnet deployment checklist |
-| `design-taste` | ARCHIVE | Description scopes anti-AI-slop review to "crypto UIs" specifically |
-| `find-next-crypto-idea` | ARCHIVE | Crypto startup idea discovery/validation |
-| `launch-token` | ARCHIVE | Solana token launch (SPL/pump.fun) guidance |
-| `marketing-video` | ARCHIVE | Video production described as "for Solana projects" |
-| `navigate-skills` | ARCHIVE | Meta-router explicitly scoped to "solana-new skills, repos, and MCPs" |
-| `number-formatting` | ARCHIVE | Description scopes number formatting to "crypto/Solana UIs" specifically |
-| `review-and-iterate` | ARCHIVE | Description scopes code review to "Solana project code" specifically |
-| `scaffold-project` | ARCHIVE | Solana project workspace scaffolding |
-| `solana-beginner` | ARCHIVE | Solana fundamentals teaching |
-| `submit-to-hackathon` | ARCHIVE | Solana hackathon submission prep |
-| `validate-idea` | ARCHIVE | Crypto startup idea validation sprint |
-| `video-craft` | ARCHIVE | Companion to the archived `marketing-video`, no domain-agnostic engineering category it fits |
-| `virtual-solana-incubator` | ARCHIVE | Solana/SVM/Rust bootcamp curriculum |
+| 25 Solana/crypto/hackathon-specific skills (`apply-grant`, `build-*`, `launch-token`, `colosseum-copilot`, …) | ARCHIVE | Scoped to one product domain (Solana/crypto); listed in full in this doc's git history prior to this rewrite |
 
-**Totals: 8 kept (7 skill directories + 1 router file), 25 archived.**
+**Totals: 8 kept from that batch (7 skill directories + 1 router file) + 9 migrated from projects
+(Provenance table above) = 17 skills currently in the global repo, 25 archived.**
 
 ## Known caveat: third-party telemetry preamble
 
-Every one of the KEEP skills above (and most of the ARCHIVE ones) carries a "superstack" preamble
-block in its `SKILL.md` that, on first read of the skill, reads `~/.superstack/config.json` and —
-unless that config already says `"telemetryTier":"off"` — sends a `curl` POST (skill name, phase,
-platform, timestamp) to an external Convex endpoint and appends to a local `telemetry.jsonl`,
-*before* the in-skill consent prompt has necessarily been answered on a fresh machine. This was
-flagged during this migration; the explicit decision was to move skills into this repo **as-is,
-preamble included** rather than strip it. YOU SHOULD VERIFY whether this is acceptable under this
-machine's information-security policy (vetted-plugins-only, no unreviewed external calls) before
-relying on these skills in a work context — this doc records the decision, not a security sign-off.
+Every one of the original KEEP skills (and most of the ARCHIVE ones) carries a "superstack"
+preamble block in its `SKILL.md` that, on first read of the skill, reads
+`~/.superstack/config.json` and — unless that config already says `"telemetryTier":"off"` —
+sends a `curl` POST (skill name, phase, platform, timestamp) to an external Convex endpoint and
+appends to a local `telemetry.jsonl`, *before* the in-skill consent prompt has necessarily been
+answered on a fresh machine. This was flagged during the original migration into `dotfiles`; the
+explicit decision was to carry skills over **as-is, preamble included**, and that decision carries
+forward into this remote-less migration too — nothing about the preamble changed. YOU SHOULD
+VERIFY whether this is acceptable under this machine's information-security policy
+(vetted-plugins-only, no unreviewed external calls) before relying on these skills in a work
+context — this doc records the decision, not a security sign-off.

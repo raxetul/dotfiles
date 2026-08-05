@@ -11,8 +11,10 @@
 #      starship/atuin/claude/lefthook release-binary fallbacks where the
 #      native package manager lacks them)
 #   6. bootstraps user-scope plugin managers (vim-plug, TPM, zsh plugins)
+#   6.5. ensures the remote-less claude-skills repo exists (creates it
+#        empty via `git init` on a new host — never clones a remote)
 #   7. plants symlinks from configurations/ into $HOME via
-#      scripts/symlinks.sh
+#      scripts/symlinks.sh (skills symlinked from the claude-skills repo)
 #   8. makes zsh the login shell
 #   9. installs lefthook git hooks for this repo
 #
@@ -363,6 +365,18 @@ fi
 # each falls back to the upstream binary only when the native package
 # manager didn't provide the tool, and owns its PATH via .path. See
 # CLAUDE.md §10 and packages/custom-install/README.md.
+
+# ------------------------------------------------------------------
+# Step 4.5 — ensure the claude-skills repo exists (no remote).
+#
+# Skills are never vendored in this repo (see doc/claude-skills.md) — they
+# live in a separate, remote-less local git repo that scripts/symlinks.sh
+# links from. On a brand-new host that repo doesn't exist yet: create it
+# empty via `git init` and warn once. NEVER clone it from a remote — by
+# design it never has one; restoring one is a deliberate, manual
+# `scripts/claude-skills restore <bundle>`, not something setup.sh guesses.
+# ------------------------------------------------------------------
+"${DIR}/scripts/claude-skills" init
 
 # ------------------------------------------------------------------
 # Step 5 — plant symlinks from configurations/ into $HOME.

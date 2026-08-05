@@ -234,6 +234,21 @@ out under `docs/`):
 
 A pillar with nothing to say yet gets a stub marked `_TBD_`, not silence.
 
+## Skills
+
+Claude skills live in exactly one place: the global, remote-less
+`${CLAUDE_SKILLS_DIR}` repo (default `${HOME}/gel-ort/claude-skills`),
+symlinked into `~/.claude/skills/<name>` by `scripts/symlinks.sh` in the
+dotfiles repo. A skill **never** goes into a project repo, and never into
+`dotfiles` or any other public remote — that repo was found to be public
+with skills pushed into it, which is exactly the mistake this rule exists
+to prevent. It's versioned with plain local `git` (full history, no
+network) and backed up with `scripts/claude-skills bundle`
+(`git bundle`), never `git push`. See the dotfiles repo's
+`doc/claude-skills.md` for the full architecture. The `/init-proj-*`
+command family never scaffolds a skill into a project — skills are a
+machine-global resource, not a per-project one.
+
 ## Keep requirements & docs in sync with what's built
 
 Whatever I ask for and you implement must — in the *same* change, not as a
