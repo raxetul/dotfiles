@@ -339,12 +339,55 @@ the thing that locks up a shell.
   for a branch that already has a live member under that exact name will
   still be rejected by herdr with `agent_name_taken` — pass a different
   `--role` (or none, to fall back to the branch slug) to work around it.
-- The new-tab path assumes `herdr tab create --json` returns a tab id under
+- The new-tab path assumes `herdr tab create` returns a tab id (JSON by
+  default — see [herdr CLI contract](#herdr-cli-contract) below) under
   `.result.tab.tab_id` (falls back to herdr's default placement if not).
   Adjust the one `jq` line in `scripts/claude-worktree` if a herdr update
   changes that shape.
-- **Pane relabeling assumes `herdr agent start --json` returns the spawned
-  pane id** under `.result.agent.pane_id`, and that `herdr pane rename
-  <pane_id> <name>` exists. If a herdr update changes either shape, adjust
-  `rename_started_pane()` in `scripts/claude-worktree` — the agent name
-  itself is unaffected either way, only the pane's visual label.
+- **Pane relabeling assumes `herdr agent start` (JSON by default) returns
+  the spawned pane id** under `.result.agent.pane_id`, and that `herdr pane
+  rename <pane_id> <name>` exists. If a herdr update changes either shape,
+  `rename_started_pane()` in `scripts/claude-worktree` warns and skips the
+  rename rather than failing the spawn — the agent name itself is unaffected
+  either way, only the pane's visual label.
+
+## herdr CLI contract
+
+Installed version is **herdr 0.7.1** (`herdr --version`). Every subcommand
+under `herdr agent …` / `herdr tab …` / `herdr pane …` prints **JSON by
+default** — there is no `--json` flag on `agent start`, `tab create`, or any
+of the placement commands `scripts/claude-worktree` / `scripts/herdr-team`
+use. (`herdr agent explain` is the one exception that *does* take an
+optional `--json`.) A prior version of this script passed `--json` to
+`agent start` / `tab create` anyway; 0.7.1 doesn't recognize it, so the
+command errored and every spawn through `claude-worktree` (and therefore
+`herdr-team spawn`) failed outright.
+
+**Before adding any herdr flag to a script, verify it exists**: run
+`herdr <command> --help` (or `-h`) and check the printed usage line — never
+assume a flag by analogy with another subcommand. The known, verified
+subcommand/flag set the two scripts rely on:
+
+| Command | Verified flags |
+| --- | --- |
+| `herdr agent start <name>` | `--cwd PATH`, `--workspace ID`, `--tab ID`, `--split right\|down`, `--env KEY=VALUE`, `--focus`\|`--no-focus`, `-- <argv...>` |
+| `herdr agent list` | (none) |
+| `herdr agent get <target>` | (none) |
+| `herdr agent read <target>` | `--source visible\|recent\|recent-unwrapped`, `--lines N`, `--format text\|ansi`, `--ansi` |
+| `herdr agent send <target> <text>` | (none) |
+| `herdr agent rename <target> <name>` | `--clear` |
+| `herdr agent focus <target>` | (none) |
+| `herdr agent wait <target>` | `--status idle\|working\|blocked\|unknown`, `--timeout MS` |
+| `herdr pane list` | `--workspace <workspace_id>` |
+| `herdr pane get <pane_id>` | (none) |
+| `herdr pane layout` | `--pane ID`\|`--current` |
+| `herdr pane rename <pane_id> <name>` | `--clear` |
+| `herdr pane close <pane_id>` | (none) |
+| `herdr pane split` | `<pane_id>`\|`--pane ID`\|`--current`, `--direction right\|down`, `--ratio FLOAT`, `--cwd PATH`, `--env KEY=VALUE`, `--focus`\|`--no-focus` |
+| `herdr pane run <pane_id> <command>` | (none) |
+| `herdr pane send-keys <pane_id> <key...>` | (none) |
+| `herdr tab create` | `--workspace <workspace_id>`, `--cwd PATH`, `--label TEXT`, `--env KEY=VALUE`, `--focus`\|`--no-focus` |
+
+This table is a convenience cache of what's been checked, not a substitute
+for re-running `--help` after a herdr upgrade — `herdr channel set` can move
+to a newer minor version whose flags have shifted.

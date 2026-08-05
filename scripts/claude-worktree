@@ -173,14 +173,22 @@ else
   printf 'claude-worktree: no --role given — falling back to branch-slug agent name %s (pass --role <name> for a readable pane label)\n' \
     "$label" >&2
 fi
-# rename_started_pane <herdr-agent-start-json> — herdr agent start returns the
-# spawned pane id under .result.agent.pane_id (--json); relabel the pane to
-# match the agent name so the border reads "frontend"/"frontend-haro" instead
-# of a raw pane id, regardless of which mode (manual/tab/team) spawned it.
+# rename_started_pane <herdr-agent-start-output> — herdr agent start prints
+# JSON by default (installed herdr 0.7.1 has no --json flag at all); the
+# spawned pane id lives at .result.agent.pane_id. Relabel the pane to match
+# the agent name so the border reads "frontend"/"frontend-haro" instead of a
+# raw pane id, regardless of which mode (manual/tab/team) spawned it. If the
+# id can't be parsed, warn and skip the rename — the agent name is already
+# set by `agent start`, so a skipped rename is cosmetic only, never fatal.
 rename_started_pane() {
   local pane_id
   pane_id="$(printf '%s' "$1" | jq -r '.result.agent.pane_id // .result.pane_id // empty' 2>/dev/null)"
-  [ -n "$pane_id" ] && herdr pane rename "$pane_id" "$label" >/dev/null 2>&1
+  if [ -n "$pane_id" ]; then
+    herdr pane rename "$pane_id" "$label" >/dev/null 2>&1
+  else
+    printf 'claude-worktree: could not read pane id from herdr output — skipping pane rename (agent name "%s" still applied)\n' \
+      "$label" >&2
+  fi
   return 0
 }
 # start_member <split-direction> — split claude off the focused pane, PINNED to
@@ -188,7 +196,7 @@ rename_started_pane() {
 start_member() {
   local out
   out="$(herdr agent start "$label" --cwd "$wt_path" \
-    ${lead_ws:+--workspace "$lead_ws"} --split "$1" "$sf" --json -- claude "${extra[@]}")"
+    ${lead_ws:+--workspace "$lead_ws"} --split "$1" "$sf" -- claude "${extra[@]}")"
   rename_started_pane "$out"
 }
 
@@ -202,14 +210,14 @@ case "$mode" in
   tab)
     # member in its own new tab, labelled with the branch
     tab_id="$(herdr tab create ${lead_ws:+--workspace "$lead_ws"} --cwd "$wt_path" \
-              --label "$branch" --no-focus --json 2>/dev/null \
+              --label "$branch" --no-focus 2>/dev/null \
               | jq -r '.result.tab.tab_id // .result.tab_id // empty' 2>/dev/null)"
     if [ -n "$tab_id" ]; then
-      out="$(herdr agent start "$label" --cwd "$wt_path" --tab "$tab_id" "$sf" --json -- claude "${extra[@]}")"
+      out="$(herdr agent start "$label" --cwd "$wt_path" --tab "$tab_id" "$sf" -- claude "${extra[@]}")"
     else
       # fall back to the lead's workspace if the tab id couldn't be parsed
       out="$(herdr agent start "$label" --cwd "$wt_path" \
-        ${lead_ws:+--workspace "$lead_ws"} "$sf" --json -- claude "${extra[@]}")"
+        ${lead_ws:+--workspace "$lead_ws"} "$sf" -- claude "${extra[@]}")"
     fi
     rename_started_pane "$out" ;;
   team|*)
