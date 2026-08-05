@@ -1,0 +1,215 @@
+#!/usr/bin/env bash
+# scripts/claude-skills — manage the remote-less claude-skills repo.
+#
+# Skills are never vendored inside this repo (or any other project repo) and
+# never pushed to a remote, public or private. They live in their own local
+# git repo — versioned, but deliberately without a remote — and get backed
+# up as a `git bundle` instead of a `git push`. See doc/claude-skills.md.
+#
+# Usage:
+#   scripts/claude-skills init                 # create the repo if missing (idempotent, no remote)
+#   scripts/claude-skills status               # repo path, git status, remote check
+#   scripts/claude-skills commit [-m <msg>]    # stage + commit everything in the repo
+#   scripts/claude-skills bundle                # git bundle create, prune to last 5
+#   scripts/claude-skills restore <bundle>     # restore the repo from a bundle
+#   scripts/claude-skills link                  # (re)plant ~/.claude/skills/* symlinks
+#   scripts/claude-skills list                  # list skills currently in the repo
+#
+# Env:
+#   CLAUDE_SKILLS_DIR         the repo itself (default: ${HOME}/gel-ort/claude-skills)
+#   CLAUDE_SKILLS_BUNDLE_DIR  where `bundle` writes/`restore` reads from
+#                             (default: ${HOME}/gel-ort/backups)
+#   DRY_RUN=1                 print intended actions, change nothing
+#
+# Idempotent: init/commit/bundle/link are all safe to re-run.
+set -euo pipefail
+
+CLAUDE_SKILLS_DIR="${CLAUDE_SKILLS_DIR:-${HOME}/gel-ort/claude-skills}"
+CLAUDE_SKILLS_BUNDLE_DIR="${CLAUDE_SKILLS_BUNDLE_DIR:-${HOME}/gel-ort/backups}"
+BUNDLE_KEEP=5
+
+SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+die() { printf 'claude-skills: %s\n' "$*" >&2; exit 1; }
+say() { printf '==> %s\n' "$*"; }
+usage() { sed -n '2,24p' "$0" | sed 's/^# \{0,1\}//'; }
+
+_dry() { [ "${DRY_RUN:-0}" = "1" ]; }
+
+_require_repo() {
+  [ -d "${CLAUDE_SKILLS_DIR}/.git" ] \
+    || die "no repo at ${CLAUDE_SKILLS_DIR} — run 'scripts/claude-skills init' first."
+}
+
+# === Subcommands ===
+
+cmd_init() {
+  if [ -d "${CLAUDE_SKILLS_DIR}/.git" ]; then
+    say "already initialized: ${CLAUDE_SKILLS_DIR}"
+    return 0
+  fi
+
+  say "claude-skills repo not found at ${CLAUDE_SKILLS_DIR} — creating it empty (no remote)"
+  if _dry; then
+    printf 'DRY-RUN: mkdir -p %s && git init\n' "${CLAUDE_SKILLS_DIR}"
+    return 0
+  fi
+  mkdir -p "${CLAUDE_SKILLS_DIR}"
+  git -C "${CLAUDE_SKILLS_DIR}" init -q
+}
+
+cmd_status() {
+  _require_repo
+  printf 'repo:   %s\n' "${CLAUDE_SKILLS_DIR}"
+
+  local remotes
+  remotes="$(git -C "${CLAUDE_SKILLS_DIR}" remote -v)"
+  if [ -n "${remotes}" ]; then
+    printf 'remote: WARNING — a remote is configured, this repo must stay remote-less:\n%s\n' "${remotes}" >&2
+  else
+    printf 'remote: (none) — as designed\n'
+  fi
+
+  printf '\n-- git status --\n'
+  git -C "${CLAUDE_SKILLS_DIR}" status --short --branch
+}
+
+cmd_commit() {
+  _require_repo
+  local msg=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      -m)
+        msg="${2:-}"
+        [ -n "${msg}" ] || die "-m requires a message"
+        shift 2
+        ;;
+      *) die "unknown commit argument: $1" ;;
+    esac
+  done
+  [ -n "${msg}" ] || msg="chore: snapshot $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+  if _dry; then
+    printf 'DRY-RUN: git -C %s add -A && git commit -m %q\n' "${CLAUDE_SKILLS_DIR}" "${msg}"
+    return 0
+  fi
+
+  git -C "${CLAUDE_SKILLS_DIR}" add -A
+  if git -C "${CLAUDE_SKILLS_DIR}" diff --cached --quiet; then
+    say "nothing to commit"
+    return 0
+  fi
+  git -C "${CLAUDE_SKILLS_DIR}" commit -q -m "${msg}"
+  say "committed: ${msg}"
+}
+
+cmd_bundle() {
+  _require_repo
+  local date_stamp bundle
+  date_stamp="$(date -u +%Y-%m-%d)"
+  bundle="${CLAUDE_SKILLS_BUNDLE_DIR}/claude-skills-${date_stamp}.bundle"
+
+  if _dry; then
+    printf 'DRY-RUN: mkdir -p %s && git bundle create %s --all (then prune to last %s)\n' \
+      "${CLAUDE_SKILLS_BUNDLE_DIR}" "${bundle}" "${BUNDLE_KEEP}"
+    return 0
+  fi
+
+  mkdir -p "${CLAUDE_SKILLS_BUNDLE_DIR}"
+  git -C "${CLAUDE_SKILLS_DIR}" bundle create "${bundle}" --all
+  say "wrote ${bundle}"
+
+  # Retention: keep only the BUNDLE_KEEP most recent bundles. Filenames sort
+  # lexically in date order (claude-skills-YYYY-MM-DD.bundle), so a plain
+  # `sort` is enough — no `ls -t` (SC2012) needed.
+  local bundles count stale_count i
+  mapfile -t bundles < <(find "${CLAUDE_SKILLS_BUNDLE_DIR}" -maxdepth 1 \
+    -name 'claude-skills-*.bundle' -print | sort)
+  count="${#bundles[@]}"
+  if [ "${count}" -gt "${BUNDLE_KEEP}" ]; then
+    stale_count=$((count - BUNDLE_KEEP))
+    for ((i = 0; i < stale_count; i++)); do
+      rm -f "${bundles[${i}]}"
+      say "pruned old bundle: $(basename "${bundles[${i}]}")"
+    done
+  fi
+}
+
+cmd_restore() {
+  local bundle="${1:-}"
+  [ -n "${bundle}" ] || die "usage: claude-skills restore <bundle-file>"
+  [ -f "${bundle}" ] || die "bundle not found: ${bundle}"
+  git bundle verify "${bundle}" >/dev/null || die "not a valid bundle: ${bundle}"
+
+  if [ -d "${CLAUDE_SKILLS_DIR}/.git" ] \
+     && git -C "${CLAUDE_SKILLS_DIR}" log -1 >/dev/null 2>&1; then
+    die "refusing to restore over an existing repo WITH history at ${CLAUDE_SKILLS_DIR} — move it aside first (mv it to a .bak path) if you really mean to replace it."
+  fi
+
+  local head_branch
+  head_branch="$(git bundle list-heads "${bundle}" | head -1 | sed 's#^.*refs/heads/##')"
+  [ -n "${head_branch}" ] || die "could not determine a branch from the bundle"
+
+  if _dry; then
+    printf 'DRY-RUN: restore %s into %s (branch: %s), via git fetch — no remote added\n' \
+      "${bundle}" "${CLAUDE_SKILLS_DIR}" "${head_branch}"
+    return 0
+  fi
+
+  mkdir -p "${CLAUDE_SKILLS_DIR}"
+  [ -d "${CLAUDE_SKILLS_DIR}/.git" ] || git -C "${CLAUDE_SKILLS_DIR}" init -q
+
+  # An empty repo's HEAD already points at some default branch name (main)
+  # even with zero commits. If that name matches the bundle's branch,
+  # fetching into it hits "refusing to fetch into branch checked out" —
+  # point HEAD at a throwaway ref first so the fetch below never collides
+  # with whatever is currently checked out. Harmless: nothing has been
+  # committed yet, so there's no history to lose.
+  if ! git -C "${CLAUDE_SKILLS_DIR}" rev-parse --verify -q HEAD >/dev/null; then
+    git -C "${CLAUDE_SKILLS_DIR}" symbolic-ref HEAD refs/heads/__claude-skills-restore__
+  fi
+
+  # `git fetch <path> <refspec>` pulls straight from the bundle file without
+  # ever recording it as a remote — the repo stays remote-less afterward.
+  git -C "${CLAUDE_SKILLS_DIR}" fetch -q "${bundle}" 'refs/heads/*:refs/heads/*'
+  git -C "${CLAUDE_SKILLS_DIR}" checkout -q "${head_branch}"
+  git -C "${CLAUDE_SKILLS_DIR}" branch -D __claude-skills-restore__ >/dev/null 2>&1 || true
+
+  say "restored ${CLAUDE_SKILLS_DIR} from ${bundle} (branch: ${head_branch})"
+  local remotes
+  remotes="$(git -C "${CLAUDE_SKILLS_DIR}" remote -v)"
+  [ -z "${remotes}" ] && say "remote check: (none), as designed" \
+    || printf 'WARNING: remote present after restore:\n%s\n' "${remotes}" >&2
+}
+
+cmd_link() {
+  "${SELF_DIR}/symlinks.sh" skills-install
+}
+
+cmd_list() {
+  _require_repo
+  local entry name
+  for entry in "${CLAUDE_SKILLS_DIR}"/*; do
+    [ -e "${entry}" ] || continue
+    name="$(basename "${entry}")"
+    [ "${name}" = "README.md" ] && continue
+    printf '%s\n' "${name}"
+  done
+}
+
+# === Dispatch ===
+
+case "${1:-}" in
+  ""|-h|--help) usage ;;
+  init)    cmd_init ;;
+  status)  cmd_status ;;
+  commit)  shift; cmd_commit "$@" ;;
+  bundle)  cmd_bundle ;;
+  restore) shift; cmd_restore "$@" ;;
+  link)    cmd_link ;;
+  list)    cmd_list ;;
+  *)
+    usage
+    die "unknown subcommand: $1"
+    ;;
+esac

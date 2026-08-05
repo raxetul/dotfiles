@@ -11,3 +11,7 @@ result-*
 # segment-managed by packages/custom-install/<pkg>/after.sh hooks.
 .load
 .path
+
+# Skills live in the remote-less global repo (${CLAUDE_SKILLS_DIR}), never
+# in a project repo. See doc/claude-skills.md.
+configurations/claude/skills/
