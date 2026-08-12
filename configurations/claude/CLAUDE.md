@@ -216,6 +216,27 @@ for diagrams. If a repo has no documentation style, or a concept isn't
 documented at all, create **informal** documentation for it rather than
 leaving it undocumented — a rough visual doc beats none.
 
+This governs files written to disk; for chat replies themselves, see
+"Response style — visual first" below.
+
+## Response style — visual first
+
+I'm a visual thinker in chat too — this governs replies, not on-disk docs:
+
+- Comparison, inventory, decision, before/after, or measurement → **table**;
+  that's the default format, not a fallback.
+- Explanations are bullet points, 1-2 sentences each — a wall of paragraph
+  text is a defect.
+- **ASCII art** is welcome and encouraged to show structure (tree, flow,
+  pane layout). The terminal does not render Mermaid: **ASCII in chat
+  replies, Mermaid in on-disk documents** — keep that split explicit.
+- If a long reply is unavoidable, break it up with headings + tables so
+  the reader can scan instead of reading start to end.
+- Numbers carry their unit and go in a table; an estimate is labeled
+  "estimate".
+- The color markers (🟢🟡🔵🔴) from "Message color convention" stay valid
+  here too, including inside table cells.
+
 ## Documentation structure
 
 Every project's documentation covers these four pillars (a doc, section,
