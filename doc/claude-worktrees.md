@@ -147,8 +147,9 @@ kebab-case, whatever function fits the task:
 | `review` | reviewing someone else's change |
 
 A **second** member doing the same role can't reuse that name (herdr agent
-names are unique per workspace), so it gets a mascot suffix instead — drawn
-in order from an anime helper-robot/android pool:
+names are unique **globally**, across every workspace — not just mine), so
+it gets a mascot suffix instead — drawn in order from an anime
+helper-robot/android pool:
 
 ```
 haro, tachikoma, sumomo, canti, pino, nono, arale, metabee, rokusho,
@@ -162,15 +163,20 @@ first member of a role is **never** retroactively renamed when a second one
 arrives.
 
 Allocation is decided in exactly **one** place — `herdr-team name <role>` —
-scoped to `${HERDR_WORKSPACE_ID}` (own workspace only, per
-[Team scoping](#team-scoping--cwd-is-never-identity)). `claude-worktree
+and it scans **all** workspaces, not just `${HERDR_WORKSPACE_ID}`: herdr
+agent names are globally unique, so a name already taken in some other
+lead's workspace is just as taken as one used in mine, and a spawn ignoring
+that fails with `agent_name_taken` (hit for real: `documentor` was already
+live in workspace `w9`). This is the one place naming scope differs from
+[Team scoping](#team-scoping--cwd-is-never-identity), where every other
+`herdr-team` subcommand stays filtered to my own workspace. `claude-worktree
 --role <name>` calls it rather than re-deriving the logic itself, so the two
 scripts can never disagree on the next free name:
 
 ```mermaid
 flowchart TD
     A["cwt &lt;branch&gt; --role frontend"] --> B["herdr-team name frontend"]
-    B --> C{"'frontend' free in\nmy workspace?"}
+    B --> C{"'frontend' free in\nANY workspace?"}
     C -- yes --> D["use 'frontend'"]
     C -- no --> E{"'frontend-&lt;mascot&gt;' free?\n(try haro, tachikoma, ... in order)"}
     E -- "yes, first free mascot" --> F["use 'frontend-&lt;mascot&gt;'"]
@@ -283,7 +289,7 @@ flowchart TD
   | `herdr-team read <target> [flags]` | `herdr agent read`, same workspace gate. |
   | `herdr-team wait <target> [flags]` | `herdr agent wait`, same workspace gate. |
   | `herdr-team spawn <branch> [flags]` | Delegates straight to `scripts/claude-worktree` (which already anchors placement to my own workspace). |
-  | `herdr-team name <role>` | Prints the next free agent name for `<role>` in **my own** workspace — see [Member naming](#member-naming--role--mascot). |
+  | `herdr-team name <role>` | Prints the next free agent name for `<role>`, scanning **all** workspaces (agent names are global) — see [Member naming](#member-naming--role--mascot). |
   | `herdr-team exit <target>` | Resolves `<target>` to a pane and closes it — only if it's mine. |
 
   `<target>` can be a workspace-prefixed id (`w3:p4`) or a bare agent name;
@@ -376,13 +382,15 @@ never mistaken for a real invocation.
   that shape, adjust the two `jq` filters in the `team` branch of
   `scripts/claude-worktree`; on any parse failure the script falls back to a
   plain split-right so a member is still placed.
-- **Agent names must be unique per workspace** — the script names each member
-  after its `--role` (falling back to the branch slug if `--role` is
-  omitted), with `herdr-team name <role>` resolving collisions via the mascot
-  pool per [Member naming](#member-naming--role--mascot). Re-running `cwt`
-  for a branch that already has a live member under that exact name will
-  still be rejected by herdr with `agent_name_taken` — pass a different
-  `--role` (or none, to fall back to the branch slug) to work around it.
+- **Agent names must be unique globally, across every workspace** — the
+  script names each member after its `--role` (falling back to the branch
+  slug if `--role` is omitted), with `herdr-team name <role>` resolving
+  collisions via the mascot pool per
+  [Member naming](#member-naming--role--mascot), scanning all workspaces
+  rather than just mine. Re-running `cwt` for a branch that already has a
+  live member under that exact name (in *any* workspace) will still be
+  rejected by herdr with `agent_name_taken` — pass a different `--role` (or
+  none, to fall back to the branch slug) to work around it.
 - The new-tab path assumes `herdr tab create` returns a tab id (JSON by
   default — see [herdr CLI contract](#herdr-cli-contract) below) under
   `.result.tab.tab_id` (falls back to herdr's default placement if not).

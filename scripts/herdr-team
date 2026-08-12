@@ -27,13 +27,18 @@
 #
 # `name <role>` allocates the next free herdr agent name for a logical ROLE
 # (frontend / backend / embedded / documentor / tooling / ... — free text,
-# not a fixed list) scoped to MY OWN workspace, and prints it to stdout:
-#   1. <role> itself, if nothing in my workspace already has that name.
+# not a fixed list) and prints it to stdout. herdr agent names are GLOBALLY
+# unique (not scoped per workspace), so allocation scans ALL workspaces —
+# a name already taken by some other lead's team is still taken as far as
+# herdr is concerned, and a spawn using it fails with agent_name_taken:
+#   1. <role> itself, if nothing in ANY workspace already has that name.
 #   2. <role>-<mascot>, trying each mascot in $team_mascots order, first FREE
 #      one wins.
 #   3. <role>-2, <role>-3, ... once the mascot pool is exhausted.
 # This is the ONE place naming is decided — claude-worktree calls it instead
-# of duplicating the allocation logic.
+# of duplicating the allocation logic. Contrast with `list`, which stays
+# filtered to MY OWN workspace — that scope is correct there since `list` is
+# about what's on my team, not what names are globally free.
 set -euo pipefail
 
 die() { printf 'herdr-team: %s\n' "$*" >&2; exit 1; }
@@ -45,7 +50,7 @@ team_mascots=(
   ropponmatsu logicoma chachamaru dorothy pinoko atom
 )
 
-usage() { sed -n '2,36p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,41p' "$0" | sed 's/^# \{0,1\}//'; }
 
 case "${1:-}" in
   ""|-h|--help) usage; exit 0 ;;
@@ -148,9 +153,10 @@ cmd_name() {
   [ $# -ge 1 ] || die "name needs a <role>"
   local role="$1" existing mascot candidate i
 
-  existing="$(herdr agent list | jq -r --arg ws "$own_ws" '
-    .result.agents[] | select(.workspace_id == $ws) | .name // empty
-  ')"
+  # Global scan, deliberately unfiltered by workspace: herdr agent names are
+  # unique across ALL workspaces, not just mine, so a name taken by another
+  # lead's team is still unavailable to me.
+  existing="$(herdr agent list | jq -r '.result.agents[] | .name // empty')"
 
   if ! name_taken "$role" "$existing"; then
     printf '%s\n' "$role"
