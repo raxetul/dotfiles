@@ -7,7 +7,9 @@ update_check = false
 
 ## fzf-style ctrl-r search.
 filter_mode = "global"
-filter_mode_shell_up_key_binding = "session"
+## Up-arrow recalls across ALL tabs/sessions too (was "session", which hid
+## history from other tabs). Both ctrl-r and up now search the whole local DB.
+filter_mode_shell_up_key_binding = "global"
 style = "compact"
 
 ## history_filter — regex patterns excluded from recording.
