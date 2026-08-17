@@ -72,6 +72,7 @@ graph TD
 | Topic              | Doc                                                                                                 |
 | ------------------ | --------------------------------------------------------------------------------------------------- |
 | Theming            | [theming.md](theming.md) — Catppuccin Mocha palette + per-app mapping.                              |
+| Shell history      | [atuin.md](atuin.md) — atuin's three search surfaces, all pinned to global (non-session) scope.     |
 | Project init       | [init-proj.md](init-proj.md) — the `/init-proj-*` command family and how per-project standards layer. |
 | Parallel Claude    | [claude-worktrees.md](claude-worktrees.md) — `claude-worktree` / `cwt`: a worktree + Claude session per branch. |
 | Footprint / state  | [state-management.md](state-management.md) — the realized-state ledger that records what got planted (and what we may safely remove). |
