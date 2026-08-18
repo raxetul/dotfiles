@@ -257,18 +257,22 @@ A pillar with nothing to say yet gets a stub marked `_TBD_`, not silence.
 
 ## Skills
 
-Claude skills live in exactly one place: the global, remote-less
-`${CLAUDE_SKILLS_DIR}` repo (default `${HOME}/gel-ort/claude-skills`),
+Claude skills live in exactly one place: the global
+`${CLAUDE_SKILLS_DIR}` repo (default `${HOME}/gel-ort/claude-skills`), a
+local git repo tracked to a **private** remote (`raxetul/claude-skills`) —
 symlinked into `~/.claude/skills/<name>` by `scripts/symlinks.sh` in the
 dotfiles repo. A skill **never** goes into a project repo, and never into
 `dotfiles` or any other public remote — that repo was found to be public
 with skills pushed into it, which is exactly the mistake this rule exists
-to prevent. It's versioned with plain local `git` (full history, no
-network) and backed up with `scripts/claude-skills bundle`
-(`git bundle`), never `git push`. See the dotfiles repo's
-`doc/claude-skills.md` for the full architecture. The `/init-proj-*`
-command family never scaffolds a skill into a project — skills are a
-machine-global resource, not a per-project one.
+to prevent. See the dotfiles repo's `doc/claude-skills.md` for the full
+architecture. The `/init-proj-*` command family never scaffolds a skill
+into a project — skills are a machine-global resource, not a per-project
+one.
+
+The classification line: content that carries **capability or knowledge**
+(skills, their `references/`) stays private; tool settings, hooks,
+scripts, working-method rules, and commands (including this file and the
+`/init-proj-*` family) may stay public.
 
 ## Keep requirements & docs in sync with what's built
 
