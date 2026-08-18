@@ -1,5 +1,9 @@
 ## atuin — encrypted, fuzzy shell history.
 ## Replaces the old zsh-histdb + HISTORY_IGNORE regex setup.
+##
+## POLICY: no atuin surface is session-scoped. Ctrl+R, the up-arrow key, and
+## the zsh-autosuggestions grey suggestion all read the same local DB across
+## every session/tab/host — never just the current one.
 
 ## Sync is off — atuin runs as a local-only store unless explicitly turned on.
 auto_sync = false
@@ -10,6 +14,9 @@ filter_mode = "global"
 ## Up-arrow recalls across ALL tabs/sessions too (was "session", which hid
 ## history from other tabs). Both ctrl-r and up now search the whole local DB.
 filter_mode_shell_up_key_binding = "global"
+## Workspace-scoped filtering (restrict to the current git repo tree) stays
+## off — another way search could silently narrow below "global".
+workspaces = false
 style = "compact"
 
 ## history_filter — regex patterns excluded from recording.
@@ -28,6 +35,12 @@ history_filter = [
   "^ls .*"
 ]
 search_mode = "daemon-fuzzy"
+
+[search]
+## Only "global" is enabled as a cycle-able filter mode, so no keybinding
+## (e.g. the ctrl-r cycle key) can switch search into "session", "directory",
+## "host", "workspace", or "session-preload" scoping.
+filters = ["global"]
 
 [daemon]
 enabled = true
