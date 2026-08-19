@@ -53,8 +53,10 @@ typeset -gi ROW_COUNT=0
 typeset -g ACTION=""
 typeset -gi RECREATE_FAILED=0
 typeset -gi COLOR_ON=0
+typeset -gi IMG_COL_MIN=18       # image column: never narrower than this
+typeset -gi IMG_COL_MAX=44       # image column: never wider than this (longer names get truncated)
 
-typeset -ga PRUNE_DIRS=(.git node_modules target vendor .venv dist build .cache)
+typeset -ga PRUNE_DIRS=(node_modules target vendor dist build)
 typeset -ga COMPOSE_NAMES=(compose.yaml compose.yml docker-compose.yaml docker-compose.yml)
 
 warn() { print -- "dc-image-update: $*" >&2 }
@@ -68,6 +70,10 @@ Usage:
   dc-image-update [DIR] [--dry-run] [--yes|-y] [--help]
 
   DIR             directory to scan recursively (default: $PWD).
+                  Every dot-directory is pruned (except DIR itself), plus
+                  node_modules/target/vendor/dist/build — this covers .git,
+                  .venv, .cache and any stale/backup dir (.old, .b-hidden, ...)
+                  without a name list.
   --dry-run       show what would be pulled/recreated; never runs
                   `docker pull`/`docker compose up`, and never writes the
                   state file — even if you press Enter or 's'.
@@ -237,10 +243,14 @@ process_compose_file() {
 
 scan_root() {
   local root="$1"
-  local -a prune_expr=()
+  # Prune every dot-directory (except the scan root itself, via -mindepth 1)
+  # plus a short name-based list for common non-hidden junk dirs. This also
+  # covers .git/.venv/.cache/etc. without listing them by name, and keeps
+  # stale/backup compose files under e.g. .old/ or .b-hidden/ out of the scan.
+  local -a prune_expr=(-mindepth 1 -name '.*')
   local name
   for name in "${PRUNE_DIRS[@]}"; do
-    (( ${#prune_expr} == 0 )) && prune_expr=(-name "$name") || prune_expr+=(-o -name "$name")
+    prune_expr+=(-o -name "$name")
   done
 
   SCANNED_DIRS_COUNT="$(find "$root" \( "${prune_expr[@]}" \) -prune -o -type d -print 2>/dev/null | wc -l | tr -d ' ')"
@@ -364,6 +374,44 @@ mark_color() {
   esac
 }
 
+# Widest image name among $@, clamped to [IMG_COL_MIN, IMG_COL_MAX]. Used to
+# size the "image"/"IMAGE" column dynamically instead of a fixed pad, so a
+# short run stays compact and a long run doesn't spill into the next column.
+compute_image_width() {
+  local -a imgs=("$@")
+  local max=0 img len
+  for img in "${imgs[@]}"; do
+    len=${#img}
+    (( len > max )) && max=$len
+  done
+  local w=$max
+  (( w < IMG_COL_MIN )) && w=$IMG_COL_MIN
+  (( w > IMG_COL_MAX )) && w=$IMG_COL_MAX
+  print -n -- "$w"
+}
+
+# Fit $1 into $2 display columns, truncating from the middle with a single
+# "…" when it's longer. The tail (":tag") is kept intact where possible —
+# it's usually the part that distinguishes otherwise-identical image names.
+truncate_image() {
+  local img="$1" width="$2"
+  local len=${#img}
+  if (( len <= width )); then
+    print -n -- "$img"
+    return 0
+  fi
+  local tail=""
+  if [[ "$img" == *:* ]]; then
+    tail=":${img##*:}"
+  fi
+  local maxtail=$(( width - 4 ))
+  (( maxtail < 0 )) && maxtail=0
+  (( ${#tail} > maxtail )) && tail="${tail: -${maxtail}}"
+  local headlen=$(( width - 1 - ${#tail} ))
+  (( headlen < 1 )) && headlen=1
+  print -n -- "${img[1,$headlen]}…${tail}"
+}
+
 format_usage() {
   local img="$1"
   local -a entries disp
@@ -390,18 +438,28 @@ render_menu() {
   local root="$1"
   print --
   print_scan_summary "$root"
-  printf '   mark  %-20s %s\n' "image" "used by"
-  local i img mark usage_disp running_disp new_disp
+
+  local i img
+  local -a imgs=()
+  for (( i = 1; i <= ROW_COUNT; i++ )); do imgs+=("${IMG_ROW[$i]}"); done
+  local img_w
+  img_w="$(compute_image_width "${imgs[@]}")"
+  local numw=${#ROW_COUNT}
+  (( numw < 2 )) && numw=2
+
+  printf "%${numw}s mark  %-${img_w}s %s\n" "" "image" "used by"
+  local mark usage_disp running_disp new_disp disp_img
   for (( i = 1; i <= ROW_COUNT; i++ )); do
     img="${IMG_ROW[$i]}"
     mark="${MARKS[$img]:-}"
+    disp_img="$(truncate_image "$img" "$img_w")"
     usage_disp="$(format_usage "$img")"
     running_disp=""
     (( ${+RUNNING_IMAGES[$img]} )) && running_disp=" ▶running"
     new_disp=""
     (( ${+NEW_IMAGES[$img]} )) && new_disp="  ← new"
-    printf '%2d  [%s]  %-20s %s%s%s\n' \
-      "$i" "$(mark_color "${mark:- }")" "$img" "$usage_disp" "$running_disp" "$new_disp"
+    printf "%${numw}d  [%s]  %-${img_w}s %s%s%s\n" \
+      "$i" "$(mark_color "${mark:- }")" "$disp_img" "$usage_disp" "$running_disp" "$new_disp"
   done
   print --
   print -- "[n] cycle · p<n> / r<n> / x<n> set (also p1-4, r1,3,5) · a=all R · c=clear all · Enter=apply · s=save only · q=quit"
@@ -633,8 +691,10 @@ recreate_image() {
 }
 
 process_one_image() {
-  local img="$1" mark="$2"
+  local img="$1" mark="$2" img_w="${3:-30}"
   local pull_status recreate_status="-"
+  local disp_img
+  disp_img="$(truncate_image "$img" "$img_w")"
 
   if (( OPT_DRY_RUN )); then
     pull_status="would pull"
@@ -647,7 +707,7 @@ process_one_image() {
         recreate_status="not running, nothing to recreate"
       fi
     fi
-    printf '%-30s %-4s %-12s %s\n' "$img" "$mark" "$pull_status" "$recreate_status"
+    printf "%-${img_w}s %-4s %-12s %s\n" "$disp_img" "$mark" "$pull_status" "$recreate_status"
     return 0
   fi
 
@@ -679,7 +739,7 @@ process_one_image() {
     fi
   fi
 
-  printf '%-30s %-4s %-12s %s\n' "$img" "$mark" "$pull_status" "$recreate_status"
+  printf "%-${img_w}s %-4s %-12s %s\n" "$disp_img" "$mark" "$pull_status" "$recreate_status"
   (( failed )) && return 1
   return 0
 }
@@ -688,11 +748,18 @@ apply_marks() {
   local any_fail=0 img mark
   print --
   (( OPT_DRY_RUN )) && print -- "[dry-run] no docker pull / docker compose up will run."
-  printf '%-30s %-4s %-12s %s\n' "IMAGE" "MARK" "PULL" "RECREATE"
+
+  local -a marked_imgs=()
   for img in "${IMG_ORDER[@]}"; do
+    [[ -n "${MARKS[$img]:-}" ]] && marked_imgs+=("$img")
+  done
+  local img_w
+  img_w="$(compute_image_width "${marked_imgs[@]}")"
+
+  printf "%-${img_w}s %-4s %-12s %s\n" "IMAGE" "MARK" "PULL" "RECREATE"
+  for img in "${marked_imgs[@]}"; do
     mark="${MARKS[$img]:-}"
-    [[ -z "$mark" ]] && continue
-    process_one_image "$img" "$mark" || any_fail=1
+    process_one_image "$img" "$mark" "$img_w" || any_fail=1
   done
   (( RECREATE_FAILED )) && any_fail=1
   return $any_fail
