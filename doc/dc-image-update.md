@@ -30,7 +30,7 @@ Missing either exits 3 before anything else runs.
 ```mermaid
 flowchart TD
     A[scan DIR recursively] --> B[find compose.yaml / compose.yml /<br/>docker-compose.yaml / docker-compose.yml]
-    B -->|prune| P[".git node_modules target vendor<br/>.venv dist build .cache"]
+    B -->|prune| P["every dot-directory (except the<br/>scan root itself) + node_modules<br/>target vendor dist build"]
     B --> C{docker compose -f file<br/>config --format json}
     C -->|ok| D[jq: services[].image]
     C -->|fails| E["⚠ degraded: grep image: lines<br/>(best-effort service name too)"]
@@ -53,6 +53,18 @@ flowchart TD
     R --> S[results table + exit code]
     O --> S
 ```
+
+## Scan pruning
+
+Every **dot-directory** is pruned — except the scan root itself (so
+`dc-image-update ~/.config` still scans `~/.config`, it just won't descend
+into dot-directories *underneath* it). This is a blanket rule rather than a
+name list: it already covers `.git`, `.venv`, `.cache`, and also stale or
+backup trees like `.old/` or `.b-hidden/` that would otherwise surface
+ghost images from compose files nobody runs anymore. On top of that, a
+short name-based list prunes common non-hidden junk directories that are
+never worth descending into: `node_modules`, `target`, `vendor`, `dist`,
+`build`.
 
 ## Marks
 
