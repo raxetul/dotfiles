@@ -34,6 +34,20 @@ flowchart LR
 | Up-arrow recall | `atuin search -i --shell-up-key-binding` | `filter_mode_shell_up_key_binding` | `"global"` |
 | Grey autosuggestion | `_zsh_autosuggest_strategy_atuin` (from `atuin init zsh`) → `ATUIN_QUERY="$1" atuin search --cmd-only --author '$all-user' --limit 1 --search-mode prefix` | `filter_mode` (no override) | `"global"` |
 
+## TUI height: inline vs alternate screen
+
+Measured (query-layer innocent: atuin p50=20ms/max=110ms, starship 30ms, no
+sqlite lock): the ↑-key delay traced to `inline_height_shell_up_key_binding`
+defaulting to `0` (full alternate-screen TUI), while Ctrl+R's
+`inline_height` already defaulted to `40` (inline). The alternate-screen
+handoff is what's visible as lag under ghostty+herdr. Both are now pinned
+to the same inline value so ↑ and Ctrl+R behave identically:
+
+| Key | Value | Surface |
+| --- | --- | --- |
+| `inline_height` | `40` | Ctrl+R |
+| `inline_height_shell_up_key_binding` | `40` | ↑ key |
+
 Two extra keys close off the ways search scope could otherwise narrow:
 
 | Key | Value | Why |
