@@ -79,15 +79,45 @@ the two noisiest commands so they don't drown out signal): `^aws `,
 `^export .*(SECRET|TOKEN|API|KEY|PASSWORD|PASS)=`, `^pass `, `^cat `,
 `^ls$`, `^ls .*`.
 
-## Fallback: `~/.zsh_history`
+## Grey autosuggestion: atuin-only, no strategy fallback
 
-zsh's own `~/.zsh_history` file keeps recording independently of
-atuin (`setopt` history options in the zsh config aren't disabled by
-atuin). If atuin's daemon or DB is ever unavailable, plain zsh
-up-arrow/`history` still falls back to that file — which has **no**
-regex filtering and **no** global/session distinction; it's simply
-whatever the current shell process appended. Don't rely on it for
-secret-scrubbing.
+`atuin init zsh` sets `ZSH_AUTOSUGGEST_STRATEGY` by *prepending* its own
+`atuin` strategy in front of whatever was already set — if
+zsh-autosuggestions' default (`history`) was already in place, the result
+is `(atuin history)`. `scripts/init-load` overrides this explicitly right
+after `eval "$(atuin init zsh)"`:
+
+```sh
+ZSH_AUTOSUGGEST_STRATEGY=(atuin)
+```
+
+Trade-off (deliberate): if atuin is ever unavailable, the grey suggestion
+simply doesn't appear — no silent fallback to plain `history`-based
+suggestions, which would read `~/.zsh_history` outside atuin's filtering.
+
+## `HISTORY_IGNORE` (zsh): recall-time mirror of `history_filter`
+
+`history_filter` (above) only stops atuin from *recording* a command.
+`~/.zsh_history` still records independently (`setopt` history options
+aren't touched by atuin), so `scripts/init-load` sets zsh's own
+`HISTORY_IGNORE` to a glob translation of the same rules, applied to
+`↑`/`history` on that file too. zsh's `HISTORY_IGNORE` takes **one**
+pattern, so every rule folds into a single `(a|b|c)` alternation, and
+`setopt EXTENDED_GLOB` is required for the `#` (zero-or-more) operator
+used below.
+
+| `history_filter` regex | `HISTORY_IGNORE` glob | Why the difference |
+| --- | --- | --- |
+| `^ls$` | `ls` | glob match is whole-string already, no anchors needed |
+| `^ls .*` | `ls *` | `.*` (regex) → `*` (glob), both "anything after" |
+| `^cat ` | `cat *` | trailing-space token → literal + `*` |
+| `^aws ` | `aws *` | same |
+| `^pass ` | `pass *` | same |
+| `^secret` | `secret*` | prefix match either way |
+| `^password` | `password*` | prefix match either way |
+| `^token` | `token*` | prefix match either way |
+| `^api[-_]?key` | `api[-_]#key*` | regex `?` (0-or-1) has no glob equivalent — `#` (0-or-more) is the closest, slightly looser |
+| `^export .*(SECRET\|TOKEN\|API\|KEY\|PASSWORD\|PASS)=` | `export *(SECRET\|TOKEN\|API\|KEY\|PASSWORD\|PASS)=*` | regex `(a\|b)` alternation is native to zsh glob too — no translation needed |
 
 ## Daemon
 
