@@ -27,7 +27,7 @@ LOAD_FILE="${REPO_ROOT}/.load"
 # bump this and the marker line baked into the generated .load. The
 # detection block below checks for the current marker; an existing
 # .load that doesn't contain it is treated as outdated.
-TEMPLATE_VERSION=2
+TEMPLATE_VERSION=4
 TEMPLATE_MARKER="# .load template-version: ${TEMPLATE_VERSION}"
 
 if [ -f "${LOAD_FILE}" ]; then
@@ -109,6 +109,17 @@ if [ -n "${ZSH_VERSION:-}" ]; then
     setopt prompt_subst
     zle_highlight=(bold)
 
+    # Deliberately NOT setopt extended_glob: EXTENDED_GLOB turns `^` into a
+    # glob operator, which breaks unquoted everyday commands like
+    # `git show HEAD^` / `git diff HEAD^^` (they'd fail with "no matches
+    # found"). `(a|b|c)` alternation works fine without it, so the
+    # `[-_]?key*` regex alternative in atuin's history_filter folds into
+    # plain `(api-key*|api_key*|apikey*)` — no `#` repetition operator, no
+    # EXTENDED_GLOB needed.
+    # zsh glob translation of atuin's history_filter regexes (configurations/atuin/config.toml).
+    # HISTORY_IGNORE takes ONE pattern, so every rule folds into one (a|b|c) alternation.
+    HISTORY_IGNORE='(ls|ls *|cat *|aws *|pass *|secret*|password*|token*|apikey*|api-key*|api_key*|export *(SECRET|TOKEN|API|KEY|PASSWORD|PASS)=*)'
+
     # `_source_first <paths…>` sources the first readable path and returns.
     # Walks common install locations across brew / apt / pacman / dnf /
     # git-clone. First hit wins.
@@ -171,7 +182,15 @@ if [ -n "${ZSH_VERSION:-}" ]; then
 
     # Tool init — must come AFTER PATH so the binaries resolve.
     command -v starship >/dev/null 2>&1 && eval "$(starship init zsh)"
-    command -v atuin    >/dev/null 2>&1 && eval "$(atuin init zsh)"
+    if command -v atuin >/dev/null 2>&1; then
+        eval "$(atuin init zsh)"
+        # atuin's zsh integration prepends its own strategy in front of an
+        # already-set ZSH_AUTOSUGGEST_STRATEGY (giving "(atuin history)").
+        # Force atuin-only afterward: if atuin is ever unavailable, the grey
+        # suggestion simply won't appear — a deliberate tradeoff over a
+        # silent fallback to plain zsh history.
+        ZSH_AUTOSUGGEST_STRATEGY=(atuin)
+    fi
     command -v zoxide   >/dev/null 2>&1 && eval "$(zoxide init zsh)"
     command -v fzf      >/dev/null 2>&1 && eval "$(fzf --zsh 2>/dev/null)"
 

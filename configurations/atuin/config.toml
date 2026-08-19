@@ -19,6 +19,13 @@ filter_mode_shell_up_key_binding = "global"
 workspaces = false
 style = "compact"
 
+## ↑ key defaulted to the full alternate-screen TUI (inline_height_shell_up_key_binding
+## default = 0); that screen handoff is what produced the visible delay under
+## ghostty+herdr. Ctrl+R already used the inline mode (inline_height default = 40).
+## Pin both explicitly to inline so the ↑ key skips the alternate-screen handoff too.
+inline_height = 40
+inline_height_shell_up_key_binding = 40
+
 ## history_filter — regex patterns excluded from recording.
 ## Leading-token guards catch the common shapes for secrets, plus the
 ## two noisiest commands (`ls`, `cat`) so they don't drown out signal.
