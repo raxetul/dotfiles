@@ -1,0 +1,831 @@
+#!/usr/bin/env zsh
+# scripts/dc-image-update — interactive docker compose image pull/recreate helper.
+#
+# Recursively scans a directory for docker compose files, extracts every
+# service image, lets the user mark each image [P]ull, [R]ecreate or leave
+# it blank, persists the marks next to the scan root, and — on apply —
+# pulls the marked images and recreates only the RUNNING containers that
+# use an image whose digest actually changed.
+#
+# Usage: dc-image-update [DIR] [--dry-run] [--yes|-y] [--help]
+# See `dc-image-update --help` for the full reference (marks, keys, state
+# schema, exit codes) and doc/dc-image-update.md for the diagrammed version.
+#
+# No extension on purpose: this repo's shellcheck pre-commit glob is
+# {scripts/*.sh,setup.sh}, and shellcheck does not understand zsh (SC1071)
+# — a `.sh` name would fail commit. `scripts/` is linked wholesale onto
+# ~/.scripts, so once this file is +x it's on PATH with no extra wiring.
+#
+# --- shell-strictness note --------------------------------------------
+# zsh's closest analogue to bash's `set -euo pipefail` is
+# `setopt err_exit no_unset pipe_fail`, but both err_exit/err_return and
+# no_unset fight this script's actual requirements:
+#   - a failed `docker pull` for one image must NOT abort the run — every
+#     other marked image still has to be tried, and the failure reported
+#     in the results table (see "Uygulama" in the task brief). errexit
+#     semantics (abort on first non-zero) are the wrong tool for that;
+#     every risky command below is checked explicitly instead.
+#   - no_unset turns every reference to an unset positional parameter
+#     (a bare `$1` in a function called with fewer args) into a hard
+#     error, which is a common, intentional pattern in small zsh helpers
+#     here (`"${1:-}"` is used instead where a default is meaningful).
+# So only `pipe_fail` is enabled (a pipeline's exit status is its last
+# non-zero stage, matching bash's pipefail) plus `emulate -L zsh` to
+# reset to native zsh semantics regardless of the caller's options.
+emulate -L zsh
+setopt pipe_fail
+
+typeset -g SELF_DIR
+SELF_DIR="${0:A:h}"
+
+typeset -ga IMG_ORDER            # images, in first-seen order
+typeset -gA IMG_USAGE            # image -> "relfile\tservice" lines, \n-joined
+typeset -gA FILE_DEGRADED        # relfile -> 1 if parsed via grep fallback
+typeset -gi BUILDONLY_COUNT=0
+typeset -gi COMPOSE_FILE_COUNT=0
+typeset -gi SCANNED_DIRS_COUNT=0
+typeset -gA RUNNING_IMAGES       # image -> 1 if a running container uses it
+typeset -gA MARKS                # image -> "" | "P" | "R"
+typeset -gA NEW_IMAGES           # image -> 1 if not present in loaded state
+typeset -gA IMG_PRESENT          # image -> 1 if seen in current scan
+typeset -ga IMG_ROW              # row number (1-based index) -> image
+typeset -gi ROW_COUNT=0
+typeset -g ACTION=""
+typeset -gi RECREATE_FAILED=0
+typeset -gi COLOR_ON=0
+typeset -gi IMG_COL_MIN=18       # image column: never narrower than this
+typeset -gi IMG_COL_MAX=44       # image column: never wider than this (longer names get truncated)
+
+typeset -ga PRUNE_DIRS=(node_modules target vendor dist build)
+typeset -ga COMPOSE_NAMES=(compose.yaml compose.yml docker-compose.yaml docker-compose.yml)
+
+warn() { print -- "dc-image-update: $*" >&2 }
+die() { print -- "dc-image-update: $1" >&2; exit "${2:-1}" }
+
+print_help() {
+  cat <<'EOF'
+dc-image-update — scan docker compose files, mark images, pull/recreate.
+
+Usage:
+  dc-image-update [DIR] [--dry-run] [--yes|-y] [--help]
+
+  DIR             directory to scan recursively (default: $PWD).
+                  Every dot-directory is pruned (except DIR itself), plus
+                  node_modules/target/vendor/dist/build — this covers .git,
+                  .venv, .cache and any stale/backup dir (.old, .b-hidden, ...)
+                  without a name list.
+  --dry-run       show what would be pulled/recreated; never runs
+                  `docker pull`/`docker compose up`, and never writes the
+                  state file — even if you press Enter or 's'.
+                  (env DRY_RUN=1 has the same effect, matching this repo's
+                  custom-install-hook convention.)
+  --yes, -y       skip the interactive menu; apply whatever marks are
+                  already on disk (for cron/automation).
+  --help, -h      this text.
+
+Non-interactive stdin: if stdin is not a TTY and --yes was not given, the
+menu still reads commands from stdin line by line (this is how scripted
+tests drive it). If the very first read hits EOF with nothing piped in at
+all, the script behaves as if --yes had been passed. If EOF happens after
+at least one command was read, whatever marks were set so far are saved
+and the script exits (as if 's' had been typed).
+
+Marks (assigned per image, never per compose service):
+  [P]   pull only
+  [R]   pull, then recreate every RUNNING container using that image —
+        but only if the pull actually changed the image's digest, and
+        recreate targets are the containers docker is actually running
+        right now (via `docker ps` + compose labels), not every service
+        listed in a compose file.
+  [ ]   do nothing
+
+Menu keys:
+  <n>          cycle row n's mark:  [ ] -> [P] -> [R] -> [ ]
+  p<spec>      set rows in <spec> to [P]     e.g. p3, p1-4, p1,3,5
+  r<spec>      set rows in <spec> to [R]
+  x<spec>      clear rows in <spec> ([ ])
+  a            mark every row [R]
+  c            clear every row ([ ])
+  <Enter>      save marks, then apply (pull/recreate)
+  s            save marks only, do not apply
+  q            quit without saving (confirms if there are unsaved changes)
+  anything else: prints an error and redraws the menu — never exits.
+
+State file: <scan-root>/.dc-image-update.json (written with jq, atomically
+via a temp file + mv). Schema:
+  {
+    "version": 1,
+    "updated_at": "2026-08-19T09:12:33Z",
+    "marks": { "nginx:latest": "R", "postgres:16": "P", "redis:7": "" }
+  }
+Marks for images that later disappear from the scan are kept (not shown in
+the menu, not deleted) so they come back if the compose file reappears.
+Images seen for the first time default to "" and are flagged "<- new".
+
+Dependencies: docker, jq (both checked at startup). docker is NOT installed
+by this repo — see packages/apt.list for why it's commented out there; get
+it from your distro's package manager or Docker's own install docs.
+
+Exit codes:
+  0   success, or user quit (q) without applying
+  1   at least one pull or recreate failed
+  2   usage error (bad flag, DIR is not a directory, ...)
+  3   a required dependency (docker or jq) is missing
+EOF
+}
+
+parse_args() {
+  OPT_DIR=""
+  OPT_DRY_RUN=0
+  OPT_YES=0
+  OPT_HELP=0
+  [[ "${DRY_RUN:-0}" == "1" ]] && OPT_DRY_RUN=1
+
+  local arg
+  for arg in "$@"; do
+    case "$arg" in
+      --help|-h) OPT_HELP=1 ;;
+      --dry-run) OPT_DRY_RUN=1 ;;
+      --yes|-y) OPT_YES=1 ;;
+      -*)
+        warn "unknown option: $arg"
+        return 2
+        ;;
+      *)
+        if [[ -n "$OPT_DIR" ]]; then
+          warn "unexpected extra argument: $arg"
+          return 2
+        fi
+        OPT_DIR="$arg"
+        ;;
+    esac
+  done
+  [[ -z "$OPT_DIR" ]] && OPT_DIR="$PWD"
+  return 0
+}
+
+check_deps() {
+  local -a missing=()
+  command -v docker >/dev/null 2>&1 || missing+=(docker)
+  command -v jq >/dev/null 2>&1 || missing+=(jq)
+  if (( ${#missing} > 0 )); then
+    warn "missing required dependencies: ${(j:, :)missing}"
+    warn "docker is not installed by this repo (per-user choice) — install it via your OS package manager."
+    return 3
+  fi
+  return 0
+}
+
+# ---------------------------------------------------------------------
+# Scanning
+# ---------------------------------------------------------------------
+
+record_usage() {
+  local img="$1" rel="$2" svc="$3"
+  local entry="${rel}"$'\t'"${svc}"
+  if (( ${+IMG_USAGE[$img]} )); then
+    IMG_USAGE[$img]+=$'\n'"${entry}"
+  else
+    IMG_ORDER+=("$img")
+    IMG_USAGE[$img]="${entry}"
+  fi
+}
+
+# Best-effort YAML-free extraction of `<service>: {... image: ...}` pairs
+# from a compose file that `docker compose config` could not resolve
+# (missing env var, invalid yaml, ...). Only used as a degrade path.
+degrade_extract() {
+  local file="$1"
+  awk '
+    /^services:[[:space:]]*$/ { in_services=1; next }
+    in_services && /^[^[:space:]]/ { in_services=0 }
+    in_services {
+      if (match($0, /^  [A-Za-z0-9_.-]+:/)) {
+        line=$0
+        sub(/^  /, "", line)
+        sub(/:.*/, "", line)
+        svc=line
+      }
+      if (match($0, /^[[:space:]]+image:[[:space:]]*/)) {
+        img=$0
+        sub(/^[[:space:]]+image:[[:space:]]*/, "", img)
+        gsub(/[[:space:]]*#.*/, "", img)
+        gsub(/^"|"$/, "", img)
+        gsub(/^'"'"'|'"'"'$/, "", img)
+        if (svc != "" && img != "") print svc "\t" img
+      }
+    }
+  ' "$file"
+}
+
+process_compose_file() {
+  local file="$1" rel="$2"
+  local json
+  if json="$(docker compose -f "$file" config --format json 2>/dev/null)"; then
+    local svc img
+    while IFS=$'\t' read -r svc img; do
+      [[ -z "$svc" ]] && continue
+      if [[ -z "$img" || "$img" == "null" ]]; then
+        (( BUILDONLY_COUNT++ ))
+        continue
+      fi
+      record_usage "$img" "$rel" "$svc"
+    done < <(print -r -- "$json" | jq -r '.services // {} | to_entries[] | [.key, (.value.image // "null")] | @tsv')
+  else
+    FILE_DEGRADED[$rel]=1
+    local svc img
+    while IFS=$'\t' read -r svc img; do
+      [[ -z "$svc" || -z "$img" ]] && continue
+      record_usage "$img" "$rel" "$svc"
+    done < <(degrade_extract "$file")
+  fi
+}
+
+scan_root() {
+  local root="$1"
+  # Prune every dot-directory (except the scan root itself, via -mindepth 1)
+  # plus a short name-based list for common non-hidden junk dirs. This also
+  # covers .git/.venv/.cache/etc. without listing them by name, and keeps
+  # stale/backup compose files under e.g. .old/ or .b-hidden/ out of the scan.
+  local -a prune_expr=(-mindepth 1 -name '.*')
+  local name
+  for name in "${PRUNE_DIRS[@]}"; do
+    prune_expr+=(-o -name "$name")
+  done
+
+  SCANNED_DIRS_COUNT="$(find "$root" \( "${prune_expr[@]}" \) -prune -o -type d -print 2>/dev/null | wc -l | tr -d ' ')"
+
+  local -a name_expr=()
+  for name in "${COMPOSE_NAMES[@]}"; do
+    (( ${#name_expr} == 0 )) && name_expr=(-name "$name") || name_expr+=(-o -name "$name")
+  done
+
+  local -a compose_files
+  compose_files=("${(@f)$(find "$root" \( "${prune_expr[@]}" \) -prune -o -type f \( "${name_expr[@]}" \) -print 2>/dev/null | sort)}")
+
+  local file rel
+  for file in "${compose_files[@]}"; do
+    [[ -z "$file" ]] && continue
+    (( COMPOSE_FILE_COUNT++ ))
+    rel="${file#$root/}"
+    process_compose_file "$file" "$rel"
+  done
+}
+
+scan_running() {
+  local img
+  while IFS= read -r img; do
+    [[ -z "$img" ]] && continue
+    RUNNING_IMAGES[$img]=1
+  done < <(docker ps --format '{{.Image}}' 2>/dev/null)
+}
+
+# ---------------------------------------------------------------------
+# State persistence
+# ---------------------------------------------------------------------
+
+load_state() {
+  local state_file="$1"
+  [[ -f "$state_file" ]] || return 0
+  local version
+  version="$(jq -r '.version // empty' "$state_file" 2>/dev/null)"
+  if [[ -n "$version" && "$version" != "1" ]]; then
+    warn "state file version ($version) is not the supported version (1) — marks are migrated best-effort, nothing is dropped silently."
+  fi
+  local img mark
+  while IFS=$'\t' read -r img mark; do
+    [[ -z "$img" ]] && continue
+    MARKS[$img]="$mark"
+  done < <(jq -r '.marks // {} | to_entries[] | [.key, .value] | @tsv' "$state_file" 2>/dev/null)
+}
+
+save_state() {
+  local root="$1"
+  local state_file="$root/.dc-image-update.json"
+  local tmp_marks tmp_final
+  tmp_marks="$(mktemp)"
+  tmp_final="$(mktemp)"
+  local img
+  {
+    for img in "${(k)MARKS[@]}"; do
+      jq -n --arg k "$img" --arg v "${MARKS[$img]}" '{($k): $v}'
+    done
+  } | jq -s 'add // {}' > "$tmp_marks"
+  local now
+  now="$(TZ=UTC date +%Y-%m-%dT%H:%M:%SZ)"
+  jq -n --slurpfile marks "$tmp_marks" --arg now "$now" \
+    '{version: 1, updated_at: $now, marks: $marks[0]}' > "$tmp_final"
+  mv "$tmp_final" "$state_file"
+  rm -f "$tmp_marks"
+}
+
+mark_new_images() {
+  local img
+  for img in "${IMG_ORDER[@]}"; do
+    IMG_PRESENT[$img]=1
+    if (( ! ${+MARKS[$img]} )); then
+      MARKS[$img]=""
+      NEW_IMAGES[$img]=1
+    fi
+  done
+}
+
+build_rows() {
+  local img
+  ROW_COUNT=0
+  for img in "${IMG_ORDER[@]}"; do
+    (( ROW_COUNT++ ))
+    IMG_ROW[$ROW_COUNT]="$img"
+  done
+}
+
+print_scan_summary() {
+  local root="$1"
+  print -- "scanned ${SCANNED_DIRS_COUNT} dirs · ${COMPOSE_FILE_COUNT} compose files · ${#IMG_ORDER[@]} images"
+  print -- "state: ${root}/.dc-image-update.json"
+  (( BUILDONLY_COUNT > 0 )) && print -- "${BUILDONLY_COUNT} build-only service(s) skipped (no image:, only build:)"
+  local absent=0 k
+  for k in "${(k)MARKS[@]}"; do
+    (( ${+IMG_PRESENT[$k]} )) || (( absent++ ))
+  done
+  (( absent > 0 )) && print -- "${absent} previously-tracked image(s) absent from this scan (marks kept, not shown)"
+  local degraded_n=${#${(k)FILE_DEGRADED}}
+  (( degraded_n > 0 )) && print -- "${degraded_n} compose file(s) degraded — image: parsed via grep, not resolved by docker compose"
+  print --
+}
+
+# ---------------------------------------------------------------------
+# Menu rendering
+# ---------------------------------------------------------------------
+
+init_colors() {
+  [[ -t 1 ]] || return 0
+  COLOR_ON=1
+  autoload -Uz colors && colors
+}
+
+mark_color() {
+  local m="$1"
+  (( COLOR_ON )) || { print -n -- "$m"; return }
+  case "$m" in
+    R) print -n -- "${fg_bold[green]}${m}${reset_color}" ;;
+    P) print -n -- "${fg[yellow]}${m}${reset_color}" ;;
+    *) print -n -- "${m}" ;;
+  esac
+}
+
+# Widest image name among $@, clamped to [IMG_COL_MIN, IMG_COL_MAX]. Used to
+# size the "image"/"IMAGE" column dynamically instead of a fixed pad, so a
+# short run stays compact and a long run doesn't spill into the next column.
+compute_image_width() {
+  local -a imgs=("$@")
+  local max=0 img len
+  for img in "${imgs[@]}"; do
+    len=${#img}
+    (( len > max )) && max=$len
+  done
+  local w=$max
+  (( w < IMG_COL_MIN )) && w=$IMG_COL_MIN
+  (( w > IMG_COL_MAX )) && w=$IMG_COL_MAX
+  print -n -- "$w"
+}
+
+# Fit $1 into $2 display columns, truncating from the middle with a single
+# "…" when it's longer. The tail (":tag") is kept intact where possible —
+# it's usually the part that distinguishes otherwise-identical image names.
+truncate_image() {
+  local img="$1" width="$2"
+  local len=${#img}
+  if (( len <= width )); then
+    print -n -- "$img"
+    return 0
+  fi
+  local tail=""
+  if [[ "$img" == *:* ]]; then
+    tail=":${img##*:}"
+  fi
+  local maxtail=$(( width - 4 ))
+  (( maxtail < 0 )) && maxtail=0
+  (( ${#tail} > maxtail )) && tail="${tail: -${maxtail}}"
+  local headlen=$(( width - 1 - ${#tail} ))
+  (( headlen < 1 )) && headlen=1
+  print -n -- "${img[1,$headlen]}…${tail}"
+}
+
+format_usage() {
+  local img="$1"
+  local -a entries disp
+  entries=("${(f)IMG_USAGE[$img]}")
+  local e rel svc deg shown=0
+  local total=${#entries[@]}
+  for e in "${entries[@]}"; do
+    rel="${e%%$'\t'*}"
+    svc="${e#*$'\t'}"
+    deg=""
+    (( ${+FILE_DEGRADED[$rel]} )) && deg=", ⚠degraded"
+    if (( shown < 2 )); then
+      disp+=("${rel} (${svc}${deg})")
+      (( shown++ ))
+    fi
+  done
+  local out="${(j:, :)disp}"
+  local more=$(( total - shown ))
+  (( more > 0 )) && out+=" +${more} more"
+  print -n -- "$out"
+}
+
+render_menu() {
+  local root="$1"
+  print --
+  print_scan_summary "$root"
+
+  local i img
+  local -a imgs=()
+  for (( i = 1; i <= ROW_COUNT; i++ )); do imgs+=("${IMG_ROW[$i]}"); done
+  local img_w
+  img_w="$(compute_image_width "${imgs[@]}")"
+  local numw=${#ROW_COUNT}
+  (( numw < 2 )) && numw=2
+
+  printf "%${numw}s mark  %-${img_w}s %s\n" "" "image" "used by"
+  local mark usage_disp running_disp new_disp disp_img
+  for (( i = 1; i <= ROW_COUNT; i++ )); do
+    img="${IMG_ROW[$i]}"
+    mark="${MARKS[$img]:-}"
+    disp_img="$(truncate_image "$img" "$img_w")"
+    usage_disp="$(format_usage "$img")"
+    running_disp=""
+    (( ${+RUNNING_IMAGES[$img]} )) && running_disp=" ▶running"
+    new_disp=""
+    (( ${+NEW_IMAGES[$img]} )) && new_disp="  ← new"
+    printf "%${numw}d  [%s]  %-${img_w}s %s%s%s\n" \
+      "$i" "$(mark_color "${mark:- }")" "$disp_img" "$usage_disp" "$running_disp" "$new_disp"
+  done
+  print --
+  print -- "[n] cycle · p<n> / r<n> / x<n> set (also p1-4, r1,3,5) · a=all R · c=clear all · Enter=apply · s=save only · q=quit"
+}
+
+# ---------------------------------------------------------------------
+# Menu input
+# ---------------------------------------------------------------------
+
+expand_indices() {
+  local spec="$1" max="$2"
+  local -a out=()
+  local part
+  for part in "${(@s:,:)spec}"; do
+    if [[ "$part" =~ ^([0-9]+)-([0-9]+)$ ]]; then
+      local lo=${match[1]} hi=${match[2]} n
+      if (( lo < 1 || hi > max || lo > hi )); then
+        print -- "invalid range: $part (valid: 1-${max})" >&2
+        return 1
+      fi
+      for (( n = lo; n <= hi; n++ )); do out+=("$n"); done
+    elif [[ "$part" =~ ^[0-9]+$ ]]; then
+      if (( part < 1 || part > max )); then
+        print -- "index out of range: $part (valid: 1-${max})" >&2
+        return 1
+      fi
+      out+=("$part")
+    else
+      print -- "invalid index: $part" >&2
+      return 1
+    fi
+  done
+  print -l -- "${out[@]}"
+  return 0
+}
+
+cycle_row() {
+  local n="$1" img cur next
+  if (( n < 1 || n > ROW_COUNT )); then
+    warn "index out of range: $n (valid: 1-${ROW_COUNT})"
+    return 1
+  fi
+  img="${IMG_ROW[$n]}"
+  cur="${MARKS[$img]:-}"
+  case "$cur" in
+    "") next=P ;;
+    P) next=R ;;
+    *) next="" ;;
+  esac
+  MARKS[$img]="$next"
+}
+
+set_rows() {
+  local spec="$1" val="$2"
+  local out i
+  out="$(expand_indices "$spec" "$ROW_COUNT" 2>&1)" || { warn "$out"; return 1 }
+  for i in "${(f)out}"; do
+    MARKS[${IMG_ROW[$i]}]="$val"
+  done
+}
+
+mark_all() {
+  local val="$1" img
+  for img in "${IMG_ORDER[@]}"; do
+    MARKS[$img]="$val"
+  done
+}
+
+run_menu() {
+  local root="$1"
+  local non_tty=1 changed=0 attempts=0 input
+  [[ -t 0 ]] && non_tty=0
+
+  while true; do
+    render_menu "$root"
+    printf '\n> '
+    if ! IFS= read -r input; then
+      if (( non_tty && attempts == 0 )); then
+        print -- ""
+        print -- "no input on non-interactive stdin — behaving like --yes (applying existing marks)."
+        ACTION=apply
+      else
+        print -- ""
+        print -- "end of input (EOF) — saving marks as read so far and exiting."
+        ACTION=save
+      fi
+      return 0
+    fi
+    (( attempts++ ))
+    input="${input## }"
+    input="${input%% }"
+
+    if [[ -z "$input" ]]; then
+      ACTION=apply
+      return 0
+    fi
+
+    case "$input" in
+      q)
+        if (( changed )); then
+          printf 'discard unsaved mark changes and quit? [y/N] '
+          local conf
+          IFS= read -r conf || conf=""
+          if [[ "$conf" == y || "$conf" == Y || "$conf" == yes || "$conf" == YES ]]; then
+            ACTION=quit
+            return 0
+          fi
+          continue
+        fi
+        ACTION=quit
+        return 0
+        ;;
+      s)
+        ACTION=save
+        return 0
+        ;;
+      a)
+        mark_all R
+        changed=1
+        ;;
+      c)
+        mark_all ""
+        changed=1
+        ;;
+      [0-9]##)
+        if cycle_row "$input"; then changed=1; fi
+        ;;
+      p[0-9]*|P[0-9]*)
+        if set_rows "${input#?}" P; then changed=1; fi
+        ;;
+      r[0-9]*|R[0-9]*)
+        if set_rows "${input#?}" R; then changed=1; fi
+        ;;
+      x[0-9]*|X[0-9]*)
+        if set_rows "${input#?}" ""; then changed=1; fi
+        ;;
+      *)
+        warn "invalid input: $input"
+        ;;
+    esac
+  done
+}
+
+# ---------------------------------------------------------------------
+# Apply: pull + recreate
+# ---------------------------------------------------------------------
+
+image_digest() {
+  local img="$1"
+  docker image inspect --format '{{if .RepoDigests}}{{index .RepoDigests 0}}{{else}}{{.Id}}{{end}}' "$img" 2>/dev/null
+}
+
+# Prints "project<TAB>service<TAB>config_files<TAB>working_dir" per running
+# container whose image is exactly $1.
+containers_for_image() {
+  local img="$1" cid proj svc cfgs wd
+  docker ps -q --filter "ancestor=${img}" 2>/dev/null | while IFS= read -r cid; do
+    [[ -z "$cid" ]] && continue
+    proj="$(docker inspect "$cid" --format '{{index .Config.Labels "com.docker.compose.project"}}' 2>/dev/null)"
+    svc="$(docker inspect "$cid" --format '{{index .Config.Labels "com.docker.compose.service"}}' 2>/dev/null)"
+    cfgs="$(docker inspect "$cid" --format '{{index .Config.Labels "com.docker.compose.project.config_files"}}' 2>/dev/null)"
+    wd="$(docker inspect "$cid" --format '{{index .Config.Labels "com.docker.compose.project.working_dir"}}' 2>/dev/null)"
+    [[ -z "$proj" || -z "$svc" ]] && continue
+    printf '%s\t%s\t%s\t%s\n' "$proj" "$svc" "$cfgs" "$wd"
+  done
+}
+
+running_targets_display() {
+  local img="$1"
+  local -A proj_services
+  local proj svc cfgs wd
+  while IFS=$'\t' read -r proj svc cfgs wd; do
+    [[ -z "$proj" ]] && continue
+    if (( ${+proj_services[$proj]} )); then
+      proj_services[$proj]+=",${svc}"
+    else
+      proj_services[$proj]="$svc"
+    fi
+  done < <(containers_for_image "$img")
+  local p out=()
+  for p in "${(k)proj_services[@]}"; do
+    out+=("${p}(${proj_services[$p]})")
+  done
+  print -n -- "${(j:; :)out}"
+}
+
+recreate_image() {
+  local img="$1"
+  local -A proj_services proj_cfgs proj_wd
+  local proj svc cfgs wd
+  while IFS=$'\t' read -r proj svc cfgs wd; do
+    [[ -z "$proj" ]] && continue
+    if (( ${+proj_services[$proj]} )); then
+      proj_services[$proj]+=" ${svc}"
+    else
+      proj_services[$proj]="$svc"
+    fi
+    proj_cfgs[$proj]="$cfgs"
+    proj_wd[$proj]="$wd"
+  done < <(containers_for_image "$img")
+
+  if (( ${#proj_services} == 0 )); then
+    print -n -- "not running, nothing to recreate"
+    return 0
+  fi
+
+  local -a results
+  local p out_file
+  for p in "${(k)proj_services[@]}"; do
+    local -a services=("${(@s: :)proj_services[$p]}")
+    local -a f_args=()
+    local f
+    for f in "${(@s:,:)proj_cfgs[$p]}"; do
+      [[ -n "$f" ]] && f_args+=(-f "$f")
+    done
+    local -a wd_args=()
+    [[ -n "${proj_wd[$p]}" ]] && wd_args=(--project-directory "${proj_wd[$p]}")
+    out_file="$(mktemp)"
+    if docker compose "${f_args[@]}" --project-name "$p" "${wd_args[@]}" up -d "${services[@]}" >"$out_file" 2>&1; then
+      results+=("${p}(${(j:,:)services}): recreated")
+    else
+      results+=("${p}(${(j:,:)services}): recreate FAILED")
+      sed 's/^/  /' "$out_file" >&2
+      RECREATE_FAILED=1
+    fi
+    rm -f "$out_file"
+  done
+  print -n -- "${(j:; :)results}"
+}
+
+process_one_image() {
+  local img="$1" mark="$2" img_w="${3:-30}"
+  local pull_status recreate_status="-"
+  local disp_img
+  disp_img="$(truncate_image "$img" "$img_w")"
+
+  if (( OPT_DRY_RUN )); then
+    pull_status="would pull"
+    if [[ "$mark" == R ]]; then
+      local targets
+      targets="$(running_targets_display "$img")"
+      if [[ -n "$targets" ]]; then
+        recreate_status="would recreate if updated: ${targets}"
+      else
+        recreate_status="not running, nothing to recreate"
+      fi
+    fi
+    printf "%-${img_w}s %-4s %-12s %s\n" "$disp_img" "$mark" "$pull_status" "$recreate_status"
+    return 0
+  fi
+
+  local before after failed=0 out_file
+  before="$(image_digest "$img")"
+  out_file="$(mktemp)"
+  if docker pull "$img" >"$out_file" 2>&1; then
+    after="$(image_digest "$img")"
+    if [[ -z "$before" || "$before" != "$after" ]]; then
+      pull_status="updated"
+    else
+      pull_status="up-to-date"
+    fi
+  else
+    pull_status="failed"
+    failed=1
+    print -- "pull failed for ${img}:" >&2
+    sed 's/^/  /' "$out_file" >&2
+  fi
+  rm -f "$out_file"
+
+  if [[ "$mark" == R ]]; then
+    if (( failed )); then
+      recreate_status="skipped (pull failed)"
+    elif [[ "$pull_status" == "up-to-date" ]]; then
+      recreate_status="up to date, nothing to recreate"
+    else
+      recreate_status="$(recreate_image "$img")"
+    fi
+  fi
+
+  printf "%-${img_w}s %-4s %-12s %s\n" "$disp_img" "$mark" "$pull_status" "$recreate_status"
+  (( failed )) && return 1
+  return 0
+}
+
+apply_marks() {
+  local any_fail=0 img mark
+  print --
+  (( OPT_DRY_RUN )) && print -- "[dry-run] no docker pull / docker compose up will run."
+
+  local -a marked_imgs=()
+  for img in "${IMG_ORDER[@]}"; do
+    [[ -n "${MARKS[$img]:-}" ]] && marked_imgs+=("$img")
+  done
+  local img_w
+  img_w="$(compute_image_width "${marked_imgs[@]}")"
+
+  printf "%-${img_w}s %-4s %-12s %s\n" "IMAGE" "MARK" "PULL" "RECREATE"
+  for img in "${marked_imgs[@]}"; do
+    mark="${MARKS[$img]:-}"
+    process_one_image "$img" "$mark" "$img_w" || any_fail=1
+  done
+  (( RECREATE_FAILED )) && any_fail=1
+  return $any_fail
+}
+
+# ---------------------------------------------------------------------
+# main
+# ---------------------------------------------------------------------
+
+main() {
+  parse_args "$@"
+  local parse_rc=$?
+  if (( OPT_HELP )); then
+    print_help
+    exit 0
+  fi
+  (( parse_rc != 0 )) && exit 2
+
+  check_deps || exit 3
+
+  [[ -d "$OPT_DIR" ]] || die "not a directory: $OPT_DIR" 2
+
+  local root="${OPT_DIR:A}"
+  local state_file="${root}/.dc-image-update.json"
+
+  init_colors
+  scan_root "$root"
+  scan_running
+  load_state "$state_file"
+  mark_new_images
+  build_rows
+
+  if (( OPT_YES )); then
+    print_scan_summary "$root"
+    ACTION=apply
+  else
+    run_menu "$root"
+  fi
+
+  case "$ACTION" in
+    quit)
+      print -- "quit without saving."
+      exit 0
+      ;;
+    save)
+      if (( OPT_DRY_RUN )); then
+        print -- "[dry-run] would save state to ${state_file} (skipped)."
+      else
+        save_state "$root"
+        print -- "saved marks to ${state_file}."
+      fi
+      exit 0
+      ;;
+    apply)
+      if (( OPT_DRY_RUN )); then
+        print -- "[dry-run] would save state to ${state_file} (skipped)."
+      else
+        save_state "$root"
+      fi
+      apply_marks "$root"
+      exit $?
+      ;;
+    *)
+      die "internal error: no action decided" 1
+      ;;
+  esac
+}
+
+main "$@"
