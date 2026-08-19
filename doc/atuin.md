@@ -102,9 +102,16 @@ suggestions, which would read `~/.zsh_history` outside atuin's filtering.
 aren't touched by atuin), so `scripts/init-load` sets zsh's own
 `HISTORY_IGNORE` to a glob translation of the same rules, applied to
 `↑`/`history` on that file too. zsh's `HISTORY_IGNORE` takes **one**
-pattern, so every rule folds into a single `(a|b|c)` alternation, and
-`setopt EXTENDED_GLOB` is required for the `#` (zero-or-more) operator
-used below.
+pattern, so every rule folds into a single `(a|b|c)` alternation.
+
+**Deliberately NOT `setopt EXTENDED_GLOB`**: it turns `^` into a glob
+operator, which breaks unquoted everyday commands like `git show HEAD^`
+/ `git diff HEAD^^` (they fail with "no matches found" — measured, not
+assumed: `zsh -f -c 'setopt extended_glob; eval "print -r -- HEAD^"'`
+reproduces it). `(a|b|c)` alternation works without EXTENDED_GLOB, so
+the one rule that used to need `#` (zero-or-more repetition, for
+`api[-_]#key*`) is spelled instead as an explicit alternation —
+`(apikey*|api-key*|api_key*)` — with no repetition operator at all.
 
 | `history_filter` regex | `HISTORY_IGNORE` glob | Why the difference |
 | --- | --- | --- |
@@ -116,7 +123,7 @@ used below.
 | `^secret` | `secret*` | prefix match either way |
 | `^password` | `password*` | prefix match either way |
 | `^token` | `token*` | prefix match either way |
-| `^api[-_]?key` | `api[-_]#key*` | regex `?` (0-or-1) has no glob equivalent — `#` (0-or-more) is the closest, slightly looser |
+| `^api[-_]?key` | `(apikey*\|api-key*\|api_key*)` | regex `?` (0-or-1 on `[-_]`) has no plain-glob equivalent, so it's spelled out as an explicit alternation instead of the EXTENDED_GLOB-only `#` (0-or-more) operator |
 | `^export .*(SECRET\|TOKEN\|API\|KEY\|PASSWORD\|PASS)=` | `export *(SECRET\|TOKEN\|API\|KEY\|PASSWORD\|PASS)=*` | regex `(a\|b)` alternation is native to zsh glob too — no translation needed |
 
 ## Daemon
