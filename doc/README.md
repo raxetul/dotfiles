@@ -36,6 +36,7 @@ graph TD
 | `scripts/gpg-setup.sh` | (inline help) — GPG signing wizard |
 | `scripts/claude-worktree` | [claude-worktrees.md](claude-worktrees.md) — parallel Claude sessions in git worktrees |
 | `scripts/nix-uninstall.sh` | (inline help) — legacy Nix cleanup |
+| `scripts/dc-image-update` | [dc-image-update.md](dc-image-update.md) — interactive docker compose image pull/recreate helper |
 
 ## Packages
 
