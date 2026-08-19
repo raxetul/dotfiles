@@ -77,3 +77,4 @@ graph TD
 | Parallel Claude    | [claude-worktrees.md](claude-worktrees.md) — `claude-worktree` / `cwt`: a worktree + Claude session per branch. |
 | Footprint / state  | [state-management.md](state-management.md) — the realized-state ledger that records what got planted (and what we may safely remove). |
 | Agentic promotion  | [agentic-promotion.md](agentic-promotion.md) — lifting rules from repo-local `.claude/` to global. |
+| Claude settings    | [claude-settings.md](claude-settings.md) — tracked `settings.json` vs. gitignored `settings.local.json`, and the atomic-save symlink-break failure mode. |
