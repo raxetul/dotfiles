@@ -43,6 +43,38 @@ rules** (`.claude/commands/`, the global `CLAUDE.md`) — content meant to be po
 belongs with the other volatile/local overrides in a gitignored `settings.local.json`, not in the
 tracked file rule #13 protects.
 
+## `/auto-mode-setup` reproduces this churn — it's not a one-off
+
+This is not a one-time accident: **every** `/auto-mode-setup` run writes a fresh
+`autoMode` block into whatever settings file is currently active for that
+project, scoped to that project's own environment/allow/soft_deny rules. It
+happened once for `noturi` and, on 2026-08-20, again for this repo
+(`raxetul/dotfiles`) — same failure class, different project. Treat it as
+**the command's normal behavior**, not a fluke: after every
+`/auto-mode-setup` run, expect the tracked `configurations/claude/settings.json`
+to need the same cleanup pass again.
+
+| Step | Action |
+| --- | --- |
+| 1 | `jq -e 'has("autoMode")' configurations/claude/settings.json` — if `true`, the block landed in the tracked file. |
+| 2 | Merge the `autoMode` block into `.claude/settings.local.json` (project-local, gitignored) — preserve any existing keys there (e.g. `permissions.allow`), don't overwrite. |
+| 3 | `git checkout -- configurations/claude/settings.json` to drop the block from the tracked file. |
+| 4 | Re-verify `jq -e 'has("autoMode")' configurations/claude/settings.json` → `false`. |
+
+For this repo specifically, the target is `.claude/settings.local.json` at
+the repo root (not `~/.claude/settings.local.json`) — it's already covered
+by the global gitignore pattern `**/.claude/settings.local.json`
+(`~/.gitignore_global:4`), confirmed with `git check-ignore -v`, and this
+repo's own `.gitignore` carries no matching line of its own (the global
+pattern alone is what protects it).
+
+```mermaid
+flowchart LR
+    RUN["/auto-mode-setup run"] -->|writes autoMode| TRACKED2["configurations/claude/settings.json\n(tracked — wrong spot, again)"]
+    TRACKED2 -->|merge| LOCAL2[".claude/settings.local.json\n(gitignored — right spot)"]
+    TRACKED2 -->|git checkout --| CLEAN["tracked file restored"]
+```
+
 ## The atomic-save / symlink-break failure mode
 
 Claude Code's settings writer does an atomic save (write temp file, rename over target). When the
