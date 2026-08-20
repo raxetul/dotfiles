@@ -104,16 +104,52 @@ Procedure:
 
    ## Diagram layout (draw.io)
 
-   Connector lines in draw.io diagrams obey these layout rules:
-   - **Labels ride the vertical** — place edge text (cardinalities, role
-     names) only on a **vertical** segment of the line, and only where
-     that segment is clear; **never on top of another line**.
-   - **Share a vertical only when an endpoint is shared** — two edges may
-     run on the same vertical x **only if** they share a source or a
-     target (a merge trunk); otherwise their verticals **never** overlap.
-   - **≥20px between parallels** — when the shared-endpoint rule does not
-     apply, keep at least **20px** between parallel line segments.
-   - **Avoid crossing lines** wherever possible.
+   Connector lines in draw.io diagrams are routed **orthogonally** and
+   split into three parts: a **common** segment shared by sibling edges,
+   the **vertical** legs that branch off it, and the **item-specific**
+   horizontal leg that touches one box. Rules:
+   - **No line over a box** — no segment passes on top of or beneath any
+     item/box; route around it and avoid crossings.
+   - **One-to-many (one source → many targets):** **prefer to route each
+     edge as a completely separate line** — no shared or overlapping
+     segments. Only when there isn't room to fully separate them, fall back
+     to a **common horizontal trunk** shared by the sibling edges (those
+     trunks may be merged into one line or lie on top of each other). Either
+     way each edge branches off on its **own vertical**; verticals **never
+     overlap** — keep a clear gap (≥20px). The final **item-specific
+     horizontal leg** into each target is **vertically centered on that
+     target box**, and the edge **label rides that leg, next to the box** —
+     never on the shared trunk, never on another line.
+   - **Many-to-one (many sources → one target):** the mirror image —
+     **prefer fully separate lines**; only when space is tight do the edges
+     share a single **common horizontal trunk** into the target. Each source
+     leaves on its own **item-specific horizontal leg** (vertically centered
+     on the source, its **label riding that leg next to the box**), and the
+     **spaced verticals** converge. Same common-vs-specific split, reversed.
+   - **Two-ended labels (both endpoints labeled — e.g. DB/ER
+     cardinalities):** when an edge carries **two** texts, one per endpoint
+     (ER one-to-many: `1` at one end, `*`/`N` at the other; many-to-many:
+     `*` at both), draw that edge on its **own separate path** — never
+     merged onto a shared trunk. Place each text on the **item-specific
+     horizontal leg at its own end, next to that item**, and keep each label
+     beside the **correct** item (the endpoint it describes).
+
+   ~~~
+   one-to-many                        many-to-one
+    [S]──┬────┬────┬                   [S1]── L1 ───────────┐
+         │    │    └─── L3 ──[T3]      [S2]── L2 ───────┐   │
+         │    └──────── L2 ──[T2]      [S3]── L3 ───┐   │   │
+         └───────────── L1 ──[T1]                   └───┴───┴──[T]
+    common horizontal trunk;           item-specific legs carry the
+    verticals spaced; label Ln         labels; verticals spaced;
+    rides the leg next to each Tn      common trunk into T
+
+   two-ended labels (ER; each edge on its own path)
+    [Author]──1──┐                 [Student]──*──┐
+                 └──*──[Book]                    └──*──[Course]
+    one-to-many: "1"/"*" each       many-to-many: "*" on each leg,
+    on the leg next to its entity   next to its own entity
+   ~~~
 
    ## Pre-CLI-command briefs
 

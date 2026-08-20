@@ -87,10 +87,14 @@ The five common rules in one line each:
   DI seam; new behavior lands with tests.
 - **Conventional commits** — enforced by the lefthook `commit-msg`
   regex.
-- **Diagram layout** — in draw.io diagrams, edge labels sit only on
-  non-overlapping vertical segments; two edges share a vertical only
-  when they share an endpoint; keep ≥20px between parallel segments;
-  avoid crossings.
+- **Diagram layout** — draw.io connectors route orthogonally and are
+  **preferably fully separate lines** (a shared **common horizontal trunk**
+  only as a fallback when space is tight), with **spaced verticals** (never
+  overlapping, ≥20px) and an **item-specific horizontal leg** centered on
+  each box carrying the edge label. One-to-many fans out from the source;
+  many-to-one is the mirror into the target. Edges labeled at **both ends**
+  (ER cardinalities — one-to-many, many-to-many) are drawn on their own
+  separate path, each label on the leg next to its own entity.
 - **Pre-CLI-command briefs** — before running shell commands, print a
   table (`# | Command | Action brief | Effect`) of what will run.
 
