@@ -201,6 +201,59 @@ When the Claude process in a pane/tab exits, close that pane/tab in herdr
 as usual. `cwt rm` only removes the worktree checkout, never the branch or
 its commits.
 
+### Dead worktree records — `/worktree-autoprune`
+
+Deleting a worktree directory by hand (`rm -r`, a wiped `*.worktrees/`, a
+disk cleanup) leaves git's admin record behind under
+`.git/worktrees/<name>/`. The record is not cosmetic: it keeps the branch
+marked *checked out elsewhere*, so the branch can neither be checked out
+nor deleted, and the ghost stays in `git worktree list` forever — flagged
+`prunable`.
+
+```mermaid
+flowchart LR
+    A["worktree dir exists\n.git/worktrees/&lt;name&gt;/ record"] -->|rm -r the dir| B["DEAD:\ndir gone, record remains\nbranch still 'checked out'"]
+    B -->|git worktree prune| C["record removed\nbranch free again"]
+    A -->|git worktree remove| C
+```
+
+`configurations/claude/hooks/git-worktree-autoprune.sh` does that prune
+automatically. It is wired **per project**, not globally — the script is a
+shared machine resource (symlinked to `${HOME}/.claude/hooks/` by
+`scripts/symlinks.sh`), but a project opts in by running
+`/worktree-autoprune`, which merges two hook entries into that project's own
+`./.claude/settings.json`:
+
+| Hook event | When it fires |
+| --- | --- |
+| `SessionStart` | every time a Claude session opens in that project |
+| `WorktreeRemove` | the moment a worktree is removed |
+
+What it will and will not touch:
+
+| Situation | Action |
+| --- | --- |
+| Record whose directory is gone (`prunable`) | 🟢 pruned |
+| Worktree directory still present, clean | 🔴 untouched |
+| Worktree directory still present, **dirty / uncommitted** | 🔴 untouched |
+| A branch, a commit, a stash | 🔴 never touched |
+| `<repo>.worktrees/` parent left empty afterwards | 🟢 `rmdir` (only if empty) |
+
+That last distinction is the whole safety argument: **a worktree holding
+uncommitted work is by definition not dead** — its directory is right there —
+so the prune cannot reach it. The only thing removed is bookkeeping for a
+directory that no longer exists.
+
+`DRY_RUN=1` makes the hook report instead of act, and it always exits `0` so
+a cleanup step can never block a session from starting:
+
+```sh
+echo "{\"cwd\":\"$PWD\"}" | DRY_RUN=1 bash "${HOME}/.claude/hooks/git-worktree-autoprune.sh"
+```
+
+Note the hook reads `git worktree prune --dry-run --verbose` off **stderr** —
+git writes the verbose listing there, not to stdout.
+
 ## Member lifecycle
 
 A member's pane only ever ends its life two ways: closed, or respawned for
