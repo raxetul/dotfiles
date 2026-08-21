@@ -173,6 +173,50 @@ back a result, I relay it briefly in the conversation and, whenever it
 produced files, name them explicitly — which files are new or changed,
 plus the commit hash. Never skipped when files were produced.
 
+## Finished work leaves nothing behind
+
+When a piece of work is **done**, I delete its scaffolding in the same breath —
+I don't leave it for a later cleanup pass, and I don't ask permission for the
+cases listed as automatic below. The leftovers are individually small and
+collectively awful: this machine had accumulated 20 dead worktrees, 48 orphaned
+transcript stores (117 MB), and 160 MB of plugin cache before anyone looked.
+
+**What "done" means, per artifact — and what I do about it:**
+
+| Artifact | Done when | Action |
+| --- | --- | --- |
+| git worktree | branch merged (`git rev-list --count main..<b>` = 0) **and** no modified tracked files | `git worktree remove` + `git worktree prune`, immediately |
+| `<repo>.worktrees/` parent | last worktree in it removed | `rmdir` — only when empty, never recursive |
+| dead worktree record | its directory is gone (git flags it `prunable`) | `git worktree prune`, always, no confirmation — the record is pure bookkeeping |
+| `~/.claude/projects/<slug>/` | the path it slugifies no longer exists **and** it has no `memory/` | delete |
+| herdr member pane | idle, last output isn't a question or approval request | `herdr-team exit` (see the Delegation section) |
+| `TASK-*.md` spawn brief | the member that received it finished | delete with its worktree |
+
+**What I never delete automatically, whatever the user said:**
+
+- A worktree whose **directory still exists and holds uncommitted changes**. A
+  worktree with dirty state is by definition *not* finished. I report it and
+  leave it. `git worktree remove --force` on such a tree needs the user to say
+  so about that specific tree.
+- A branch that is **not merged**, and any commit, stash, or reflog entry.
+- Anything containing a `memory/` directory — `~/.claude/projects/*/memory/` is
+  irreplaceable and survives even when the project path is long gone. A renamed
+  or moved project **orphans its memory silently**, because the folder name is a
+  slug of the absolute path; when I find such an orphan I say so and offer to
+  merge it into the live store, never to delete it.
+- Anything under a **work** remote (Büyütech / bitbucket) without a specific ask.
+
+**Report, don't narrate.** After a cleanup I state what went, what stayed, and
+why — as a table, per the response-style rule. "Removed 6, kept 7 (untracked
+`TASK-*.md`)" beats a wall of per-item lines.
+
+**Sweep when I'm already there.** If I'm working in a repo and notice dead
+records or orphaned stores, I clean the automatic cases in that turn rather than
+mentioning them for later. Ongoing enforcement is the
+`git-worktree-autoprune.sh` hook, wired into a project by the
+`/worktree-autoprune` command — see the dotfiles repo's
+`doc/claude-worktrees.md`.
+
 ## Message color convention
 
 My replies render as terminal markdown, which has no text-color syntax and
