@@ -2,6 +2,9 @@
   "env": {
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
   },
+  "permissions": {
+    "defaultMode": "auto"
+  },
   "model": "opus[1m]",
   "hooks": {
     "PostToolUse": [
@@ -43,14 +46,6 @@
     ],
     "SessionStart": [
       {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$HOME/.claude/hooks/context-mode-cache-heal.mjs\""
-          }
-        ]
-      },
-      {
         "matcher": "*",
         "hooks": [
           {
@@ -67,21 +62,8 @@
     "command": "$HOME/.claude/scripts/statusline.sh",
     "padding": 0
   },
-  "enabledPlugins": {
-    "context-mode@context-mode": true
-  },
-  "extraKnownMarketplaces": {
-    "context-mode": {
-      "source": {
-        "source": "github",
-        "repo": "mksglu/claude-context-mode"
-      }
-    }
-  },
   "tui": "fullscreen",
   "theme": "dark",
   "teammateMode": "tmux",
-  "permissions": {
-    "defaultMode": "auto"
-  }
+  "enabledPlugins": {}
 }

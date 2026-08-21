@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # statusline.sh — Claude Code status line, rendered as 3 columns × 3 lines.
 #
-#   ┌ LEFT (workspace) ──┐ ┌ MIDDLE (context-mode) ┐ ┌ RIGHT (agentic phases) ┐
+#   ┌ LEFT (workspace) ──┐ ┌ MIDDLE (context meter) ┐ ┌ RIGHT (agentic phases) ┐
 #   │ 💻 host 📁 cwd     │ │ ⚡ context  12%        │ │ ✓ <completed phase>    │
 #   │  branch* (git)     │ │ 121k / 1.0M            │ │ ▶ <current phase>      │
 #   │  model · vX.Y      │ │ [████░░░░░░░░░░░]      │ │ ○ <next phase>         │
@@ -188,7 +188,7 @@ L2="$(mcell "$L2_PLAIN" "$L2_COL" "$GRN")"
 L3="$(mcell "$L3_PLAIN" "$L3_COL" "$DIM")"
 
 # ---------------------------------------------------------------------------
-# MIDDLE PANE — context-mode (context-window meter)
+# MIDDLE PANE — context-window meter
 # ---------------------------------------------------------------------------
 human() {                        # tokens -> 1.0M / 121k / 850
   local n="$1"
@@ -240,7 +240,7 @@ if [ "$used" -gt 0 ]; then
   barpad=$(( COLW - (barw + 2) )); [ "$barpad" -lt 0 ] && barpad=0
   M3="$(printf '%b[%b%s%b%s%b]%b%*s' "$DIM" "$MC" "$bar_fill" "$DIM" "$bar_empty" "$DIM" "$RST" "$barpad" '')"
 else
-  M1="$(cell "⚡ context-mode" "$B$BLU")"
+  M1="$(cell "⚡ context" "$B$BLU")"
   M2="$(cell " no usage yet" "$DIM")"
   M3="$(cell "" "$DIM")"
 fi

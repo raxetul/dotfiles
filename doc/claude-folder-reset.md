@@ -41,7 +41,7 @@ flowchart TD
     RUNCHECK -->|yes, no --force-running| STOP[[exit 3 — stop here\nbackup + orphans already done]]
     RUNCHECK -->|no, or --force-running| CREDS[credentials:\nbackups/*.claude.json.backup.*,\nconfig.json, daemon-auth-*,\nKeychain entry, oauthAccount field]
     CREDS --> STATEQ{--include-state?}
-    STATEQ -->|yes| STATE[state:\nplugins/, context-mode/,\nfile-history/, cache/, …]
+    STATEQ -->|yes| STATE[state:\nplugins/, file-history/,\ncache/, …]
     STATEQ -->|no| RELINK
     STATE --> RELINK[relink:\nsymlinks.sh install +\nclaude-skills link]
     RELINK --> VERIFY[verify: read-only report]
@@ -60,10 +60,10 @@ against your own `~/.claude` before trusting the numbers, they will drift.
 | Entry | Class | Phase | Notes |
 | --- | --- | --- | --- |
 | `settings.json`, `CLAUDE.md`, `commands/`, `scripts/` | repo symlink | `relink` (repair only) | Point into this repo's `configurations/claude/`. |
-| `hooks/context-mode-cache-heal.mjs`, `hooks/herdr-agent-state.sh`, `hooks/herdr-workspace-guard.sh` | repo symlink | `relink` | Same. |
+| `hooks/herdr-agent-state.sh`, `hooks/herdr-workspace-guard.sh` | repo symlink | `relink` | Same. |
 | `skills/*` (19 entries) | repo symlink | `relink` | Planted by `scripts/claude-skills link`. |
-| `.DS_Store`, `context-mode/.DS_Store` | orphan | `orphans` | Finder litter. |
-| `CLAUDE.md.bak.20260629-155842`, `settings.json.bak`, `settings.json.bak.20260623-120218`, `hooks/context-mode-cache-heal.mjs.bak.20260629-155842` | orphan | `orphans` | Dated backups left by earlier manual edits, superseded by the symlinked originals. |
+| `.DS_Store` | orphan | `orphans` | Finder litter. |
+| `CLAUDE.md.bak.20260629-155842`, `settings.json.bak`, `settings.json.bak.20260623-120218` | orphan | `orphans` | Dated backups left by earlier manual edits, superseded by the symlinked originals. |
 | `statusline.sh` | orphan (real file) | `orphans` | Unowned real copy — the live one is `settings.json`'s `statusLine`, which points at the symlinked `scripts/statusline.sh`. Content differs from the repo copy; nothing reads this one. |
 | `skills/quick-test.md`, `debug/latest` | dangling symlink | `orphans` | Found by scanning, not by name — any future dangling link under `~/.claude` (outside `projects/`) is swept too. |
 | `backups/.claude.json.backup.*` (5 seen, rotates 5↔6) | credential | `credentials` | Each ~112KB, each carries the full `oauthAccount` block (email + org UUID). Cleared by glob, not by fixed name, because the count changes while the app runs. |
@@ -71,8 +71,7 @@ against your own `~/.claude` before trusting the numbers, they will drift.
 | `daemon-auth-status.json`, `daemon-auth-cooldown` | credential-adjacent | `credentials` | Auth daemon bookkeeping. |
 | macOS Keychain `Claude Code-credentials` (svce) / `emrah` (acct) | credential | `credentials` | Not a file under `~/.claude` at all — see below. |
 | `.claude.json` → `oauthAccount` field only | credential | `credentials` | Only this field is stripped via `jq del`; the other ~32 project entries and ~24 `hasTrustDialogAccepted` flags are left alone (rule below). |
-| `plugins/` (120M) | reproducible cache | `state` (opt-in) | Tracked by `enabledPlugins` + `extraKnownMarketplaces` in `settings.json`; reinstalled from there. |
-| `context-mode/` (60M) | reproducible cache | `state` (opt-in) | MCP plugin's own local index. |
+| `plugins/` | reproducible cache | `state` (opt-in) | Plugin + marketplace checkouts. No plugins are declared in `settings.json` today, so this is pure cache. |
 | `file-history/` (23M), `cache/`, `paste-cache/`, `shell-snapshots/`, `telemetry/`, `jobs/`, `debug/`, `downloads/` | reproducible cache | `state` (opt-in) | Rebuilt on demand; no backup taken (see "why state isn't backed up" below). |
 | `sessions/`, `tasks/`, `teams/`, `history.jsonl` (516K) | prompt/session history | `state --include-history` (opt-in, off by default) | The riskier half of `state` — actual conversation/session data, not just cache. |
 | `projects/` (241M: 203 transcripts + 69 memory files = 296K) | **untouchable** | `backup` (read + archive only), never a deletion target anywhere | See rule #1. `memory/` is the irreplaceable part; transcripts are large but reconstructible from context, so they're excluded from the default backup — pass `--backup-transcripts` to include them too. |
@@ -148,9 +147,9 @@ checks the memory-file count inside matches what was on disk — if the
 archive is unreadable, empty, or short a file, the run stops with exit
 `1` before deleting anything.
 
-**Why `state`'s targets aren't backed up:** `plugins/`, `context-mode/`,
-`file-history/`, and the rest of the `state` phase's targets are
-reproducible — plugins reinstall from `enabledPlugins` in `settings.json`,
+**Why `state`'s targets aren't backed up:** `plugins/`, `file-history/`,
+and the rest of the `state` phase's targets are
+reproducible — plugin checkouts reinstall from their marketplaces,
 caches rebuild on next use. Backing up 200+ MB of disposable cache on
 every run would defeat the point of a lightweight, always-on-by-default
 backup step.
