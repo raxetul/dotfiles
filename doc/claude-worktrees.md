@@ -48,8 +48,19 @@ flowchart TD
   joins the vertical stack down the right column. The **first** member splits
   the leader to the **right** (opening the column); each **later** member
   splits **down** off the bottom of that column.
-- **`--tab` → new tab**: for when the column gets cramped or the work is
-  unrelated — the member gets its own tab instead of joining the column.
+- **`--tab` → new tab**: the member gets its own tab, created inside the lead's
+  own workspace (the tab is pinned, same as a spawn), instead of joining the
+  column. Two cases make this the **default** rather than a fallback:
+  - the member's deliverable is a **dependency library** consumed by another
+    member's work — a shared SDK, a HAL, an internal npm/cargo package. Those
+    run long and other members block on the artifact, so they do not belong in
+    the column.
+  - the **user asked for a member in a tab**. That is sticky: every later member
+    goes in a tab too, until the user says otherwise.
+
+  Otherwise reach for it when the column gets cramped or the work is unrelated.
+  The tab is labelled with the **branch** slug; the pane/agent keeps its
+  **role** name.
 - **`--split right|down` → manual override**: a plain split off the *current*
   pane, bypassing the team layout, for when you want to place by hand.
 

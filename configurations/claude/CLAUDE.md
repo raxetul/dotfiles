@@ -53,6 +53,28 @@ own pane, whose identity herdr exports as `HERDR_PANE_ID` /
 `herdr agent start`. `scripts/claude-worktree` does exactly this, so it's
 the mechanism to use rather than a hand-rolled `herdr agent start`.
 
+**Placement — column by default, tab for dependency-library members.** A member
+normally joins the stacked right-hand column (leader left, members down the
+right). Two cases put it in its own **herdr tab inside my own workspace**
+instead — `scripts/claude-worktree <branch> --role <name> --tab`, which pins the
+tab to `${HERDR_WORKSPACE_ID}` so one is never opened in another project's
+workspace:
+
+1. **The member builds a dependency library.** Its deliverable is a
+   library/package/crate consumed by *another* member's work — a shared SDK, a
+   HAL, an internal npm/cargo package — rather than a feature inside the app the
+   team is already working on. Such a member runs long and others block on its
+   artifact, so it gets a tab instead of squeezing the column.
+2. **The user asked for a member in a tab.** That preference is **sticky**: once
+   asked, every member I spawn afterwards goes in a tab too, until the user says
+   otherwise. I don't drift back to the column on my own, and I don't re-ask
+   each time.
+
+Everything else about a tab member is unchanged — same worktree path, same
+`--role` naming, same lifecycle, same "finished member closes immediately" rule.
+Only the placement differs. Note the tab's own label comes from the branch slug,
+while the pane/agent label stays the role.
+
 **Team identity — who's actually on my team.** My identity as a lead is the
 triple **(`HERDR_WORKSPACE_ID`, `HERDR_PANE_ID`, Claude session id)**. A
 **team is my own herdr workspace plus my own Claude session** — members are
