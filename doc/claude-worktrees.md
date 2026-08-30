@@ -380,6 +380,27 @@ the member's own ` -- ` prompt-tail separator is stripped before any of this
 scanning happens, so a prompt that itself mentions `herdr agent start` is
 never mistaken for a real invocation.
 
+### Preprocessing — two things the raw command string gets wrong
+
+The command text is normalized twice before any of the above runs. Both steps
+exist because the guard was found **failing closed**, which is the worse
+failure: a guard that denies correct usage teaches you to route around it.
+
+| Step | Fixes |
+| --- | --- |
+| **Here-document bodies are dropped** (the opening line is kept — a real command can share it) | A heredoc carries data, not shell. Documentation, a commit message, or a script that merely *mentions* a policed call was being denied. Markdown backticks made this acute: `` ` `` is one of the clause separators, so a backticked `herdr tab create` in prose landed at a command position and matched. |
+| **Backslash-newline continuations are joined** | The clause loop reads **one line at a time**, so a command split across lines had its verb and its flags in different clauses. A correctly pinned `agent start … \` + `--workspace "${HERDR_WORKSPACE_ID}"` was denied for "no `--workspace`" — the clause holding the verb genuinely had none. |
+
+Joining uses `awk`, not `sed -e ':a' -e '/\\$/{N;…;ta}'`: BSD sed (macOS)
+rejects a brace block inside a single `-e` and aborts under `set -e`, which
+silently disables the whole guard. If preprocessing ever yields empty text the
+raw command is scanned instead, so a hiccup can never blank the input and
+allow everything.
+
+**Regression suite:** `configurations/claude/hooks/tests/herdr-workspace-guard.test.sh`
+— 22 cases covering both halves: real leaks must still deny, and text that only
+mentions a policed call must allow. Run it after touching the guard.
+
 ## Notes / assumptions
 
 - **herdr must be running** for automatic placement; otherwise the worktree
