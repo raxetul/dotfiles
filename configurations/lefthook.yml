@@ -20,5 +20,5 @@ pre-commit:
   parallel: true
   commands:
     shellcheck:
-      glob: "{scripts/*.sh,setup.sh}"
+      glob: "{scripts/*.sh,setup.sh,configurations/claude/hooks/*.sh,configurations/claude/hooks/tests/*.sh}"
       run: shellcheck {staged_files}
