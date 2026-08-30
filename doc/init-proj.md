@@ -33,14 +33,14 @@ computer.
 /init-proj-common          shared baseline (git, lefthook, common rules)
         │ invokes
         ▼
-building blocks            /logging   /rfc9457   /backend-stack
+building blocks            /logging   /rfc9457   /backend-stack   /rust-config
 ```
 
 - A **type** command always runs **`/init-proj-common`** first, then
   layers its type-specific rules and scaffolding.
 - Rules that already have a standalone command (`/logging`,
-  `/rfc9457`, `/backend-stack`) are **invoked** as building blocks, so
-  each rule's text is defined in exactly one place.
+  `/rfc9457`, `/backend-stack`, `/rust-config`) are **invoked** as
+  building blocks, so each rule's text is defined in exactly one place.
 - **`/init-proj-monorepo`** asks which types to include, lays the
   baseline once at the root, and runs each type command per package.
 
@@ -57,6 +57,7 @@ Each building block delivers its convention in **two layers**:
 /logging        → rule in ./CLAUDE.md   +  logging-patterns          skill
 /rfc9457        → rule in ./CLAUDE.md   +  rfc9457-problem-details    skill
 /backend-stack  → rule in ./CLAUDE.md   +  backend-stack-patterns     skill
+/rust-config    → rule in ./CLAUDE.md   (rule only, no matching skill)
 ```
 
 The **rule** is a strict decision that must always hold, so it's written down —
