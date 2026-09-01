@@ -62,8 +62,8 @@
     "command": "$HOME/.claude/scripts/statusline.sh",
     "padding": 0
   },
+  "enabledPlugins": {},
   "tui": "fullscreen",
   "theme": "custom:one-dark",
-  "teammateMode": "tmux",
-  "enabledPlugins": {}
+  "teammateMode": "tmux"
 }
