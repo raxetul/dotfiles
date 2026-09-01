@@ -56,6 +56,7 @@ COMMON_LINKS=(
   "configurations/vim/ftplugin/python.vim::.vim/ftplugin/python.vim"
   "configurations/nvim/init.vim::.config/nvim/init.vim"
   "configurations/ghostty/config::.config/ghostty/config"
+  "configurations/herdr/config.toml::.config/herdr/config.toml"
   "configurations/tmux/tmux.conf::.config/tmux/tmux.conf"
   "configurations/claude/settings.json::.claude/settings.json"
   "configurations/claude/CLAUDE.md::.claude/CLAUDE.md"

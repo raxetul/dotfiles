@@ -1,0 +1,17 @@
+onboarding = false
+
+[experimental]
+pane_history = true
+
+[ui]
+show_agent_labels_on_pane_borders = true
+
+[ui.toast]
+delivery = "system"
+
+[ui.sound]
+enabled = true
+
+[theme]
+name = "one-dark"
+auto_switch = false
