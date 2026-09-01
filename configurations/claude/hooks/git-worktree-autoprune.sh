@@ -63,7 +63,9 @@ git worktree prune >/dev/null 2>&1 || exit 0
 toplevel="$(git rev-parse --show-toplevel 2>/dev/null || true)"
 if [ -n "${toplevel}" ]; then
     parent="${toplevel}.worktrees"
-    [ -d "${parent}" ] && rmdir "${parent}" 2>/dev/null || true
+    if [ -d "${parent}" ]; then
+        rmdir "${parent}" 2>/dev/null || true
+    fi
 fi
 
 printf '{"systemMessage":"[worktree-autoprune] pruned %s dead worktree record(s) in %s"}\n' \
