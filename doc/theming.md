@@ -41,7 +41,7 @@ Phase 4.
 | App | Where the palette is set | File |
 | --- | --- | --- |
 | Ghostty (term) | `theme = catppuccin-mocha` (ships in-tree) | `configurations/ghostty/config` |
-| tmux           | `catppuccin/tmux` plugin + flavour selector | `configurations/themes/tmux/catppuccin-mocha.conf` |
+| tmux           | `catppuccin/tmux` plugin + flavour selector | `configurations/themes/tmux/catppuccin-latte.conf` (see exception below) |
 | Starship       | `palette = 'catppuccin_mocha'` | `configurations/starship/starship.toml` |
 | Vim / Neovim   | `colorscheme catppuccin_mocha` | `configurations/vim/vimrc` |
 | bat            | `theme = "Catppuccin-mocha"` (tmTheme symlinked) | `configurations/themes/bat/Catppuccin-mocha.tmTheme` |

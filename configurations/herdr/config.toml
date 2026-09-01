@@ -15,3 +15,15 @@ enabled = true
 [theme]
 name = "one-dark"
 auto_switch = false
+
+[keys]
+goto = "ctrl+alt+g"
+focus_pane_left = "ctrl+alt+h"
+focus_pane_down = "ctrl+alt+j"
+focus_pane_up = "ctrl+alt+k"
+focus_pane_right = "ctrl+alt+l"
+next_tab = "ctrl+alt+n"
+previous_tab = "ctrl+alt+p"
+next_workspace = "ctrl+alt+."
+previous_workspace = "ctrl+alt+,"
+switch_tab = "ctrl+alt+1..9"
