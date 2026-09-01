@@ -48,8 +48,19 @@ flowchart TD
   joins the vertical stack down the right column. The **first** member splits
   the leader to the **right** (opening the column); each **later** member
   splits **down** off the bottom of that column.
-- **`--tab` → new tab**: for when the column gets cramped or the work is
-  unrelated — the member gets its own tab instead of joining the column.
+- **`--tab` → new tab**: the member gets its own tab, created inside the lead's
+  own workspace (the tab is pinned, same as a spawn), instead of joining the
+  column. Two cases make this the **default** rather than a fallback:
+  - the member's deliverable is a **dependency library** consumed by another
+    member's work — a shared SDK, a HAL, an internal npm/cargo package. Those
+    run long and other members block on the artifact, so they do not belong in
+    the column.
+  - the **user asked for a member in a tab**. That is sticky: every later member
+    goes in a tab too, until the user says otherwise.
+
+  Otherwise reach for it when the column gets cramped or the work is unrelated.
+  The tab is labelled with the **branch** slug; the pane/agent keeps its
+  **role** name.
 - **`--split right|down` → manual override**: a plain split off the *current*
   pane, bypassing the team layout, for when you want to place by hand.
 
@@ -368,6 +379,27 @@ its `{`); or right after the keyword `then`/`do`/`else`. Everything after
 the member's own ` -- ` prompt-tail separator is stripped before any of this
 scanning happens, so a prompt that itself mentions `herdr agent start` is
 never mistaken for a real invocation.
+
+### Preprocessing — two things the raw command string gets wrong
+
+The command text is normalized twice before any of the above runs. Both steps
+exist because the guard was found **failing closed**, which is the worse
+failure: a guard that denies correct usage teaches you to route around it.
+
+| Step | Fixes |
+| --- | --- |
+| **Here-document bodies are dropped** (the opening line is kept — a real command can share it) | A heredoc carries data, not shell. Documentation, a commit message, or a script that merely *mentions* a policed call was being denied. Markdown backticks made this acute: `` ` `` is one of the clause separators, so a backticked `herdr tab create` in prose landed at a command position and matched. |
+| **Backslash-newline continuations are joined** | The clause loop reads **one line at a time**, so a command split across lines had its verb and its flags in different clauses. A correctly pinned `agent start … \` + `--workspace "${HERDR_WORKSPACE_ID}"` was denied for "no `--workspace`" — the clause holding the verb genuinely had none. |
+
+Joining uses `awk`, not `sed -e ':a' -e '/\\$/{N;…;ta}'`: BSD sed (macOS)
+rejects a brace block inside a single `-e` and aborts under `set -e`, which
+silently disables the whole guard. If preprocessing ever yields empty text the
+raw command is scanned instead, so a hiccup can never blank the input and
+allow everything.
+
+**Regression suite:** `configurations/claude/hooks/tests/herdr-workspace-guard.test.sh`
+— 22 cases covering both halves: real leaks must still deny, and text that only
+mentions a policed call must allow. Run it after touching the guard.
 
 ## Notes / assumptions
 

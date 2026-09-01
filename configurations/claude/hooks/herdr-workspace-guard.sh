@@ -105,10 +105,70 @@ if [ -z "$own_ws" ] || ! command -v herdr >/dev/null 2>&1 || ! command -v jq >/d
   exit 0
 fi
 
+# Drop here-document BODIES before anything else. A heredoc carries data, not
+# shell: a doc/commit message/script that merely *mentions* a policed herdr
+# call is not an invocation of it. Without this the guard denies its own
+# documentation — markdown backticks around `herdr tab create` are especially
+# lethal, because backtick is one of the clause separators in the `tr` split
+# below, so the quoted phrase lands at a command position and matches.
+# Only the body is removed; the line opening the heredoc is kept, since a real
+# command can share it (`herdr … <<EOF`).
+strip_heredoc_bodies() {
+  awk -v q="\"'" '
+    BEGIN { tag = "" }
+    tag != "" {
+      probe = $0
+      sub(/^[ \t]+/, "", probe)      # <<- allows a tab-indented terminator
+      if (probe == tag) { tag = "" }
+      next
+    }
+    {
+      print
+      line = $0
+      while (match(line, /<<-?[ \t]*[^ \t;&|<>()]+/)) {
+        cand = substr(line, RSTART, RLENGTH)
+        line = substr(line, RSTART + RLENGTH)
+        sub(/^<<-?[ \t]*/, "", cand)
+        gsub("[" q "]", "", cand)
+        if (cand ~ /^[A-Za-z_][A-Za-z0-9_]*$/) { tag = cand; break }
+      }
+    }
+  '
+}
+
+# Join backslash-newline continuations. The clause loop below reads ONE LINE at
+# a time, so without this a command written across lines has its verb and its
+# flags in different clauses — a correctly pinned
+#   herdr agent start x \
+#     --workspace "${HERDR_WORKSPACE_ID}"
+# was denied for "no --workspace", because the clause holding `agent start`
+# genuinely had none. Fail-CLOSED bugs like that train the user to work around
+# the guard, which is worse than the leak it prevents.
+# awk, not `sed -e ':a' -e '/\\$/{N;…;ta}'` — BSD sed (macOS) rejects a brace
+# block inside a single -e and aborts the whole script under `set -e`, which
+# silently disables the guard. Portability here is a correctness property.
+join_continuations() {
+  awk '
+    {
+      line = $0
+      while (sub(/\\$/, "", line)) {
+        if ((getline nxt) > 0) { sub(/^[ \t]+/, "", nxt); line = line " " nxt }
+        else break
+      }
+      print line
+    }
+  '
+}
+
+# Never let a preprocessing hiccup blank the text we scan — an empty $scan
+# would allow everything. Fall back to the raw command instead.
+scan="$(printf '%s\n' "$cmd" | strip_heredoc_bodies | join_continuations || true)"
+[ -n "$scan" ] || scan="$cmd"
+
 # Drop the member's prompt tail (everything from the first ` -- ` on) so free
 # text passed to `-- claude "<prompt>"` — which may itself mention any of the
 # phrases below — can never be mistaken for a shell command.
-head="${cmd%% -- *}"
+head="${scan%% -- *}"
 
 deny() {
   jq -nc --arg r "$1" \
