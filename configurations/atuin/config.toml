@@ -1,9 +1,12 @@
 ## atuin — encrypted, fuzzy shell history.
 ## Replaces the old zsh-histdb + HISTORY_IGNORE regex setup.
 ##
-## POLICY: no atuin surface is session-scoped. Ctrl+R, the up-arrow key, and
-## the zsh-autosuggestions grey suggestion all read the same local DB across
-## every session/tab/host — never just the current one.
+## POLICY: no atuin surface may HIDE history. Ctrl+R and the grey
+## zsh-autosuggestions suggestion stay fully global across every
+## session/tab/host. The up-arrow key is the one deliberate narrowing: it uses
+## "session-preload" so this terminal's own commands rank first. Nothing is
+## lost by that — whatever ↑ omits is still reachable from Ctrl+R, which is
+## why the narrowing is allowed at all.
 
 ## Sync is off — atuin runs as a local-only store unless explicitly turned on.
 auto_sync = false
@@ -11,9 +14,25 @@ update_check = false
 
 ## fzf-style ctrl-r search.
 filter_mode = "global"
-## Up-arrow recalls across ALL tabs/sessions too (was "session", which hid
-## history from other tabs). Both ctrl-r and up now search the whole local DB.
-filter_mode_shell_up_key_binding = "global"
+## Up-arrow: this terminal's own commands first, older history still present.
+## "session-preload" (labelled SESSION+ in the TUI) is a FILTER, not a sort —
+## atuin has no session-aware ordering at all (every ORDER BY is plain
+## `timestamp DESC`; smart_sort and the frecency multipliers are
+## session-agnostic), so a filter is the only way to give the current session
+## priority. Its SQL is:
+##     WHERE session = <this session> OR timestamp < <this session's start>
+## Recency ordering then floats this terminal's commands to the top.
+##
+## THE TRADE-OFF, stated plainly: commands typed in OTHER sessions *after this
+## one started* do not appear on ↑. That set grows with session age — measured
+## 2026-08-24 on a 6-day-old session: 3394 commands across 22 sessions, ~30% of
+## the DB. They remain one Ctrl+R away (filter_mode below is still "global"),
+## which is the whole reason this narrowing is acceptable. If ↑ ever feels like
+## it is missing things, set this back to "global".
+##
+## Plain "session" is still forbidden — it would hide ALL other history,
+## including everything predating this session.
+filter_mode_shell_up_key_binding = "session-preload"
 ## Workspace-scoped filtering (restrict to the current git repo tree) stays
 ## off — another way search could silently narrow below "global".
 workspaces = false
@@ -44,10 +63,13 @@ history_filter = [
 search_mode = "daemon-fuzzy"
 
 [search]
-## Only "global" is enabled as a cycle-able filter mode, so no keybinding
-## (e.g. the ctrl-r cycle key) can switch search into "session", "directory",
-## "host", "workspace", or "session-preload" scoping.
-filters = ["global"]
+## Cycle-able filter modes, in priority order. "global" stays first so Ctrl+R
+## opens on it; "session-preload" is listed so the cycle key can toggle to the
+## ↑-key scope and back. Note filter_mode_shell_up_key_binding is NOT gated by
+## this list (interactive.rs reads it directly) — the list only controls what
+## the cycle key can reach. "session", "directory", "host" and "workspace" stay
+## out: each hides history with no way back to it from another surface.
+filters = ["global", "session-preload"]
 
 [daemon]
 enabled = true

@@ -9,30 +9,74 @@ claude-rule: "Keep this file in sync whenever configurations/atuin/config.toml c
 Replaces the old zsh-histdb + `HISTORY_IGNORE` regex setup. Runs
 local-only (`auto_sync = false`) — nothing leaves the machine.
 
-## Policy: no surface is session-scoped
+## Policy: no surface may HIDE history
 
 Three different UI surfaces read the same local history DB
-(`~/.local/share/atuin/history.db`). All three are pinned to
-**global** scope, so a command typed in one tab/session is visible
-from every other tab/session/host — never just the one it was typed in.
+(`~/.local/share/atuin/history.db`). Ctrl+R and the grey suggestion are
+**global** — a command typed in one tab is visible from every other
+tab/session/host. The ↑ key is the one deliberate narrowing, and it is only
+allowed because Ctrl+R stays global behind it: nothing ↑ omits is actually
+lost.
 
 ```mermaid
 flowchart LR
     DB[(atuin history.db<br/>local, encrypted)]
 
-    CtrlR["Ctrl+R<br/>atuin search -i"] -->|reads| DB
-    UpKey["↑ up-arrow<br/>atuin search -i --shell-up-key-binding"] -->|reads| DB
-    Suggest["grey autosuggestion<br/>zsh-autosuggestions strategy"] -->|reads| DB
+    CtrlR["Ctrl+R<br/>atuin search -i<br/>GLOBAL — everything"] -->|reads| DB
+    UpKey["↑ up-arrow<br/>--shell-up-key-binding<br/>SESSION+ — mine first"] -->|reads| DB
+    Suggest["grey autosuggestion<br/>zsh-autosuggestions strategy<br/>GLOBAL"] -->|reads| DB
 
     classDef surface fill:#89b4fa,stroke:#1e1e2e,color:#1e1e2e
-    class CtrlR,UpKey,Suggest surface
+    classDef narrowed fill:#f9e2af,stroke:#1e1e2e,color:#1e1e2e
+    class CtrlR,Suggest surface
+    class UpKey narrowed
 ```
 
 | Surface | Invocation | Config key(s) read | Value |
 | --- | --- | --- | --- |
 | Ctrl+R search | `atuin search -i` | `filter_mode` | `"global"` |
-| Up-arrow recall | `atuin search -i --shell-up-key-binding` | `filter_mode_shell_up_key_binding` | `"global"` |
+| Up-arrow recall | `atuin search -i --shell-up-key-binding` | `filter_mode_shell_up_key_binding` | `"session-preload"` |
 | Grey autosuggestion | `_zsh_autosuggest_strategy_atuin` (from `atuin init zsh`) → `ATUIN_QUERY="$1" atuin search --cmd-only --author '$all-user' --limit 1 --search-mode prefix` | `filter_mode` (no override) | `"global"` |
+
+### Why ↑ uses `session-preload` — and what it costs
+
+**atuin has no session-aware ordering.** Verified in the v18.19.0 source
+(`atuin-client/src/database.rs`): every search `ORDER BY` is a plain
+`f.timestamp DESC`, and `smart_sort` plus the three
+`search.*_score_multiplier` knobs are recency/frequency only — none of them
+looks at the `session` column. So "show my commands first" cannot be done with
+a sort. The only lever is a **filter**, `session-preload` (`SESSION+` in the
+TUI), whose SQL is:
+
+```sql
+WHERE session = '<this session>' OR timestamp < <this session's start time>
+```
+
+Recency ordering then floats this terminal's own commands to the top, because
+they are the newest rows matching. The session start time is decoded from the
+UUIDv7 in `$ATUIN_SESSION`; if that value is not a v7 UUID the `OR` clause is
+dropped and the mode silently degrades to plain `session` — i.e. only this
+terminal's commands. Worth knowing if ↑ ever looks suspiciously empty.
+
+**The cost.** Commands run in *other* sessions *after this one started* are
+excluded from ↑. The excluded set grows with session age, and long-lived
+Claude Code / herdr panes make that significant:
+
+| Measured 2026-08-24, session started 2026-08-18 (6 days old) | Commands |
+| --- | --- |
+| This session's own | 324 |
+| Everything predating the session | 7 591 |
+| **↑ (`session-preload`) sees** | **7 915** |
+| **Ctrl+R (`global`) sees** | **11 309** |
+| Hidden from ↑ — 22 concurrent sessions | 3 394 (~30%) |
+
+Those 3 394 are one Ctrl+R away. That escape hatch is the entire justification;
+if `filter_mode` were ever narrowed too, this arrangement would stop being
+acceptable.
+
+**Plain `session` remains forbidden** — it drops the `OR timestamp <` clause
+and hides everything older as well, which is the regression `a0b8995` fixed.
+To revert, set `filter_mode_shell_up_key_binding = "global"`.
 
 ## TUI height: inline vs alternate screen
 
