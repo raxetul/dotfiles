@@ -18,10 +18,15 @@ auto_switch = false
 
 [keys]
 goto = "ctrl+alt+g"
-focus_pane_left = "ctrl+alt+h"
-focus_pane_down = "ctrl+alt+j"
-focus_pane_up = "ctrl+alt+k"
-focus_pane_right = "ctrl+alt+l"
+# Arrows, not h/j/k/l: a modified arrow is a CSI sequence carrying the modifier
+# as a parameter (ctrl+alt+left = ESC[1;7D), which the terminal emits regardless
+# of macos-option-as-alt. ctrl+alt+<letter> instead depends on ESC-prefixing and
+# was not being delivered at all. ctrl+alt+<arrow> is free at the OS level;
+# ctrl+up / ctrl+down are NOT (Mission Control / Application Windows).
+focus_pane_left = "ctrl+alt+left"
+focus_pane_down = "ctrl+alt+down"
+focus_pane_up = "ctrl+alt+up"
+focus_pane_right = "ctrl+alt+right"
 next_tab = "ctrl+alt+n"
 previous_tab = "ctrl+alt+p"
 next_workspace = "ctrl+alt+."
