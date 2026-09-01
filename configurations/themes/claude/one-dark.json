@@ -1,0 +1,29 @@
+{
+  "name": "One Dark",
+  "base": "dark",
+  "overrides": {
+    "claude": "#61afef",
+    "text": "#abb2bf",
+    "inactive": "#5c6370",
+    "subtle": "#5c6370",
+    "suggestion": "#61afef",
+    "permission": "#c678dd",
+    "remember": "#56b6c2",
+    "success": "#98c379",
+    "error": "#e06c75",
+    "warning": "#e5c07b",
+    "merged": "#c678dd",
+    "promptBorder": "#61afef",
+    "planMode": "#56b6c2",
+    "autoAccept": "#98c379",
+    "bashBorder": "#e5c07b",
+    "ide": "#61afef",
+    "fastMode": "#c678dd",
+    "diffAdded": "#3e4a42",
+    "diffRemoved": "#4d3941",
+    "diffAddedDimmed": "#333b3b",
+    "diffRemovedDimmed": "#3a323b",
+    "diffAddedWord": "#98c379",
+    "diffRemovedWord": "#e06c75"
+  }
+}
