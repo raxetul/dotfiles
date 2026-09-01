@@ -42,11 +42,18 @@ One mental model: add `alt` to go one layer out.
 
 | Action | Binding | Verified |
 | --- | --- | --- |
-| `goto` — enter navigate mode | `ctrl+alt+g` | 🟢 confirmed working |
-| `focus_pane_left/down/up/right` | `ctrl+alt+h/j/k/l` | 🟡 untested |
+| `goto` — enter navigate mode | `ctrl+alt+g` | 🔴 **does not fire** |
+| `focus_pane_left/down/up/right` | `ctrl+alt+h/j/k/l` | 🔴 j/k confirmed dead; h/l untested |
 | `next_tab` / `previous_tab` | `ctrl+alt+n` / `ctrl+alt+p` | 🟡 untested |
 | `next_workspace` / `previous_workspace` | `ctrl+alt+.` / `ctrl+alt+,` | 🟡 untested |
 | `switch_tab` (indexed) | `ctrl+alt+1..9` | 🟡 untested |
+
+> 🔴 **The `ctrl+alt` layer is not reaching herdr.** `herdr server
+> reload-config` reports `status: applied` with zero diagnostics, so herdr
+> accepts the bindings — the keys are simply not being delivered to it. Root
+> cause still open; see "Diagnosing an undelivered chord" below. An earlier
+> revision of this table recorded `ctrl+alt+g` as confirmed working; that was
+> wrong and is corrected here.
 
 `next_workspace` / `previous_workspace` are unbound in herdr's defaults; the
 rest are moved off the prefix.
@@ -95,6 +102,19 @@ herdr server reload-config   # apply without restarting the session
 herdr config reset-keys      # escape hatch: back up config.toml, drop custom keys
 ```
 
-Alt-modified chords are terminal-dependent — herdr's own docs flag them. If a
-binding above turns out not to be delivered under Ghostty, fall back to function
-keys (`f1`–`f8`), which herdr lists among the most reliable direct bindings.
+Alt-modified chords are terminal-dependent — herdr's own docs flag them.
+
+## Diagnosing an undelivered chord
+
+When a binding does not fire, first establish **which** of the three layers is
+losing it, in this order — each step rules out one:
+
+| # | Check | Rules out |
+| --- | --- | --- |
+| 1 | Which physical Option key? `configurations/ghostty/config` sets `macos-option-as-alt = left`, so **only the LEFT Option key produces Alt**. Right Option emits composed characters instead. | the most common false alarm |
+| 2 | What bytes actually arrive? Run `cat -v`, press the chord, read the escape sequence. Nothing printed → the terminal/OS ate it. `^[^G` (ESC + ctrl+G) → it arrived and herdr is the one not matching it. | terminal vs herdr |
+| 3 | Does the OS own it? macOS system shortcuts win before any terminal. `ctrl+alt+space` is *Select next input source* — that is why `goto` is not on it. | OS-level capture |
+
+Fallback, per herdr's own guidance on the most reliable direct bindings:
+function keys (`f1`–`f8`), or `ctrl+<letter>` chords that tmux does not already
+claim.
