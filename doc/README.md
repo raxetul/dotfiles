@@ -35,6 +35,7 @@ graph TD
 | `scripts/dotfiles-state.sh` | [state-management.md](state-management.md) — realized-state ledger |
 | `scripts/gpg-setup.sh` | (inline help) — GPG signing wizard |
 | `scripts/claude-worktree` | [claude-worktrees.md](claude-worktrees.md) — parallel Claude sessions in git worktrees |
+| `configurations/herdr/config.toml` | [herdr.md](herdr.md) — herdr keybindings, the ctrl+alt navigation layer, mode inventory |
 | `scripts/nix-uninstall.sh` | (inline help) — legacy Nix cleanup |
 | `scripts/dc-image-update` | [dc-image-update.md](dc-image-update.md) — interactive docker compose image pull/recreate helper |
 | `scripts/claude-reset.sh` | [claude-folder-reset.md](claude-folder-reset.md) — fully automatic, backup-first `~/.claude` cleanup |
