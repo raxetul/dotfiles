@@ -63,7 +63,7 @@
     "padding": 0
   },
   "tui": "fullscreen",
-  "theme": "dark",
+  "theme": "custom:one-dark",
   "teammateMode": "tmux",
   "enabledPlugins": {}
 }
