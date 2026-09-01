@@ -43,7 +43,7 @@ One mental model: add `alt` to go one layer out.
 | Action | Binding | Verified |
 | --- | --- | --- |
 | `goto` — enter navigate mode | `ctrl+alt+g` | 🔴 **does not fire** |
-| `focus_pane_left/down/up/right` | `ctrl+alt+h/j/k/l` | 🔴 j/k confirmed dead; h/l untested |
+| `focus_pane_left/down/up/right` | `ctrl+alt+←/↓/↑/→` | 🟡 awaiting test (was `h/j/k/l`, dead) |
 | `next_tab` / `previous_tab` | `ctrl+alt+n` / `ctrl+alt+p` | 🟡 untested |
 | `next_workspace` / `previous_workspace` | `ctrl+alt+.` / `ctrl+alt+,` | 🟡 untested |
 | `switch_tab` (indexed) | `ctrl+alt+1..9` | 🟡 untested |
@@ -113,7 +113,22 @@ losing it, in this order — each step rules out one:
 | --- | --- | --- |
 | 1 | Which physical Option key? `configurations/ghostty/config` sets `macos-option-as-alt = left`, so **only the LEFT Option key produces Alt**. Right Option emits composed characters instead. | the most common false alarm |
 | 2 | What bytes actually arrive? Run `cat -v`, press the chord, read the escape sequence. Nothing printed → the terminal/OS ate it. `^[^G` (ESC + ctrl+G) → it arrived and herdr is the one not matching it. | terminal vs herdr |
-| 3 | Does the OS own it? macOS system shortcuts win before any terminal. `ctrl+alt+space` is *Select next input source* — that is why `goto` is not on it. | OS-level capture |
+| 3 | Does the OS own it? macOS system shortcuts win before any terminal. `ctrl+alt+space` is *Select next input source*; `ctrl+↑` / `ctrl+↓` are Mission Control / Application Windows; `ctrl+cmd+←/→` move spaces. Read the live list with `defaults read com.apple.symbolichotkeys AppleSymbolicHotKeys`. | OS-level capture |
+
+### Letters vs arrows — why the encoding matters
+
+A modified **letter** reaches the terminal as an ESC-prefixed byte
+(`ctrl+alt+g` → `ESC` `0x07`), and whether that ESC is produced at all depends
+on `macos-option-as-alt`, which is set to `left` here — the **right** Option key
+never produces Alt. A modified **arrow** is a CSI sequence carrying the modifier
+as a numeric parameter (`ctrl+alt+left` → `ESC [ 1 ; 7 D`) and does not depend on
+that setting.
+
+That is why the pane-focus bindings moved from `h/j/k/l` to the arrow keys after
+the letter layer proved undeliverable. `goto`, the tab and the workspace
+bindings are still on `ctrl+alt+<letter>` and therefore still suspect — if the
+arrows work and the letters do not, the encoding difference is confirmed as the
+cause and the rest should move to function keys.
 
 Fallback, per herdr's own guidance on the most reliable direct bindings:
 function keys (`f1`–`f8`), or `ctrl+<letter>` chords that tmux does not already
