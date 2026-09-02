@@ -11,7 +11,7 @@
 #
 # Env:
 #   DOTFILES_DESKTOP=1  add Linux desktop links (waybar, dunst) on Linux
-#   CLAUDE_SKILLS_DIR   remote-less claude-skills repo to link ~/.claude/skills/*
+#   CLAUDE_SKILLS_DIR   the claude-skills repo to link ~/.claude/skills/*
 #                        from (default: ${HOME}/gel-ort/claude-skills). See
 #                        doc/claude-skills.md — never a fixed skill list here,
 #                        every top-level entry in that repo gets linked.
@@ -84,8 +84,9 @@ LINUX_DESKTOP_LINKS=(
   "configurations/waybar/style.css::.config/waybar/style.css"
 )
 
-# Claude skills live outside this repo entirely, in a remote-less local git
-# repo (see doc/claude-skills.md and hard rule in configurations/claude/CLAUDE.md).
+# Claude skills live outside this repo entirely, in their own git repo mirrored
+# to a private GitHub repo (see doc/claude-skills.md and the hard rule in
+# configurations/claude/CLAUDE.md).
 # Never a fixed array here — every top-level entry the skills repo currently
 # holds gets linked, so dropping a new skill in there needs no edit to this
 # script.

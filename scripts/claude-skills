@@ -1,44 +1,155 @@
 #!/usr/bin/env bash
-# scripts/claude-skills — manage the remote-less claude-skills repo.
+# scripts/claude-skills — manage the claude-skills repo and its private mirror.
 #
-# Skills are never vendored inside this repo (or any other project repo) and
-# never pushed to a remote, public or private. They live in their own local
-# git repo — versioned, but deliberately without a remote — and get backed
-# up as a `git bundle` instead of a `git push`. See doc/claude-skills.md.
+# Skills are never vendored inside this repo (or any other project repo). They
+# live in their own git repo, which MUST be mirrored to a PRIVATE GitHub repo
+# named after the dotfiles owner (<owner>/claude-skills, same host/URL shape as
+# dotfiles' own origin). `git bundle` stays as a second, fully local backup
+# layer. See doc/claude-skills.md.
 #
 # Usage:
-#   scripts/claude-skills init                 # create the repo if missing (idempotent, no remote)
-#   scripts/claude-skills status               # repo path, git status, remote check
+#   scripts/claude-skills init                 # create the repo if missing (idempotent)
+#   scripts/claude-skills ensure-remote [--interactive]
+#                                              # wire (or create) the private <owner>/claude-skills mirror
+#   scripts/claude-skills status               # repo path, remote + visibility, git status
 #   scripts/claude-skills commit [-m <msg>]    # stage + commit everything in the repo
-#   scripts/claude-skills bundle                # git bundle create, prune to last 5
+#   scripts/claude-skills bundle               # git bundle create, prune to last 5
 #   scripts/claude-skills restore <bundle>     # restore the repo from a bundle
-#   scripts/claude-skills link                  # (re)plant ~/.claude/skills/* symlinks
-#   scripts/claude-skills list                  # list skills currently in the repo
+#   scripts/claude-skills link                 # (re)plant ~/.claude/skills/* symlinks
+#   scripts/claude-skills list                 # list skills currently in the repo
 #
 # Env:
 #   CLAUDE_SKILLS_DIR         the repo itself (default: ${HOME}/gel-ort/claude-skills)
 #   CLAUDE_SKILLS_BUNDLE_DIR  where `bundle` writes/`restore` reads from
 #                             (default: ${HOME}/gel-ort/backups)
+#   DOTFILES_DIR              the dotfiles repo whose origin owner/host the mirror
+#                             copies (default: ${HOME}/gel-ort/dotfiles)
 #   DRY_RUN=1                 print intended actions, change nothing
 #
-# Idempotent: init/commit/bundle/link are all safe to re-run.
+# Idempotent: init/ensure-remote/commit/bundle/link are all safe to re-run.
 set -euo pipefail
 
 CLAUDE_SKILLS_DIR="${CLAUDE_SKILLS_DIR:-${HOME}/gel-ort/claude-skills}"
 CLAUDE_SKILLS_BUNDLE_DIR="${CLAUDE_SKILLS_BUNDLE_DIR:-${HOME}/gel-ort/backups}"
 BUNDLE_KEEP=5
+MIRROR_REPO_NAME="claude-skills"
 
 SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 die() { printf 'claude-skills: %s\n' "$*" >&2; exit 1; }
 say() { printf '==> %s\n' "$*"; }
-usage() { sed -n '2,24p' "$0" | sed 's/^# \{0,1\}//'; }
+warn() { printf 'WARNING: %s\n' "$*" >&2; }
+usage() { sed -n '2,29p' "$0" | sed 's/^# \{0,1\}//'; }
 
 _dry() { [ "${DRY_RUN:-0}" = "1" ]; }
 
 _require_repo() {
   [ -d "${CLAUDE_SKILLS_DIR}/.git" ] \
     || die "no repo at ${CLAUDE_SKILLS_DIR} — run 'scripts/claude-skills init' first."
+}
+
+# === Remote helpers ===
+
+# _parse_remote_url <url> — echo "<shape> <host> <owner> <repo>" for either
+# supported remote URL shape, or return 1 when it matches neither:
+#   ssh    git@<host>:<owner>/<repo>[.git]
+#   https  https://<host>/<owner>/<repo>[.git]
+_parse_remote_url() {
+  local url="$1" path host owner repo
+  case "${url}" in
+    git@*:*/*)
+      host="${url#git@}"
+      host="${host%%:*}"
+      path="${url#*:}"
+      ;;
+    https://*/*/*)
+      path="${url#https://}"
+      host="${path%%/*}"
+      path="${path#*/}"
+      ;;
+    *) return 1 ;;
+  esac
+  owner="${path%%/*}"
+  repo="${path#*/}"
+  repo="${repo%.git}"
+  [ -n "${host}" ] && [ -n "${owner}" ] && [ -n "${repo}" ] || return 1
+  case "${url}" in
+    git@*) printf 'ssh %s %s %s\n' "${host}" "${owner}" "${repo}" ;;
+    *)     printf 'https %s %s %s\n' "${host}" "${owner}" "${repo}" ;;
+  esac
+}
+
+# _build_remote_url <shape> <host> <owner> <repo> — inverse of the parser, so
+# the mirror keeps the same URL shape dotfiles' own origin uses (never forces
+# SSH on an HTTPS setup or the other way round).
+_build_remote_url() {
+  case "$1" in
+    ssh)   printf 'git@%s:%s/%s.git\n' "$2" "$3" "$4" ;;
+    https) printf 'https://%s/%s/%s.git\n' "$2" "$3" "$4" ;;
+    *)     return 1 ;;
+  esac
+}
+
+# _expected_mirror — echo "<shape> <host> <owner>" derived from the dotfiles
+# repo's own origin. Warns and returns 1 (non-fatal for every caller) when the
+# dotfiles repo or its origin can't be read.
+_expected_mirror() {
+  local dotfiles_dir url parsed shape host owner
+  dotfiles_dir="${DOTFILES_DIR:-${HOME}/gel-ort/dotfiles}"
+  # `rev-parse`, not `[ -d .git ]`: in a linked worktree .git is a *file*, and
+  # this repo is routinely used from worktrees.
+  if ! git -C "${dotfiles_dir}" rev-parse --git-dir >/dev/null 2>&1; then
+    warn "no dotfiles git repo at ${dotfiles_dir} — cannot derive the expected mirror; set DOTFILES_DIR."
+    return 1
+  fi
+  url="$(git -C "${dotfiles_dir}" remote get-url origin 2>/dev/null || true)"
+  if [ -z "${url}" ]; then
+    warn "dotfiles repo at ${dotfiles_dir} has no origin remote — cannot derive the expected mirror."
+    return 1
+  fi
+  if ! parsed="$(_parse_remote_url "${url}")"; then
+    warn "cannot parse dotfiles origin URL '${url}' — expected git@host:owner/repo or https://host/owner/repo."
+    return 1
+  fi
+  read -r shape host owner _ <<<"${parsed}"
+  printf '%s %s %s\n' "${shape}" "${host}" "${owner}"
+}
+
+_gh_ready() {
+  command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1
+}
+
+# _gh_visibility <owner/repo> — echo "private" or "public", or return 1 when gh
+# can't tell us (no such repo, no network, insufficient scope).
+_gh_visibility() {
+  local out
+  out="$(gh repo view "$1" --json isPrivate --jq '.isPrivate' 2>/dev/null)" || return 1
+  case "${out}" in
+    true)  printf 'private\n' ;;
+    false) printf 'public\n' ;;
+    *)     return 1 ;;
+  esac
+}
+
+# _say_visibility <owner/repo> <url> — print the remote plus its GitHub
+# visibility as plain INFORMATION. A public mirror is the user's own deliberate
+# choice: this tooling only ever *creates* private repos and never flips
+# visibility in either direction, so "public" is never a warning here.
+_say_visibility() {
+  local full="$1" url="$2" vis
+  if ! _gh_ready; then
+    printf 'remote: %s (visibility unknown — gh missing or not authenticated)\n' "${url}"
+    return 0
+  fi
+  if ! vis="$(_gh_visibility "${full}")"; then
+    printf 'remote: %s (visibility unknown — gh could not read %s)\n' "${url}" "${full}"
+    return 0
+  fi
+  if [ "${vis}" = "private" ]; then
+    printf 'remote: %s (private)\n' "${url}"
+  else
+    printf "remote: %s (public — user's own choice)\n" "${url}"
+  fi
 }
 
 # === Subcommands ===
@@ -49,7 +160,7 @@ cmd_init() {
     return 0
   fi
 
-  say "claude-skills repo not found at ${CLAUDE_SKILLS_DIR} — creating it empty (no remote)"
+  say "claude-skills repo not found at ${CLAUDE_SKILLS_DIR} — creating it empty (remote wired by ensure-remote)"
   if _dry; then
     printf 'DRY-RUN: mkdir -p %s && git init\n' "${CLAUDE_SKILLS_DIR}"
     return 0
@@ -58,16 +169,124 @@ cmd_init() {
   git -C "${CLAUDE_SKILLS_DIR}" init -q
 }
 
+# cmd_ensure_remote [--interactive] — guarantee the repo has its required
+# private GitHub mirror. Missing remote is a real problem; an existing remote
+# that happens to be public is not (see _say_visibility).
+cmd_ensure_remote() {
+  _require_repo
+
+  local interactive=0
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --interactive) interactive=1; shift ;;
+      *) die "unknown ensure-remote argument: $1" ;;
+    esac
+  done
+
+  local expected shape host owner expected_url expected_full current
+  expected="$(_expected_mirror)" || return 0
+  read -r shape host owner <<<"${expected}"
+  expected_url="$(_build_remote_url "${shape}" "${host}" "${owner}" "${MIRROR_REPO_NAME}")"
+  expected_full="${owner}/${MIRROR_REPO_NAME}"
+
+  current="$(git -C "${CLAUDE_SKILLS_DIR}" remote get-url origin 2>/dev/null || true)"
+
+  # --- An origin already exists: verify, report, create nothing. ---
+  if [ -n "${current}" ]; then
+    local parsed cur_host cur_owner cur_repo report_full="${expected_full}"
+    if parsed="$(_parse_remote_url "${current}")"; then
+      read -r _ cur_host cur_owner cur_repo <<<"${parsed}"
+      report_full="${cur_owner}/${cur_repo}"
+      if [ "${cur_host}" = "${host}" ] && [ "${cur_owner}" = "${owner}" ] \
+         && [ "${cur_repo}" = "${MIRROR_REPO_NAME}" ]; then
+        say "already configured correctly: origin -> ${current}"
+      else
+        warn "origin is ${current} but the expected mirror is ${expected_url} — leaving it as-is;"
+        warn "re-point it yourself if that is not deliberate (git -C ${CLAUDE_SKILLS_DIR} remote set-url origin …)."
+      fi
+    else
+      warn "origin is ${current}, which is not a parseable GitHub URL — reporting best effort only."
+    fi
+    _say_visibility "${report_full}" "${current}"
+    return 0
+  fi
+
+  # --- No origin at all: this is the real problem case. ---
+  say "no origin on ${CLAUDE_SKILLS_DIR} — the required private mirror ${expected_full} is not wired up"
+
+  if ! _gh_ready; then
+    warn "gh is missing or not authenticated — skipping the mirror check/creation for now."
+    warn "Run 'gh auth login', then 'scripts/claude-skills ensure-remote'."
+    return 0
+  fi
+
+  # Already on GitHub (e.g. another host on this account created it): just wire
+  # it up. Nothing is being created, so no prompt is warranted even interactively.
+  if gh repo view "${expected_full}" >/dev/null 2>&1; then
+    say "${expected_full} already exists on ${host} — wiring it as origin (creating nothing)"
+    if _dry; then
+      printf 'DRY-RUN: git -C %s remote add origin %s\n' "${CLAUDE_SKILLS_DIR}" "${expected_url}"
+      return 0
+    fi
+    git -C "${CLAUDE_SKILLS_DIR}" remote add origin "${expected_url}"
+    _say_visibility "${expected_full}" "${expected_url}"
+    return 0
+  fi
+
+  # --- Must create it. ---
+  if [ "${interactive}" -eq 1 ]; then
+    printf 'The claude-skills repo needs a PRIVATE GitHub mirror so skills survive losing this host.\n'
+    printf 'It mirrors the dotfiles remote owner, so the expected repo is %s on %s.\n' \
+      "${expected_full}" "${host}"
+    local ans=""
+    read -rp "Create private GitHub repo ${expected_full} now? [Y/n] " ans || ans=""
+    case "${ans}" in
+      ""|y|Y|yes|Yes) ;;
+      *)
+        warn "skipped — a private ${expected_full} mirror is required by policy; this is re-checked on"
+        warn "the next setup.sh / scripts/update-dotfiles run."
+        return 0
+        ;;
+    esac
+  else
+    say "creating ${expected_full} as a PRIVATE repo without asking (unattended run) — required by policy"
+  fi
+
+  local -a create=(gh repo create "${expected_full}" --private
+                   --source="${CLAUDE_SKILLS_DIR}" --remote=origin)
+  if git -C "${CLAUDE_SKILLS_DIR}" log -1 >/dev/null 2>&1; then
+    create+=(--push)
+  else
+    say "local repo has no commits yet — creating without --push; the next 'claude-skills commit' lands first"
+  fi
+
+  if _dry; then
+    printf 'DRY-RUN: %s\n' "${create[*]}"
+    printf 'DRY-RUN: git -C %s remote set-url origin %s\n' "${CLAUDE_SKILLS_DIR}" "${expected_url}"
+    return 0
+  fi
+
+  "${create[@]}"
+  # gh picks the remote URL from the user's git protocol preference; normalize
+  # it back to the shape dotfiles itself uses.
+  git -C "${CLAUDE_SKILLS_DIR}" remote set-url origin "${expected_url}"
+  say "created private ${expected_full} and wired it as origin -> ${expected_url}"
+}
+
 cmd_status() {
   _require_repo
   printf 'repo:   %s\n' "${CLAUDE_SKILLS_DIR}"
 
-  local remotes
-  remotes="$(git -C "${CLAUDE_SKILLS_DIR}" remote -v)"
-  if [ -n "${remotes}" ]; then
-    printf 'remote: WARNING — a remote is configured, this repo must stay remote-less:\n%s\n' "${remotes}" >&2
+  local origin_url parsed owner repo
+  origin_url="$(git -C "${CLAUDE_SKILLS_DIR}" remote get-url origin 2>/dev/null || true)"
+  if [ -z "${origin_url}" ]; then
+    printf 'remote: WARNING — no origin; the required private mirror is missing.\n' >&2
+    printf "        Run 'scripts/claude-skills ensure-remote' (setup.sh / update-dotfiles also do it).\n" >&2
+  elif parsed="$(_parse_remote_url "${origin_url}")"; then
+    read -r _ _ owner repo <<<"${parsed}"
+    _say_visibility "${owner}/${repo}" "${origin_url}"
   else
-    printf 'remote: (none) — as designed\n'
+    printf 'remote: %s\n' "${origin_url}"
   fi
 
   printf '\n-- git status --\n'
@@ -151,7 +370,7 @@ cmd_restore() {
   [ -n "${head_branch}" ] || die "could not determine a branch from the bundle"
 
   if _dry; then
-    printf 'DRY-RUN: restore %s into %s (branch: %s), via git fetch — no remote added\n' \
+    printf 'DRY-RUN: restore %s into %s (branch: %s), via git fetch — the bundle is never recorded as a remote\n' \
       "${bundle}" "${CLAUDE_SKILLS_DIR}" "${head_branch}"
     return 0
   fi
@@ -170,16 +389,20 @@ cmd_restore() {
   fi
 
   # `git fetch <path> <refspec>` pulls straight from the bundle file without
-  # ever recording it as a remote — the repo stays remote-less afterward.
+  # ever recording the bundle as a remote — so `origin` stays free for the
+  # private GitHub mirror that `ensure-remote` wires up.
   git -C "${CLAUDE_SKILLS_DIR}" fetch -q "${bundle}" 'refs/heads/*:refs/heads/*'
   git -C "${CLAUDE_SKILLS_DIR}" checkout -q "${head_branch}"
   git -C "${CLAUDE_SKILLS_DIR}" branch -D __claude-skills-restore__ >/dev/null 2>&1 || true
 
   say "restored ${CLAUDE_SKILLS_DIR} from ${bundle} (branch: ${head_branch})"
-  local remotes
-  remotes="$(git -C "${CLAUDE_SKILLS_DIR}" remote -v)"
-  [ -z "${remotes}" ] && say "remote check: (none), as designed" \
-    || printf 'WARNING: remote present after restore:\n%s\n' "${remotes}" >&2
+  local origin_url
+  origin_url="$(git -C "${CLAUDE_SKILLS_DIR}" remote get-url origin 2>/dev/null || true)"
+  if [ -n "${origin_url}" ]; then
+    say "remote check: origin -> ${origin_url}"
+  else
+    say "remote check: no origin yet — run 'scripts/claude-skills ensure-remote' to wire the private mirror"
+  fi
 }
 
 cmd_link() {
@@ -201,13 +424,14 @@ cmd_list() {
 
 case "${1:-}" in
   ""|-h|--help) usage ;;
-  init)    cmd_init ;;
-  status)  cmd_status ;;
-  commit)  shift; cmd_commit "$@" ;;
-  bundle)  cmd_bundle ;;
-  restore) shift; cmd_restore "$@" ;;
-  link)    cmd_link ;;
-  list)    cmd_list ;;
+  init)          cmd_init ;;
+  ensure-remote) shift; cmd_ensure_remote "$@" ;;
+  status)        cmd_status ;;
+  commit)        shift; cmd_commit "$@" ;;
+  bundle)        cmd_bundle ;;
+  restore)       shift; cmd_restore "$@" ;;
+  link)          cmd_link ;;
+  list)          cmd_list ;;
   *)
     usage
     die "unknown subcommand: $1"

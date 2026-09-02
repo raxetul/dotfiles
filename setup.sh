@@ -11,8 +11,9 @@
 #      starship/atuin/claude/lefthook release-binary fallbacks where the
 #      native package manager lacks them)
 #   6. bootstraps user-scope plugin managers (vim-plug, TPM, zsh plugins)
-#   6.5. ensures the remote-less claude-skills repo exists (creates it
-#        empty via `git init` on a new host — never clones a remote)
+#   6.5. ensures the claude-skills repo exists and is mirrored to its
+#        required PRIVATE GitHub repo (<owner>/claude-skills, asking
+#        first — a human is present here)
 #   7. plants symlinks from configurations/ into $HOME via
 #      scripts/symlinks.sh (skills symlinked from the claude-skills repo)
 #   8. makes zsh the login shell
@@ -36,7 +37,7 @@ for arg in "$@"; do
         --server)  PROFILE="server"  ;;
         --update)  UPDATE=1 ;;
         -h|--help)
-            sed -n '2,21p' "$0"
+            sed -n '2,27p' "$0"
             exit 0
             ;;
         *)
@@ -367,16 +368,22 @@ fi
 # CLAUDE.md §10 and packages/custom-install/README.md.
 
 # ------------------------------------------------------------------
-# Step 4.5 — ensure the claude-skills repo exists (no remote).
+# Step 4.5 — ensure the claude-skills repo exists and has its private mirror.
 #
 # Skills are never vendored in this repo (see doc/claude-skills.md) — they
-# live in a separate, remote-less local git repo that scripts/symlinks.sh
-# links from. On a brand-new host that repo doesn't exist yet: create it
-# empty via `git init` and warn once. NEVER clone it from a remote — by
-# design it never has one; restoring one is a deliberate, manual
-# `scripts/claude-skills restore <bundle>`, not something setup.sh guesses.
+# live in a separate git repo that scripts/symlinks.sh links from. On a
+# brand-new host that repo doesn't exist yet: `init` creates it empty via
+# `git init`. `ensure-remote` then guarantees the required PRIVATE GitHub
+# mirror, named after the dotfiles owner (<owner>/claude-skills, derived from
+# this repo's own origin). It runs --interactive here specifically because a
+# human is present: if the GitHub repo has to be created, setup.sh asks first
+# (scripts/update-dotfiles, which may run unattended, creates it silently).
+# Declining is non-fatal — it's re-checked on the next run. Bundles
+# (`scripts/claude-skills bundle|restore`) remain the second, local-only
+# backup layer.
 # ------------------------------------------------------------------
 "${DIR}/scripts/claude-skills" init
+"${DIR}/scripts/claude-skills" ensure-remote --interactive
 
 # ------------------------------------------------------------------
 # Step 5 — plant symlinks from configurations/ into $HOME.

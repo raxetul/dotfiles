@@ -1,47 +1,86 @@
 ---
 status: source-of-truth
 maintainer: emrahurhan@buyutech.com.tr
-claude-rule: "Claude skills live ONLY in ${CLAUDE_SKILLS_DIR} (default ${HOME}/gel-ort/claude-skills) — a local git repo, deliberately without a remote. They are never vendored inside configurations/claude/skills/ (or any other path) in this dotfiles repo, and never pushed to any remote, public or private. scripts/symlinks.sh links ~/.claude/skills/<name> from that repo dynamically (every top-level entry, not a fixed list); scripts/claude-skills manages the repo itself (init/status/commit/bundle/restore/link/list). New technology variety inside a skill is still expressed as a references/ file, never a new skill. Solana/crypto/hackathon-specific skills stay archived outside both, at ${HOME}/gel-ort/claude-skills-archive/."
+claude-rule: "Claude skills live ONLY in ${CLAUDE_SKILLS_DIR} (default ${HOME}/gel-ort/claude-skills) — a git repo of its own, which MUST be mirrored to a PRIVATE GitHub repo named after the dotfiles owner (<owner>/claude-skills, same host and URL shape as the dotfiles origin). They are never vendored inside configurations/claude/skills/ (or any other path) in this dotfiles repo, and never pushed to a PUBLIC remote. setup.sh asks before creating that mirror; scripts/update-dotfiles creates it without asking when it is still missing; neither ever flips an existing repo's visibility. scripts/symlinks.sh links ~/.claude/skills/<name> from that repo dynamically (every top-level entry, not a fixed list); scripts/claude-skills manages the repo itself (init/ensure-remote/status/commit/bundle/restore/link/list), with git bundle kept as a second, fully local backup layer. New technology variety inside a skill is still expressed as a references/ file, never a new skill. Solana/crypto/hackathon-specific skills stay archived outside both, at ${HOME}/gel-ort/claude-skills-archive/."
 ---
 
-# Claude skills — the remote-less global repo
+# Claude skills — the global repo and its private mirror
 
 ## Why this exists
 
 Skills used to live inside this repo, at `configurations/claude/skills/`, symlinked into
-`~/.claude/skills/` like any other managed config. That broke a hard rule that was never written
-down until it was violated: **skills must never be exposed to git remotes, public or private.**
-`raxetul/dotfiles` was confirmed to be a **public** GitHub repository, and 11 skills had already
-been pushed to it. This doc — and the migration it records — replaces that setup with a
-**separate, remote-less local git repository** that this repo only *links into*, never vendors.
+`~/.claude/skills/` like any other managed config. `raxetul/dotfiles` was confirmed to be a
+**public** GitHub repository, and 11 skills had already been pushed to it. That is the mistake this
+setup exists to prevent: skills carry capability and knowledge, so they must never sit on a
+**public** remote. They moved into `${CLAUDE_SKILLS_DIR}` — a git repo of its own that this repo
+only *links into*, never vendors.
 
-The two things that changed and the one thing that didn't:
+The exposure problem is about **visibility, not about remotes**. A repo with no remote at all is
+safe from leaking but also unbacked: lose the disk, lose every skill. So the current policy pairs
+the separate repo with a **required private GitHub mirror**:
 
-- **Changed — where skills live.** Not `configurations/claude/skills/` inside `dotfiles` anymore.
-  Now `${CLAUDE_SKILLS_DIR}` (default `${HOME}/gel-ort/claude-skills`), a git repo of its own.
-- **Changed — how they're backed up.** Not `git push`. `git bundle`, via
-  `scripts/claude-skills bundle`, written to `${CLAUDE_SKILLS_BUNDLE_DIR}` (default
-  `${HOME}/gel-ort/backups`), retaining the last 5.
-- **Unchanged — the taxonomy decisions.** Technology variety inside a skill is still a
-  `references/` file, not a new skill (see below). Domain-specific skills (this machine's case:
-  Solana/crypto/hackathon) still don't belong in a general-purpose skills store — they stay
-  archived, untouched by this migration, at `${HOME}/gel-ort/claude-skills-archive/`.
+| Aspect | Policy |
+| --- | --- |
+| Where skills live | `${CLAUDE_SKILLS_DIR}` (default `${HOME}/gel-ort/claude-skills`), a git repo of its own |
+| Remote | **Required**, and named after the dotfiles owner: `<owner>/claude-skills` |
+| Visibility on creation | **Always private.** The tooling never creates a public one, and never flips visibility either way |
+| Who wires it | `scripts/claude-skills ensure-remote`, called by `setup.sh` (asks first) and `scripts/update-dotfiles` (doesn't) |
+| Second backup layer | `git bundle` via `scripts/claude-skills bundle` — unchanged, additive, fully local |
+| Unchanged — the taxonomy decisions | Technology variety inside a skill is still a `references/` file, not a new skill. Solana/crypto/hackathon skills stay archived at `${HOME}/gel-ort/claude-skills-archive/` |
 
-## Why remote-less, specifically
+## How the mirror name is derived
 
-Versioning skills with git is still valuable — full history, diffs, `git log` on every change to
-a skill's guidance. What's not acceptable is a *remote*, because a remote is exactly the mechanism
-that leaked 11 skills into a public repo in the first place. So the skills repo is git, deliberately
-without a remote:
+Nothing is hardcoded. `ensure-remote` reads the **dotfiles repo's own** `origin` (path from
+`DOTFILES_DIR`, default `${HOME}/gel-ort/dotfiles`), parses out the host and owner, and keeps the
+same URL *shape* — SSH stays SSH, HTTPS stays HTTPS:
+
+| dotfiles `origin` | expected claude-skills mirror |
+| --- | --- |
+| `git@github.com:raxetul/dotfiles.git` | `git@github.com:raxetul/claude-skills.git` |
+| `https://github.com/raxetul/dotfiles` | `https://github.com/raxetul/claude-skills.git` |
+
+If `DOTFILES_DIR` isn't a git repo, or has no parseable `origin`, `ensure-remote` warns and stops
+there — it never breaks `init` or any other subcommand over it.
+
+## Creating the mirror: who asks, who doesn't
+
+`gh` (GitHub CLI) does the create; it's a declared dependency in every package list. If `gh` is
+missing or unauthenticated, the whole remote step is skipped with a warning — dotfiles keeps
+working on a host where `gh` isn't set up yet.
+
+| Situation | `setup.sh` (`ensure-remote --interactive`) | `scripts/update-dotfiles` (`ensure-remote`) |
+| --- | --- | --- |
+| Origin already correct | Confirms it, prints visibility, does nothing | Same |
+| Origin missing, GitHub repo **exists** | Wires `origin` — no prompt, nothing is being created | Same |
+| Origin missing, GitHub repo **absent** | Explains why it's needed, then **asks** `[Y/n]`; declining is non-fatal and re-checked next run | **Creates it private without asking** (an update run may be unattended), logging what it did and why |
+| Local repo has zero commits | Creates without `--push`; the next `claude-skills commit` is the first thing that lands | Same |
+
+Creating the *local* skills repo is `setup.sh`'s job, so `update-dotfiles` skips its
+`claude-skills-remote` stage with a warning (never a failure) on a host where
+`${CLAUDE_SKILLS_DIR}` doesn't exist yet. That stage is also reachable on its own:
 
 ```sh
-git -C "${CLAUDE_SKILLS_DIR}" remote -v   # must always print nothing
+scripts/update-dotfiles --only=claude-skills-remote
+scripts/update-dotfiles --only=claude-skills-remote --dry-run   # prints, changes nothing
 ```
 
-`scripts/claude-skills status` checks and warns loudly if that ever stops being true. Backups are
-`git bundle` files, not a push target — a bundle is a single file that carries full repo history
-and can restore a complete clone, with no server, no network call, and no remote left behind (see
-"Bundle backup discipline" below for exactly how `restore` avoids leaving one).
+## Missing remote vs. public remote
+
+Two different situations, deliberately reported differently:
+
+- **No remote at all** → a real problem. `scripts/claude-skills status` prints a `WARNING`, and the
+  next `setup.sh` / `update-dotfiles` run fixes it.
+- **Remote present but public** → **information, not an alarm.** The user may flip that repo to
+  public themselves, deliberately; the "must be private" rule governs what *this tooling does when
+  it creates the repo*, not a perpetual runtime check that nags about a choice the user made. So
+  `status` prints `remote: <url> (public — user's own choice)` and moves on.
+
+The invariant to check by hand:
+
+```sh
+git -C "${CLAUDE_SKILLS_DIR}" remote get-url origin
+# must print the expected private mirror, e.g. git@github.com:raxetul/claude-skills.git
+```
 
 ## Repo location and layout
 
@@ -84,7 +123,7 @@ to touch `symlinks.sh` directly.
 
 ```mermaid
 flowchart LR
-    subgraph GLOBAL["${CLAUDE_SKILLS_DIR} — local git, NO remote"]
+    subgraph GLOBAL["${CLAUDE_SKILLS_DIR} — git repo, PRIVATE GitHub mirror"]
         direction TB
         S1[backend-development]
         S2["… 8 more domain-agnostic skills"]
@@ -102,12 +141,20 @@ flowchart LR
 
     subgraph DOTFILES["dotfiles repo"]
         direction TB
-        CS["scripts/claude-skills\ninit · status · commit · bundle · restore · link · list"]
-        SETUP["setup.sh Step 4.5\ngit init if missing — NEVER clones a remote"]
+        CS["scripts/claude-skills\ninit · ensure-remote · status · commit · bundle · restore · link · list"]
+        SETUP["setup.sh Step 4.5\ngit init if missing, then\nensure-remote --interactive (ASKS first)"]
+        UPD["scripts/update-dotfiles\nstage claude-skills-remote\nensure-remote (no prompt, may be unattended)"]
     end
 
     CS -.->|manages| GLOBAL
-    SETUP -.->|bootstraps empty repo on new host| GLOBAL
+    SETUP -.->|bootstraps repo on new host| GLOBAL
+    UPD -.->|re-checks the mirror on every update| GLOBAL
+
+    MIRROR["<owner>/claude-skills on GitHub\ncreated PRIVATE, name derived from dotfiles' own origin owner"]
+    GLOBAL -->|"origin — claude-skills commit, then git push"| MIRROR
+    MIRROR -->|"git clone on the next host"| GLOBAL
+    DFREMOTE["dotfiles origin\ngit@host:<owner>/dotfiles.git"]
+    DFREMOTE -.->|"host + owner + URL shape copied from here"| MIRROR
 
     BUNDLE["${CLAUDE_SKILLS_BUNDLE_DIR}/claude-skills-<date>.bundle\n(last 5 kept)"]
     GLOBAL -->|"claude-skills bundle"| BUNDLE
@@ -125,18 +172,20 @@ most recent bundles (filenames sort lexically in date order, so this is a plain 
 `stat`-based mtime scan). Run it after any batch of skill edits — there's no automatic trigger by
 design; a skill change is deliberate enough to deserve a deliberate backup step.
 
-`scripts/claude-skills restore <bundle>` rebuilds the repo from a bundle **without ever adding a
-remote**: it runs `git fetch <bundle-file> 'refs/heads/*:refs/heads/*'` — a one-off fetch with an
-explicit path argument, which git never records as a named remote — instead of `git clone
-<bundle-file> <dest>`, which would leave `origin` pointing at the bundle path. It also refuses to
-run against a `${CLAUDE_SKILLS_DIR}` that already has commit history, to avoid silently discarding
-work; move the existing repo aside first if a full replace is really intended.
+`scripts/claude-skills restore <bundle>` rebuilds the repo from a bundle **without recording the
+bundle as a remote**: it runs `git fetch <bundle-file> 'refs/heads/*:refs/heads/*'` — a one-off
+fetch with an explicit path argument, which git never records as a named remote — instead of `git
+clone <bundle-file> <dest>`, which would leave `origin` pointing at the bundle path. That keeps
+`origin` free for the private GitHub mirror `ensure-remote` wires up; after a restore, `restore`
+itself reports whether an `origin` is present and points at `ensure-remote` when it isn't. It also
+refuses to run against a `${CLAUDE_SKILLS_DIR}` that already has commit history, to avoid silently
+discarding work; move the existing repo aside first if a full replace is really intended.
 
-On a brand-new host, `setup.sh` (Step 4.5) and `scripts/claude-skills init` both create the repo
-**empty** via `git init` if it doesn't exist yet — never by cloning a remote, because by design
-there isn't one. Restoring real content onto a fresh host is a deliberate, manual
-`scripts/claude-skills restore <bundle>` from whatever bundle was last backed up, copied over by
-hand (USB, scp, whatever out-of-band channel — never a git remote).
+On a brand-new host, `setup.sh` (Step 4.5) and `scripts/claude-skills init` create the repo
+**empty** via `git init` if it doesn't exist yet, and `ensure-remote` then wires the private mirror
+(and pushes, once there is at least one commit). Restoring from a bundle stays the offline path —
+useful when the mirror is unreachable, or for a point-in-time copy carried by hand (USB, scp) —
+not the primary one any more.
 
 ## The `references/` pattern
 
@@ -189,7 +238,7 @@ disambiguation the migration was prepared to apply.
 Applies to the original 11 (from `~/.claude/skills/` before ANY of it was repo-tracked): every
 local skill was classified KEEP (domain-agnostic engineering value — now in the global repo) or
 ARCHIVE (Solana/crypto/hackathon-specific — moved to `${HOME}/gel-ort/claude-skills-archive/`, not
-deleted). This table is historical record and hasn't changed with the remote-less migration.
+deleted). This table is historical record and hasn't changed with the move out of `dotfiles`.
 
 | Skill | Decision | Reason |
 | --- | --- | --- |
@@ -215,7 +264,7 @@ sends a `curl` POST (skill name, phase, platform, timestamp) to an external Conv
 appends to a local `telemetry.jsonl`, *before* the in-skill consent prompt has necessarily been
 answered on a fresh machine. This was flagged during the original migration into `dotfiles`; the
 explicit decision was to carry skills over **as-is, preamble included**, and that decision carries
-forward into this remote-less migration too — nothing about the preamble changed. YOU SHOULD
+forward into the separate skills repo too — nothing about the preamble changed. YOU SHOULD
 VERIFY whether this is acceptable under this machine's information-security policy
 (vetted-plugins-only, no unreviewed external calls) before relying on these skills in a work
 context — this doc records the decision, not a security sign-off.
