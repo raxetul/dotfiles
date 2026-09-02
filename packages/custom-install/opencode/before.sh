@@ -11,7 +11,9 @@
 # and is still auto-updated, but its formula points at the same
 # github.com/anomalyco/opencode release artifacts and trips the same gate
 # via lineage tracking — tapping it buys nothing over anomalyco/tap
-# directly. The lead explicitly approved trusting anomalyco/tap (2026-09-02).
+# directly. The repo owner approved this tap on 2026-09-02, after being shown
+# that brew offers no other route to opencode and that the untrusted-tap gate
+# fires for EVERY non-core tap rather than being specific to this one.
 #
 # Linux: opencode has no apt/pacman/dnf package either; it's installed by
 # the upstream script in after.sh instead, so this hook is a no-op there.

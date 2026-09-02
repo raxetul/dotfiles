@@ -4,8 +4,9 @@
 #
 # macOS only: this machine originally ran ollama via the upstream
 # Ollama.app installer (/usr/local/bin/ollama symlinked into
-# /Applications/Ollama.app/...), not brew — the lead asked to migrate this
-# Mac to the brew formula (approved 2026-09-02). Both bind the same
+# /Applications/Ollama.app/...), not brew. The repo owner approved moving it
+# to the brew formula on 2026-09-02, brew being their stated first lane.
+# Both bind the same
 # 127.0.0.1:11434 port, so the .app-managed server is quit here, BEFORE
 # brew installs/starts the formula, to avoid a port conflict.
 #
