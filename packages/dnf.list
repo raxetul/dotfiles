@@ -99,6 +99,10 @@ zip
 unzip
 asciinema
 
+# AI / LLM tooling
+ollama                     # official Fedora package — opencode has no dnf package,
+                            # see custom-install/opencode/after.sh
+
 # Fonts
 fontawesome-fonts
 jetbrains-mono-fonts

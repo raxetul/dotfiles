@@ -139,6 +139,13 @@ Markers on the package name:
 | unzip | Extract ZIP archives | brew | apt | arch | dnf |
 | asciinema | Terminal session recorder | brew | apt | arch | dnf |
 
+## AI / LLM tooling
+
+| Package | Description | macOS | Debian/Ubuntu | Arch | Fedora |
+|---|---|---|---|---|---|
+| opencode | AI coding agent (TUI) | brew | custom | custom | custom |
+| ollama | Local LLM model runner | brew | custom | arch | dnf |
+
 ## Fonts
 
 | Package | Description | macOS | Debian/Ubuntu | Arch | Fedora |

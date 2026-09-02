@@ -66,6 +66,17 @@ brew "zip"
 brew "unzip"
 brew "asciinema"
 
+# === AI / LLM tooling ===
+# opencode has no homebrew-core formula; anomalyco/tap is the only tap that
+# builds it (sst/tap mirrors the same github.com/anomalyco/opencode release
+# artifacts — same lineage, same untrusted-tap gate, no advantage over tapping
+# anomalyco/tap directly). The tap + trust step run in
+# custom-install/opencode/before.sh, BEFORE this line is reached.
+tap "anomalyco/tap"
+brew "anomalyco/tap/opencode"
+brew "ollama"              # core formula; custom-install/ollama/{before,after}.sh
+                            # migrate this Mac off the upstream .app installer
+
 # === Fonts ===
 cask "font-fontawesome"
 cask "font-jetbrains-mono"

@@ -90,6 +90,11 @@ zip
 unzip
 asciinema
 
+# AI / LLM tooling
+# ollama and opencode have no Debian/Ubuntu apt package — both are handled by
+# custom-install/{ollama,opencode}/after.sh (ollama: snap fallback; opencode:
+# upstream install script to ~/.opencode/bin).
+
 # Fonts
 fonts-font-awesome
 fonts-jetbrains-mono
