@@ -39,6 +39,7 @@ graph TD
 | `scripts/nix-uninstall.sh` | (inline help) — legacy Nix cleanup |
 | `scripts/dc-image-update` | [dc-image-update.md](dc-image-update.md) — interactive docker compose image pull/recreate helper |
 | `scripts/claude-reset.sh` | [claude-folder-reset.md](claude-folder-reset.md) — fully automatic, backup-first `~/.claude` cleanup |
+| `scripts/agent-skills` | [agent-skills.md](agent-skills.md) — global skills repo shared by Claude Code + opencode, its private mirror |
 
 ## Packages
 

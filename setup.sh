@@ -11,11 +11,11 @@
 #      starship/atuin/claude/lefthook release-binary fallbacks where the
 #      native package manager lacks them)
 #   6. bootstraps user-scope plugin managers (vim-plug, TPM, zsh plugins)
-#   6.5. ensures the claude-skills repo exists and is mirrored to its
-#        required PRIVATE GitHub repo (<owner>/claude-skills, asking
+#   6.5. ensures the agent-skills repo exists and is mirrored to its
+#        required PRIVATE GitHub repo (<owner>/agent-skills, asking
 #        first — a human is present here)
 #   7. plants symlinks from configurations/ into $HOME via
-#      scripts/symlinks.sh (skills symlinked from the claude-skills repo)
+#      scripts/symlinks.sh (skills symlinked from the agent-skills repo)
 #   8. makes zsh the login shell
 #   9. installs lefthook git hooks for this repo
 #
@@ -368,22 +368,22 @@ fi
 # CLAUDE.md §10 and packages/custom-install/README.md.
 
 # ------------------------------------------------------------------
-# Step 4.5 — ensure the claude-skills repo exists and has its private mirror.
+# Step 4.5 — ensure the agent-skills repo exists and has its private mirror.
 #
-# Skills are never vendored in this repo (see doc/claude-skills.md) — they
+# Skills are never vendored in this repo (see doc/agent-skills.md) — they
 # live in a separate git repo that scripts/symlinks.sh links from. On a
 # brand-new host that repo doesn't exist yet: `init` creates it empty via
 # `git init`. `ensure-remote` then guarantees the required PRIVATE GitHub
-# mirror, named after the dotfiles owner (<owner>/claude-skills, derived from
+# mirror, named after the dotfiles owner (<owner>/agent-skills, derived from
 # this repo's own origin). It runs --interactive here specifically because a
 # human is present: if the GitHub repo has to be created, setup.sh asks first
 # (scripts/update-dotfiles, which may run unattended, creates it silently).
 # Declining is non-fatal — it's re-checked on the next run. Bundles
-# (`scripts/claude-skills bundle|restore`) remain the second, local-only
+# (`scripts/agent-skills bundle|restore`) remain the second, local-only
 # backup layer.
 # ------------------------------------------------------------------
-"${DIR}/scripts/claude-skills" init
-"${DIR}/scripts/claude-skills" ensure-remote --interactive
+"${DIR}/scripts/agent-skills" init
+"${DIR}/scripts/agent-skills" ensure-remote --interactive
 
 # ------------------------------------------------------------------
 # Step 5 — plant symlinks from configurations/ into $HOME.

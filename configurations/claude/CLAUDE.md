@@ -368,17 +368,19 @@ A pillar with nothing to say yet gets a stub marked `_TBD_`, not silence.
 
 ## Skills
 
-Claude skills live in exactly one place: the global
-`${CLAUDE_SKILLS_DIR}` repo (default `${HOME}/gel-ort/claude-skills`), a
-local git repo tracked to a **private** remote (`raxetul/claude-skills`) —
+Skills are shared by **Claude Code and opencode** — both read the same
+`SKILL.md` files, so they live in exactly one place: the global
+`${AGENT_SKILLS_DIR}` repo (default `${HOME}/gel-ort/agent-skills`), a
+local git repo tracked to a **private** remote (`raxetul/agent-skills`) —
 symlinked into `~/.claude/skills/<name>` by `scripts/symlinks.sh` in the
-dotfiles repo. A skill **never** goes into a project repo, and never into
-`dotfiles` or any other public remote — that repo was found to be public
-with skills pushed into it, which is exactly the mistake this rule exists
-to prevent. See the dotfiles repo's `doc/claude-skills.md` for the full
-architecture. The `/init-proj-*` command family never scaffolds a skill
-into a project — skills are a machine-global resource, not a per-project
-one.
+dotfiles repo. opencode reads `~/.claude/skills/` directly (per its own
+docs), so no second symlink tree is needed for it. A skill **never** goes
+into a project repo, and never into `dotfiles` or any other public
+remote — that repo was found to be public with skills pushed into it,
+which is exactly the mistake this rule exists to prevent. See the
+dotfiles repo's `doc/agent-skills.md` for the full architecture. The
+`/init-proj-*` command family never scaffolds a skill into a project —
+skills are a machine-global resource, not a per-project one.
 
 The classification line: content that carries **capability or knowledge**
 (skills, their `references/`) stays private; tool settings, hooks,

@@ -1,26 +1,26 @@
 #!/usr/bin/env bash
-# scripts/claude-skills — manage the claude-skills repo and its private mirror.
+# scripts/agent-skills — manage the agent-skills repo and its private mirror.
 #
 # Skills are never vendored inside this repo (or any other project repo). They
 # live in their own git repo, which MUST be mirrored to a PRIVATE GitHub repo
-# named after the dotfiles owner (<owner>/claude-skills, same host/URL shape as
+# named after the dotfiles owner (<owner>/agent-skills, same host/URL shape as
 # dotfiles' own origin). `git bundle` stays as a second, fully local backup
-# layer. See doc/claude-skills.md.
+# layer. See doc/agent-skills.md.
 #
 # Usage:
-#   scripts/claude-skills init                 # create the repo if missing (idempotent)
-#   scripts/claude-skills ensure-remote [--interactive]
-#                                              # wire (or create) the private <owner>/claude-skills mirror
-#   scripts/claude-skills status               # repo path, remote + visibility, git status
-#   scripts/claude-skills commit [-m <msg>]    # stage + commit everything in the repo
-#   scripts/claude-skills bundle               # git bundle create, prune to last 5
-#   scripts/claude-skills restore <bundle>     # restore the repo from a bundle
-#   scripts/claude-skills link                 # (re)plant ~/.claude/skills/* symlinks
-#   scripts/claude-skills list                 # list skills currently in the repo
+#   scripts/agent-skills init                 # create the repo if missing (idempotent)
+#   scripts/agent-skills ensure-remote [--interactive]
+#                                              # wire (or create) the private <owner>/agent-skills mirror
+#   scripts/agent-skills status               # repo path, remote + visibility, git status
+#   scripts/agent-skills commit [-m <msg>]    # stage + commit everything in the repo
+#   scripts/agent-skills bundle               # git bundle create, prune to last 5
+#   scripts/agent-skills restore <bundle>     # restore the repo from a bundle
+#   scripts/agent-skills link                 # (re)plant ~/.claude/skills/* symlinks
+#   scripts/agent-skills list                 # list skills currently in the repo
 #
 # Env:
-#   CLAUDE_SKILLS_DIR         the repo itself (default: ${HOME}/gel-ort/claude-skills)
-#   CLAUDE_SKILLS_BUNDLE_DIR  where `bundle` writes/`restore` reads from
+#   AGENT_SKILLS_DIR         the repo itself (default: ${HOME}/gel-ort/agent-skills)
+#   AGENT_SKILLS_BUNDLE_DIR  where `bundle` writes/`restore` reads from
 #                             (default: ${HOME}/gel-ort/backups)
 #   DOTFILES_DIR              the dotfiles repo whose origin owner/host the mirror
 #                             copies (default: ${HOME}/gel-ort/dotfiles)
@@ -29,14 +29,14 @@
 # Idempotent: init/ensure-remote/commit/bundle/link are all safe to re-run.
 set -euo pipefail
 
-CLAUDE_SKILLS_DIR="${CLAUDE_SKILLS_DIR:-${HOME}/gel-ort/claude-skills}"
-CLAUDE_SKILLS_BUNDLE_DIR="${CLAUDE_SKILLS_BUNDLE_DIR:-${HOME}/gel-ort/backups}"
+AGENT_SKILLS_DIR="${AGENT_SKILLS_DIR:-${HOME}/gel-ort/agent-skills}"
+AGENT_SKILLS_BUNDLE_DIR="${AGENT_SKILLS_BUNDLE_DIR:-${HOME}/gel-ort/backups}"
 BUNDLE_KEEP=5
-MIRROR_REPO_NAME="claude-skills"
+MIRROR_REPO_NAME="agent-skills"
 
 SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-die() { printf 'claude-skills: %s\n' "$*" >&2; exit 1; }
+die() { printf 'agent-skills: %s\n' "$*" >&2; exit 1; }
 say() { printf '==> %s\n' "$*"; }
 warn() { printf 'WARNING: %s\n' "$*" >&2; }
 usage() { sed -n '2,29p' "$0" | sed 's/^# \{0,1\}//'; }
@@ -44,8 +44,8 @@ usage() { sed -n '2,29p' "$0" | sed 's/^# \{0,1\}//'; }
 _dry() { [ "${DRY_RUN:-0}" = "1" ]; }
 
 _require_repo() {
-  [ -d "${CLAUDE_SKILLS_DIR}/.git" ] \
-    || die "no repo at ${CLAUDE_SKILLS_DIR} — run 'scripts/claude-skills init' first."
+  [ -d "${AGENT_SKILLS_DIR}/.git" ] \
+    || die "no repo at ${AGENT_SKILLS_DIR} — run 'scripts/agent-skills init' first."
 }
 
 # === Remote helpers ===
@@ -155,18 +155,18 @@ _say_visibility() {
 # === Subcommands ===
 
 cmd_init() {
-  if [ -d "${CLAUDE_SKILLS_DIR}/.git" ]; then
-    say "already initialized: ${CLAUDE_SKILLS_DIR}"
+  if [ -d "${AGENT_SKILLS_DIR}/.git" ]; then
+    say "already initialized: ${AGENT_SKILLS_DIR}"
     return 0
   fi
 
-  say "claude-skills repo not found at ${CLAUDE_SKILLS_DIR} — creating it empty (remote wired by ensure-remote)"
+  say "agent-skills repo not found at ${AGENT_SKILLS_DIR} — creating it empty (remote wired by ensure-remote)"
   if _dry; then
-    printf 'DRY-RUN: mkdir -p %s && git init\n' "${CLAUDE_SKILLS_DIR}"
+    printf 'DRY-RUN: mkdir -p %s && git init\n' "${AGENT_SKILLS_DIR}"
     return 0
   fi
-  mkdir -p "${CLAUDE_SKILLS_DIR}"
-  git -C "${CLAUDE_SKILLS_DIR}" init -q
+  mkdir -p "${AGENT_SKILLS_DIR}"
+  git -C "${AGENT_SKILLS_DIR}" init -q
 }
 
 # cmd_ensure_remote [--interactive] — guarantee the repo has its required
@@ -189,7 +189,7 @@ cmd_ensure_remote() {
   expected_url="$(_build_remote_url "${shape}" "${host}" "${owner}" "${MIRROR_REPO_NAME}")"
   expected_full="${owner}/${MIRROR_REPO_NAME}"
 
-  current="$(git -C "${CLAUDE_SKILLS_DIR}" remote get-url origin 2>/dev/null || true)"
+  current="$(git -C "${AGENT_SKILLS_DIR}" remote get-url origin 2>/dev/null || true)"
 
   # --- An origin already exists: verify, report, create nothing. ---
   if [ -n "${current}" ]; then
@@ -202,7 +202,7 @@ cmd_ensure_remote() {
         say "already configured correctly: origin -> ${current}"
       else
         warn "origin is ${current} but the expected mirror is ${expected_url} — leaving it as-is;"
-        warn "re-point it yourself if that is not deliberate (git -C ${CLAUDE_SKILLS_DIR} remote set-url origin …)."
+        warn "re-point it yourself if that is not deliberate (git -C ${AGENT_SKILLS_DIR} remote set-url origin …)."
       fi
     else
       warn "origin is ${current}, which is not a parseable GitHub URL — reporting best effort only."
@@ -212,11 +212,11 @@ cmd_ensure_remote() {
   fi
 
   # --- No origin at all: this is the real problem case. ---
-  say "no origin on ${CLAUDE_SKILLS_DIR} — the required private mirror ${expected_full} is not wired up"
+  say "no origin on ${AGENT_SKILLS_DIR} — the required private mirror ${expected_full} is not wired up"
 
   if ! _gh_ready; then
     warn "gh is missing or not authenticated — skipping the mirror check/creation for now."
-    warn "Run 'gh auth login', then 'scripts/claude-skills ensure-remote'."
+    warn "Run 'gh auth login', then 'scripts/agent-skills ensure-remote'."
     return 0
   fi
 
@@ -225,17 +225,17 @@ cmd_ensure_remote() {
   if gh repo view "${expected_full}" >/dev/null 2>&1; then
     say "${expected_full} already exists on ${host} — wiring it as origin (creating nothing)"
     if _dry; then
-      printf 'DRY-RUN: git -C %s remote add origin %s\n' "${CLAUDE_SKILLS_DIR}" "${expected_url}"
+      printf 'DRY-RUN: git -C %s remote add origin %s\n' "${AGENT_SKILLS_DIR}" "${expected_url}"
       return 0
     fi
-    git -C "${CLAUDE_SKILLS_DIR}" remote add origin "${expected_url}"
+    git -C "${AGENT_SKILLS_DIR}" remote add origin "${expected_url}"
     _say_visibility "${expected_full}" "${expected_url}"
     return 0
   fi
 
   # --- Must create it. ---
   if [ "${interactive}" -eq 1 ]; then
-    printf 'The claude-skills repo needs a PRIVATE GitHub mirror so skills survive losing this host.\n'
+    printf 'The agent-skills repo needs a PRIVATE GitHub mirror so skills survive losing this host.\n'
     printf 'It mirrors the dotfiles remote owner, so the expected repo is %s on %s.\n' \
       "${expected_full}" "${host}"
     local ans=""
@@ -253,35 +253,35 @@ cmd_ensure_remote() {
   fi
 
   local -a create=(gh repo create "${expected_full}" --private
-                   --source="${CLAUDE_SKILLS_DIR}" --remote=origin)
-  if git -C "${CLAUDE_SKILLS_DIR}" log -1 >/dev/null 2>&1; then
+                   --source="${AGENT_SKILLS_DIR}" --remote=origin)
+  if git -C "${AGENT_SKILLS_DIR}" log -1 >/dev/null 2>&1; then
     create+=(--push)
   else
-    say "local repo has no commits yet — creating without --push; the next 'claude-skills commit' lands first"
+    say "local repo has no commits yet — creating without --push; the next 'agent-skills commit' lands first"
   fi
 
   if _dry; then
     printf 'DRY-RUN: %s\n' "${create[*]}"
-    printf 'DRY-RUN: git -C %s remote set-url origin %s\n' "${CLAUDE_SKILLS_DIR}" "${expected_url}"
+    printf 'DRY-RUN: git -C %s remote set-url origin %s\n' "${AGENT_SKILLS_DIR}" "${expected_url}"
     return 0
   fi
 
   "${create[@]}"
   # gh picks the remote URL from the user's git protocol preference; normalize
   # it back to the shape dotfiles itself uses.
-  git -C "${CLAUDE_SKILLS_DIR}" remote set-url origin "${expected_url}"
+  git -C "${AGENT_SKILLS_DIR}" remote set-url origin "${expected_url}"
   say "created private ${expected_full} and wired it as origin -> ${expected_url}"
 }
 
 cmd_status() {
   _require_repo
-  printf 'repo:   %s\n' "${CLAUDE_SKILLS_DIR}"
+  printf 'repo:   %s\n' "${AGENT_SKILLS_DIR}"
 
   local origin_url parsed owner repo
-  origin_url="$(git -C "${CLAUDE_SKILLS_DIR}" remote get-url origin 2>/dev/null || true)"
+  origin_url="$(git -C "${AGENT_SKILLS_DIR}" remote get-url origin 2>/dev/null || true)"
   if [ -z "${origin_url}" ]; then
     printf 'remote: WARNING — no origin; the required private mirror is missing.\n' >&2
-    printf "        Run 'scripts/claude-skills ensure-remote' (setup.sh / update-dotfiles also do it).\n" >&2
+    printf "        Run 'scripts/agent-skills ensure-remote' (setup.sh / update-dotfiles also do it).\n" >&2
   elif parsed="$(_parse_remote_url "${origin_url}")"; then
     read -r _ _ owner repo <<<"${parsed}"
     _say_visibility "${owner}/${repo}" "${origin_url}"
@@ -290,7 +290,7 @@ cmd_status() {
   fi
 
   printf '\n-- git status --\n'
-  git -C "${CLAUDE_SKILLS_DIR}" status --short --branch
+  git -C "${AGENT_SKILLS_DIR}" status --short --branch
 }
 
 cmd_commit() {
@@ -309,16 +309,16 @@ cmd_commit() {
   [ -n "${msg}" ] || msg="chore: snapshot $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
   if _dry; then
-    printf 'DRY-RUN: git -C %s add -A && git commit -m %q\n' "${CLAUDE_SKILLS_DIR}" "${msg}"
+    printf 'DRY-RUN: git -C %s add -A && git commit -m %q\n' "${AGENT_SKILLS_DIR}" "${msg}"
     return 0
   fi
 
-  git -C "${CLAUDE_SKILLS_DIR}" add -A
-  if git -C "${CLAUDE_SKILLS_DIR}" diff --cached --quiet; then
+  git -C "${AGENT_SKILLS_DIR}" add -A
+  if git -C "${AGENT_SKILLS_DIR}" diff --cached --quiet; then
     say "nothing to commit"
     return 0
   fi
-  git -C "${CLAUDE_SKILLS_DIR}" commit -q -m "${msg}"
+  git -C "${AGENT_SKILLS_DIR}" commit -q -m "${msg}"
   say "committed: ${msg}"
 }
 
@@ -326,24 +326,24 @@ cmd_bundle() {
   _require_repo
   local date_stamp bundle
   date_stamp="$(date -u +%Y-%m-%d)"
-  bundle="${CLAUDE_SKILLS_BUNDLE_DIR}/claude-skills-${date_stamp}.bundle"
+  bundle="${AGENT_SKILLS_BUNDLE_DIR}/agent-skills-${date_stamp}.bundle"
 
   if _dry; then
     printf 'DRY-RUN: mkdir -p %s && git bundle create %s --all (then prune to last %s)\n' \
-      "${CLAUDE_SKILLS_BUNDLE_DIR}" "${bundle}" "${BUNDLE_KEEP}"
+      "${AGENT_SKILLS_BUNDLE_DIR}" "${bundle}" "${BUNDLE_KEEP}"
     return 0
   fi
 
-  mkdir -p "${CLAUDE_SKILLS_BUNDLE_DIR}"
-  git -C "${CLAUDE_SKILLS_DIR}" bundle create "${bundle}" --all
+  mkdir -p "${AGENT_SKILLS_BUNDLE_DIR}"
+  git -C "${AGENT_SKILLS_DIR}" bundle create "${bundle}" --all
   say "wrote ${bundle}"
 
   # Retention: keep only the BUNDLE_KEEP most recent bundles. Filenames sort
-  # lexically in date order (claude-skills-YYYY-MM-DD.bundle), so a plain
+  # lexically in date order (agent-skills-YYYY-MM-DD.bundle), so a plain
   # `sort` is enough — no `ls -t` (SC2012) needed.
   local bundles count stale_count i
-  mapfile -t bundles < <(find "${CLAUDE_SKILLS_BUNDLE_DIR}" -maxdepth 1 \
-    -name 'claude-skills-*.bundle' -print | sort)
+  mapfile -t bundles < <(find "${AGENT_SKILLS_BUNDLE_DIR}" -maxdepth 1 \
+    -name 'agent-skills-*.bundle' -print | sort)
   count="${#bundles[@]}"
   if [ "${count}" -gt "${BUNDLE_KEEP}" ]; then
     stale_count=$((count - BUNDLE_KEEP))
@@ -356,13 +356,13 @@ cmd_bundle() {
 
 cmd_restore() {
   local bundle="${1:-}"
-  [ -n "${bundle}" ] || die "usage: claude-skills restore <bundle-file>"
+  [ -n "${bundle}" ] || die "usage: agent-skills restore <bundle-file>"
   [ -f "${bundle}" ] || die "bundle not found: ${bundle}"
   git bundle verify "${bundle}" >/dev/null || die "not a valid bundle: ${bundle}"
 
-  if [ -d "${CLAUDE_SKILLS_DIR}/.git" ] \
-     && git -C "${CLAUDE_SKILLS_DIR}" log -1 >/dev/null 2>&1; then
-    die "refusing to restore over an existing repo WITH history at ${CLAUDE_SKILLS_DIR} — move it aside first (mv it to a .bak path) if you really mean to replace it."
+  if [ -d "${AGENT_SKILLS_DIR}/.git" ] \
+     && git -C "${AGENT_SKILLS_DIR}" log -1 >/dev/null 2>&1; then
+    die "refusing to restore over an existing repo WITH history at ${AGENT_SKILLS_DIR} — move it aside first (mv it to a .bak path) if you really mean to replace it."
   fi
 
   local head_branch
@@ -371,12 +371,12 @@ cmd_restore() {
 
   if _dry; then
     printf 'DRY-RUN: restore %s into %s (branch: %s), via git fetch — the bundle is never recorded as a remote\n' \
-      "${bundle}" "${CLAUDE_SKILLS_DIR}" "${head_branch}"
+      "${bundle}" "${AGENT_SKILLS_DIR}" "${head_branch}"
     return 0
   fi
 
-  mkdir -p "${CLAUDE_SKILLS_DIR}"
-  [ -d "${CLAUDE_SKILLS_DIR}/.git" ] || git -C "${CLAUDE_SKILLS_DIR}" init -q
+  mkdir -p "${AGENT_SKILLS_DIR}"
+  [ -d "${AGENT_SKILLS_DIR}/.git" ] || git -C "${AGENT_SKILLS_DIR}" init -q
 
   # An empty repo's HEAD already points at some default branch name (main)
   # even with zero commits. If that name matches the bundle's branch,
@@ -384,24 +384,24 @@ cmd_restore() {
   # point HEAD at a throwaway ref first so the fetch below never collides
   # with whatever is currently checked out. Harmless: nothing has been
   # committed yet, so there's no history to lose.
-  if ! git -C "${CLAUDE_SKILLS_DIR}" rev-parse --verify -q HEAD >/dev/null; then
-    git -C "${CLAUDE_SKILLS_DIR}" symbolic-ref HEAD refs/heads/__claude-skills-restore__
+  if ! git -C "${AGENT_SKILLS_DIR}" rev-parse --verify -q HEAD >/dev/null; then
+    git -C "${AGENT_SKILLS_DIR}" symbolic-ref HEAD refs/heads/__agent-skills-restore__
   fi
 
   # `git fetch <path> <refspec>` pulls straight from the bundle file without
   # ever recording the bundle as a remote — so `origin` stays free for the
   # private GitHub mirror that `ensure-remote` wires up.
-  git -C "${CLAUDE_SKILLS_DIR}" fetch -q "${bundle}" 'refs/heads/*:refs/heads/*'
-  git -C "${CLAUDE_SKILLS_DIR}" checkout -q "${head_branch}"
-  git -C "${CLAUDE_SKILLS_DIR}" branch -D __claude-skills-restore__ >/dev/null 2>&1 || true
+  git -C "${AGENT_SKILLS_DIR}" fetch -q "${bundle}" 'refs/heads/*:refs/heads/*'
+  git -C "${AGENT_SKILLS_DIR}" checkout -q "${head_branch}"
+  git -C "${AGENT_SKILLS_DIR}" branch -D __agent-skills-restore__ >/dev/null 2>&1 || true
 
-  say "restored ${CLAUDE_SKILLS_DIR} from ${bundle} (branch: ${head_branch})"
+  say "restored ${AGENT_SKILLS_DIR} from ${bundle} (branch: ${head_branch})"
   local origin_url
-  origin_url="$(git -C "${CLAUDE_SKILLS_DIR}" remote get-url origin 2>/dev/null || true)"
+  origin_url="$(git -C "${AGENT_SKILLS_DIR}" remote get-url origin 2>/dev/null || true)"
   if [ -n "${origin_url}" ]; then
     say "remote check: origin -> ${origin_url}"
   else
-    say "remote check: no origin yet — run 'scripts/claude-skills ensure-remote' to wire the private mirror"
+    say "remote check: no origin yet — run 'scripts/agent-skills ensure-remote' to wire the private mirror"
   fi
 }
 
@@ -412,7 +412,7 @@ cmd_link() {
 cmd_list() {
   _require_repo
   local entry name
-  for entry in "${CLAUDE_SKILLS_DIR}"/*; do
+  for entry in "${AGENT_SKILLS_DIR}"/*; do
     [ -e "${entry}" ] || continue
     name="$(basename "${entry}")"
     [ "${name}" = "README.md" ] && continue
