@@ -43,7 +43,7 @@ flowchart TD
     CREDS --> STATEQ{--include-state?}
     STATEQ -->|yes| STATE[state:\nplugins/, file-history/,\ncache/, …]
     STATEQ -->|no| RELINK
-    STATE --> RELINK[relink:\nsymlinks.sh install +\nclaude-skills link]
+    STATE --> RELINK[relink:\nsymlinks.sh install +\nagent-skills link]
     RELINK --> VERIFY[verify: read-only report]
     VERIFY --> DONE([done — start Claude Code,\nlog back in])
 ```
@@ -61,7 +61,7 @@ against your own `~/.claude` before trusting the numbers, they will drift.
 | --- | --- | --- | --- |
 | `settings.json`, `CLAUDE.md`, `commands/`, `scripts/` | repo symlink | `relink` (repair only) | Point into this repo's `configurations/claude/`. |
 | `hooks/herdr-agent-state.sh`, `hooks/herdr-workspace-guard.sh` | repo symlink | `relink` | Same. |
-| `skills/*` (19 entries) | repo symlink | `relink` | Planted by `scripts/claude-skills link`. |
+| `skills/*` (19 entries) | repo symlink | `relink` | Planted by `scripts/agent-skills link`. |
 | `.DS_Store` | orphan | `orphans` | Finder litter. |
 | `CLAUDE.md.bak.20260629-155842`, `settings.json.bak`, `settings.json.bak.20260623-120218` | orphan | `orphans` | Dated backups left by earlier manual edits, superseded by the symlinked originals. |
 | `statusline.sh` | orphan (real file) | `orphans` | Unowned real copy — the live one is `settings.json`'s `statusLine`, which points at the symlinked `scripts/statusline.sh`. Content differs from the repo copy; nothing reads this one. |

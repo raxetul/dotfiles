@@ -66,7 +66,7 @@ PHASE (optional — runs just that one phase instead of the full pipeline):
                debug/, downloads/. Not part of the default pipeline —
                opt in with --include-state. Pass --include-history to
                ALSO target sessions/, tasks/, teams/, history.jsonl.
-  relink       Re-run scripts/symlinks.sh install + scripts/claude-skills
+  relink       Re-run scripts/symlinks.sh install + scripts/agent-skills
                link to restore this repo's own symlinks under ~/.claude.
   verify       Read-only status table. Always safe.
 
@@ -109,7 +109,7 @@ THIS before relying on manual Keychain deletion alone. This script warns
 and suggests /logout, but does not block the automatic run on it.
 
 Dependencies: jq (all phases but relink/verify's symlink checks), tar
-(backup), git (relink, via scripts/claude-skills), and on macOS the
+(backup), git (relink, via scripts/agent-skills), and on macOS the
 `security` CLI (credentials, for the Keychain entry). A missing
 dependency fails only the phase that needs it.
 
@@ -470,12 +470,12 @@ do_relink() {
 
   if [ "${DRY_RUN}" -eq 1 ]; then
     note "[dry-run] would run: ${repo_root}/scripts/symlinks.sh install"
-    note "[dry-run] would run: ${repo_root}/scripts/claude-skills link"
+    note "[dry-run] would run: ${repo_root}/scripts/agent-skills link"
     return 0
   fi
 
   "${repo_root}/scripts/symlinks.sh" install
-  "${repo_root}/scripts/claude-skills" link
+  "${repo_root}/scripts/agent-skills" link
   note "relink complete"
 }
 

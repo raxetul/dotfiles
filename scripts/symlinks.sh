@@ -6,14 +6,14 @@
 #   scripts/symlinks.sh uninstall         # remove only symlinks this script plants
 #   scripts/symlinks.sh list              # print the active mapping
 #   scripts/symlinks.sh skills-install    # same, scoped to ~/.claude/skills/* only
-#   scripts/symlinks.sh skills-uninstall  # (used by scripts/claude-skills link)
+#   scripts/symlinks.sh skills-uninstall  # (used by scripts/agent-skills link)
 #   scripts/symlinks.sh skills-list
 #
 # Env:
 #   DOTFILES_DESKTOP=1  add Linux desktop links (waybar, dunst) on Linux
-#   CLAUDE_SKILLS_DIR   the claude-skills repo to link ~/.claude/skills/*
-#                        from (default: ${HOME}/gel-ort/claude-skills). See
-#                        doc/claude-skills.md — never a fixed skill list here,
+#   AGENT_SKILLS_DIR   the agent-skills repo to link ~/.claude/skills/*
+#                        from (default: ${HOME}/gel-ort/agent-skills). See
+#                        doc/agent-skills.md — never a fixed skill list here,
 #                        every top-level entry in that repo gets linked.
 #
 # Phase 3 of v3-native: replaces Home Manager's xdg.configFile / home.file
@@ -87,12 +87,12 @@ LINUX_DESKTOP_LINKS=(
 )
 
 # Claude skills live outside this repo entirely, in their own git repo mirrored
-# to a private GitHub repo (see doc/claude-skills.md and the hard rule in
+# to a private GitHub repo (see doc/agent-skills.md and the hard rule in
 # configurations/claude/CLAUDE.md).
 # Never a fixed array here — every top-level entry the skills repo currently
 # holds gets linked, so dropping a new skill in there needs no edit to this
 # script.
-CLAUDE_SKILLS_DIR="${CLAUDE_SKILLS_DIR:-${HOME}/gel-ort/claude-skills}"
+AGENT_SKILLS_DIR="${AGENT_SKILLS_DIR:-${HOME}/gel-ort/agent-skills}"
 
 # === Helpers ===
 
@@ -104,16 +104,16 @@ _os() {
   esac
 }
 
-# Emit "<abs-src-in-claude-skills-repo>::.claude/skills/<name>" for every
+# Emit "<abs-src-in-agent-skills-repo>::.claude/skills/<name>" for every
 # top-level entry (skill dir or stray *.md like SKILL_ROUTER.md) currently in
 # the skills repo. Absolute src (outside REPO_ROOT) so _resolve_src passes it
 # through unchanged. Silently empty if the repo doesn't exist yet — setup.sh
 # creates it (Step 4.5) before calling this, but `symlinks.sh list` on a bare
 # checkout should not fail.
 _skill_links() {
-  [ -d "${CLAUDE_SKILLS_DIR}" ] || return 0
+  [ -d "${AGENT_SKILLS_DIR}" ] || return 0
   local entry name
-  for entry in "${CLAUDE_SKILLS_DIR}"/*; do
+  for entry in "${AGENT_SKILLS_DIR}"/*; do
     [ -e "${entry}" ] || continue
     name="$(basename "${entry}")"
     # README.md is the skills repo's own metadata, not a skill — skip it.
@@ -224,7 +224,7 @@ case "${1:-install}" in
   install)          cmd_install ;;
   uninstall)        cmd_uninstall ;;
   list)             cmd_list ;;
-  # Skills-only scope: used by scripts/claude-skills link, so a skills
+  # Skills-only scope: used by scripts/agent-skills link, so a skills
   # refresh never has to walk (and touch) every other dotfiles symlink.
   skills-install)   cmd_install _skill_links ;;
   skills-uninstall) cmd_uninstall _skill_links ;;

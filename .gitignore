@@ -12,6 +12,6 @@ result-*
 .load
 .path
 
-# Skills live in the remote-less global repo (${CLAUDE_SKILLS_DIR}), never
-# in a project repo. See doc/claude-skills.md.
+# Skills live in the remote-less global repo (${AGENT_SKILLS_DIR}), never
+# in a project repo. See doc/agent-skills.md.
 configurations/claude/skills/

@@ -20,7 +20,7 @@
 #   scripts/update-dotfiles --only=configurations    # configurations layer only
 #   scripts/update-dotfiles --only=symlinks          # symlinks stage only
 #                                                    # (re-link newly added configs)
-#   scripts/update-dotfiles --only=claude-skills-remote  # only the claude-skills private-mirror check
+#   scripts/update-dotfiles --only=agent-skills-remote  # only the agent-skills private-mirror check
 #   scripts/update-dotfiles --only=custom-install        # both before.sh + after.sh hooks
 #   scripts/update-dotfiles --only=custom-install-before # only before.sh hooks
 #   scripts/update-dotfiles --only=custom-install-after  # only after.sh hooks
@@ -46,7 +46,7 @@ for arg in "$@"; do
         --only=configurations)        ONLY="configurations" ;;
         --only=symlinks)              ONLY="symlinks" ;;
         --symlinks)                   ONLY="symlinks" ;;
-        --only=claude-skills-remote)  ONLY="claude-skills-remote" ;;
+        --only=agent-skills-remote)  ONLY="agent-skills-remote" ;;
         --only=custom-install)        ONLY="custom-install" ;;
         --only=custom-install-before) ONLY="custom-install-before" ;;
         --only=custom-install-after)  ONLY="custom-install-after" ;;
@@ -54,7 +54,7 @@ for arg in "$@"; do
         --only=cache-clean)           ONLY="cache-clean" ;;
         --only=*)
             echo "Unknown --only value: ${arg#--only=}" >&2
-            echo "Valid: packages, configurations, symlinks, claude-skills-remote," >&2
+            echo "Valid: packages, configurations, symlinks, agent-skills-remote," >&2
             echo "       custom-install, custom-install-before, custom-install-after," >&2
             echo "       script-install, cache-clean" >&2
             exit 1
@@ -356,9 +356,9 @@ run_packages() {
 # Configurations layer
 # ----------------------------------------------------------------------
 
-# The claude-skills repo (skills live there, never in this repo) must be
+# The agent-skills repo (skills live there, never in this repo) must be
 # mirrored to a PRIVATE GitHub repo named after this repo's own origin owner —
-# <owner>/claude-skills. `ensure-remote` wires it, and creates it when still
+# <owner>/agent-skills. `ensure-remote` wires it, and creates it when still
 # missing. No --interactive here: an update run may be unattended, so it must
 # never block on a prompt; the script logs what it did either way. Non-fatal
 # when gh is absent/unauthed.
@@ -367,14 +367,14 @@ run_packages() {
 # that has never run setup.sh skips this stage with a warning instead of
 # failing the whole run on `ensure-remote`'s "no repo" error.
 stage_configurations_claude_skills_remote() {
-    local skills_dir="${CLAUDE_SKILLS_DIR:-${HOME}/gel-ort/claude-skills}"
+    local skills_dir="${AGENT_SKILLS_DIR:-${HOME}/gel-ort/agent-skills}"
     if ! git -C "${skills_dir}" rev-parse --git-dir >/dev/null 2>&1; then
-        warn "no claude-skills repo at ${skills_dir}; run ./setup.sh first — skipping mirror check"
+        warn "no agent-skills repo at ${skills_dir}; run ./setup.sh first — skipping mirror check"
         return 0
     fi
-    note "claude-skills ensure-remote (private GitHub mirror)"
+    note "agent-skills ensure-remote (private GitHub mirror)"
     DOTFILES_DIR="${REPO_ROOT}" DRY_RUN="${DRY_RUN}" \
-        "${REPO_ROOT}/scripts/claude-skills" ensure-remote
+        "${REPO_ROOT}/scripts/agent-skills" ensure-remote
 }
 
 stage_configurations_symlinks() {
@@ -453,7 +453,7 @@ stage_configurations_atuin_daemon() {
 }
 
 run_configurations() {
-    run_stage "claude-skills-remote" stage_configurations_claude_skills_remote
+    run_stage "agent-skills-remote" stage_configurations_claude_skills_remote
     run_stage "symlinks"        stage_configurations_symlinks
     run_stage "lefthook"        stage_configurations_lefthook
     run_stage "bat-cache"       stage_configurations_bat_cache
@@ -475,8 +475,8 @@ case "${ONLY}" in
     packages)                run_packages ;;
     configurations)          run_configurations ;;
     symlinks)                run_stage "symlinks"      stage_configurations_symlinks ;;
-    claude-skills-remote)
-        run_stage "claude-skills-remote" stage_configurations_claude_skills_remote
+    agent-skills-remote)
+        run_stage "agent-skills-remote" stage_configurations_claude_skills_remote
         ;;
     custom-install-before)   run_stage "custom-before" stage_packages_custom_before ;;
     custom-install-after)    run_stage "custom-after"  stage_packages_custom_after ;;
