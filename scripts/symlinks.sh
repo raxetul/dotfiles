@@ -42,6 +42,8 @@ COMMON_LINKS=(
   "configurations/bash/bashrc::.bashrc"
   "configurations/starship/starship.toml::.config/starship.toml"
   "configurations/atuin/config.toml::.config/atuin/config.toml"
+  "configurations/opencode/opencode.json::.config/opencode/opencode.json"
+  "configurations/opencode/tui.json::.config/opencode/tui.json"
   "configurations/themes/bat/Catppuccin-mocha.tmTheme::.config/bat/themes/Catppuccin-mocha.tmTheme"
   "configurations/git/gitconfig::.config/git/config"
   "configurations/git/workspace.gitconfig::.config/git/workspace.gitconfig"
