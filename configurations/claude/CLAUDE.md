@@ -168,17 +168,33 @@ trust this folder" screen, or any pane visibly waiting on an answer stays
 open — it's already blocked on input, not idle. A parked member clutters
 the layout and ties up a pane for nothing.
 
-**Continuation is respawn, not handover.** A running or idle member can't
-be handed a follow-up by messaging it: `herdr agent send` and `herdr pane
-run` type the text into the prompt box but never deliver the Enter
-keystroke, and `herdr pane send-keys` (Enter/ctrl+u/escape/backspace/
-ctrl+c) is accepted by herdr but has no effect on the TUI — verified
-2026-08-04 against Claude Code v2.1.220 + herdr, likely a kitty keyboard
-protocol encoding mismatch. So continuation means: close the idle member,
-spawn a **fresh** one on the same worktree/branch, and give it the task as
-its **spawn-time argv prompt** — the only channel that reliably lands. A
-long prompt goes into a file in the member's cwd first; the argv prompt is
-one line pointing at that file.
+**Handover works — send the text, then send Enter separately.** To hand a
+running, idle or blocked member a follow-up (including answering an
+`AskUserQuestion` prompt, where the answer is the option *number*):
+
+```sh
+herdr pane send-text "${HERDR_PANE_ID%:*}:pX" "1"   # types into the prompt box
+herdr pane send-keys  "${HERDR_PANE_ID%:*}:pX" Enter # submits it
+```
+
+Two calls, not one: `send-text` alone leaves the text sitting unsent, which
+is what makes a member look "idle with a question already answered". Verified
+2026-09-02 against herdr 0.7.1 + Claude Code v2.1.258 — the member's
+transcript showed `User answered Claude's questions → <my choice>` and it
+resumed on its own.
+
+This **reverses** the previous rule here, which said the Enter keystroke
+never lands (verified 2026-08-04 against Claude Code v2.1.220). It did not
+land then; it does now. If a future version regresses, the fallback below
+still works — but check before assuming it, because assuming it costs a whole
+member's accumulated context on every follow-up.
+
+**Respawn is still right in two cases**, and only these: the member's context
+is nearly exhausted (a fresh one starts clean on the same worktree/branch),
+or its brief was wrong and rewriting the brief is cheaper than correcting it
+mid-flight. Respawn means: close it, start a fresh one, and hand the task as
+the **spawn-time argv prompt**. A long prompt goes into a file in the
+member's cwd first; the argv prompt is one line pointing at that file.
 
 **Trust check before spawn.** If the target cwd doesn't show
 `hasTrustDialogAccepted=true` in `~/.claude.json`, the fresh member locks on
