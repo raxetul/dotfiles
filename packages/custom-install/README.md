@@ -197,6 +197,8 @@ vs. what actually changed.
 | `atuin/`     | atuin    | no-op stub  | apt fallback → `~/.atuin/bin` + `.path` segment |
 | `claude/`    | claude   | no-op stub  | upstream installer → `~/.local/bin` (all OSes)  |
 | `lefthook/`  | lefthook | no-op stub  | apt/dnf release-binary fallback → `~/.local/bin`|
+| `opencode/`  | opencode | macOS: tap + trust `anomalyco/tap` | Linux: upstream installer → `~/.opencode/bin` + `.path` segment |
+| `ollama/`    | ollama   | macOS: quit the upstream `.app` server | macOS: `brew services start ollama`; Debian: `ollama` snap |
 
 * **`rustup/after.sh`** — runs `rustup default stable` if no default
   toolchain is configured, then cargo-installs the crates listed in
@@ -213,3 +215,22 @@ vs. what actually changed.
   `~/.atuin/bin`, which is *not* one of `.load`'s bootstrap dirs, so
   the segment is what puts `atuin` on PATH. The other three install
   into `~/.local/bin` (already on PATH) and write no segment.
+* **`opencode/before.sh`** — macOS only. opencode has no
+  homebrew-core formula; `anomalyco/tap` is the only tap that builds
+  it, and brew refuses to load any third-party tap's formula until
+  it's explicitly trusted. Tapping and trusting happen here, before
+  `packages/Brewfile`'s `brew "anomalyco/tap/opencode"` line runs.
+  **`opencode/after.sh`** installs it on Linux instead (no apt/pacman/dnf
+  package exists there): the upstream installer into `~/.opencode/bin`,
+  plus the `.path` segment that puts it on PATH.
+* **`ollama/before.sh`** — macOS only. This class of machine may
+  already run ollama via the upstream `Ollama.app` installer instead
+  of brew; before.sh quits that running server so brew's formula (in
+  `packages/Brewfile`) doesn't fight it for the same port.
+  **`ollama/after.sh`** starts the brew-managed service on macOS, and
+  on Debian/Ubuntu (the one Linux family with no native `ollama`
+  package) falls back to the `ollama` snap — deliberately *not*
+  `packages/snap.list`, which would double-install on Fedora, and
+  deliberately *not* the upstream installer, which writes outside
+  `$HOME` (systemd unit, system user) in violation of CLAUDE.md §8.
+  Neither script ever touches `~/.ollama` (20GB of models).

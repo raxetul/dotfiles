@@ -198,6 +198,13 @@ candidate package sets; uncomment the one matching your install.
 | unzip | unzip | unzip | unzip | unzip | — |
 | asciinema | asciinema | asciinema | asciinema | asciinema | — |
 
+## AI / LLM tooling
+
+| Package | brew | apt | pacman | dnf | Fallback |
+|---|---|---|---|---|---|
+| opencode | anomalyco/tap/opencode | — | — | — | No apt/pacman/dnf package anywhere. macOS: `custom-install/opencode/before.sh` taps + trusts `anomalyco/tap` (brew refuses to load ANY third-party tap's formula until trusted — a blanket policy, not a signal specific to this tap; confirmed `qmk/qmk` hits the identical gate. `sst/tap` exists and is still maintained but its formula points at the same `github.com/anomalyco/opencode` release artifacts and trips the same untrusted-tap gate via lineage tracking, so it buys nothing over tapping `anomalyco/tap` directly. Trust decision approved by the lead 2026-09-02). Linux: `custom-install/opencode/after.sh` runs the upstream installer `curl -fsSL https://opencode.ai/install \| bash -s -- --no-modify-path` → `~/.opencode/bin`; PATH added via the `opencode` segment in `.path` (Linux only — macOS gets it via brew's shellenv already on PATH) |
+| ollama | ollama | — | ollama | ollama | apt/Debian has no package (only `python3-ollama`, a client library, not the server). Debian/Ubuntu fallback via `custom-install/ollama/after.sh`: `sudo snap install ollama` — NOT via `packages/snap.list`, since that list installs unconditionally on Fedora too, which already has a native `dnf` package, and would double-install there. The upstream `curl \| sh` installer was deliberately rejected as the Linux fallback: it installs system-wide (`/usr/local`), creates a system user, and writes a systemd unit to `/etc/systemd/system/` — all of which violate this repo's user-scoped footprint policy (CLAUDE.md §8). macOS: `custom-install/ollama/{before,after}.sh` migrate this Mac off the upstream Ollama.app installer — before.sh quits the running `.app`-managed server, after.sh runs `brew services start ollama` (approved by the lead 2026-09-02). `~/.ollama` (20GB of models) is never touched by any of this — `OLLAMA_MODELS` defaults there regardless of which binary runs the server |
+
 ## Fonts
 
 | Package | brew | apt | pacman | dnf | Fallback |

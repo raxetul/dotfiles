@@ -82,6 +82,10 @@ zip
 unzip
 asciinema
 
+# AI / LLM tooling
+ollama                     # official extra/ package — opencode has no pacman package,
+                            # see custom-install/opencode/after.sh
+
 # Fonts
 ttf-font-awesome
 ttf-jetbrains-mono
