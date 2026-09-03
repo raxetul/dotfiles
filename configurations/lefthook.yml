@@ -19,8 +19,28 @@ commit-msg:
 pre-commit:
   parallel: true
   commands:
+    # Covers EXTENSIONLESS scripts too (scripts/leak-guard, agent-skills,
+    # claude-worktree, herdr-team, update-dotfiles, init-load, ...), which the
+    # old scripts/*.sh glob silently skipped. Selection is by SHEBANG rather
+    # than by name, because shellcheck only supports sh/bash/dash/ksh and
+    # errors out on anything else (SC1071) — scripts/dc-image-update is zsh.
+    # A future zsh/python/fish script therefore drops out on its own instead of
+    # breaking every commit.
     shellcheck:
-      glob: "{scripts/*.sh,setup.sh,configurations/claude/hooks/*.sh,configurations/claude/hooks/tests/*.sh}"
-      run: shellcheck {staged_files}
+      glob: "{scripts/*,setup.sh,configurations/claude/hooks/*.sh,configurations/claude/hooks/tests/*.sh}"
+      run: |
+        checkable=""
+        for f in {staged_files}; do
+          [ -f "$f" ] || continue
+          shebang="$(head -n1 "$f")"
+          case "$shebang" in
+            *zsh*|*fish*|*python*|*node*|*perl*|*ruby*) continue ;;
+            \#!*sh*|\#!*ksh*) checkable="$checkable $f" ;;
+            *) continue ;;
+          esac
+        done
+        [ -n "$checkable" ] || exit 0
+        # shellcheck disable=SC2086  # intentional word splitting of the list
+        shellcheck $checkable
     leak-guard:
       run: scripts/leak-guard scan --mode staged

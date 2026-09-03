@@ -248,9 +248,14 @@ esac
 # orchestrating from the left rather than being yanked into each new member).
 case "$focus_mode" in
   member) : ;;                                     # agent start already focused it
-  none)   [ -n "$origin" ] && herdr agent focus "$origin" >/dev/null 2>&1 || true ;;
+  none)
+    if [ -n "$origin" ]; then
+      herdr agent focus "$origin" >/dev/null 2>&1 || true
+    fi ;;
   leader|*)
     ftarget="${leader:-$origin}"
-    [ -n "$ftarget" ] && herdr agent focus "$ftarget" >/dev/null 2>&1 || true ;;
+    if [ -n "$ftarget" ]; then
+      herdr agent focus "$ftarget" >/dev/null 2>&1 || true
+    fi ;;
 esac
 printf 'launched claude "%s" in %s (branch "%s")\n' "$label" "$wt_path" "$branch"

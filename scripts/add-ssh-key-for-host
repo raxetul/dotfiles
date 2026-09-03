@@ -48,12 +48,20 @@ if [ -s "$CONFIG_FILE" ] && [ "$(tail -c 1 "$CONFIG_FILE")" != "" ]; then
     printf '\n' >> "$CONFIG_FILE"
 fi
 
+# Whether a blank separator line is needed is decided BEFORE the append
+# redirect below is opened: testing -s inside that group would read the very
+# file the group is writing to (SC2094).
+if [ -s "$CONFIG_FILE" ]; then
+    NEEDS_BLANK_LINE=1
+else
+    NEEDS_BLANK_LINE=0
+fi
+
 {
-    if [ -s "$CONFIG_FILE" ]; then
-        printf '\nHost %s\n' "$HOST_ALIAS"
-    else
-        printf 'Host %s\n' "$HOST_ALIAS"
+    if [ "$NEEDS_BLANK_LINE" -eq 1 ]; then
+        printf '\n'
     fi
+    printf 'Host %s\n' "$HOST_ALIAS"
     printf '\tHostName %s\n' "$HOSTNAME"
     printf '\tIdentityFile ~/.ssh/%s\n' "$KEY_FILE"
     if [ -n "$USER" ]; then
