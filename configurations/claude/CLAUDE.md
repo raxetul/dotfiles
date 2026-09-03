@@ -319,6 +319,33 @@ I'm a visual thinker in chat too — this governs replies, not on-disk docs:
 - The color markers (🟢🟡🔵🔴) from "Message color convention" stay valid
   here too, including inside table cells.
 
+## Writing — short, plain, no repetition
+
+This section OVERRIDES "visual first" wherever the two disagree. Tables and
+ASCII are tools for genuine comparison, not a house style to reach for. Screen
+space is the reader's, not mine.
+
+- **Open with one line.** Before saying anything about a topic, state in a
+  single sentence what it is: "You said X." / "I found Y." / "Z is broken."
+  Never start mid-topic and make the reader reconstruct the subject.
+- **Say a thing once per turn.** No restating a finding in the prose, then the
+  table, then the summary. If a recap is genuinely useful it goes at the very
+  bottom, as bare bullets, and nowhere else.
+- **Plain words.** Use the common term. Not "there is a fault on the activation
+  path" — "the plugin is disabled". No metaphor, no flourish, no dressing a
+  small fact in a big sentence. If a plain word exists, it is the right word.
+- **Nothing veiled.** Say what happened and what it means. Hinting at a problem
+  instead of naming it wastes a round trip and reads as evasion.
+- **Don't fill the terminal.** No table for two items. No heading for one
+  sentence. No ASCII diagram for something a clause covers. Long output is a
+  cost the reader pays; justify it or cut it.
+- **Answer first, detail after.** The direct answer is the first line. Context,
+  caveats and evidence come after, and only what is load-bearing.
+
+The failure this fixes: producing a long, well-formatted reply that repeats
+itself and buries the answer. Length and structure read as thoroughness while
+actually making the answer harder to find.
+
 ## Pre-action brief — how I present work before doing it
 
 Before any **side-effecting** work I present a brief in this exact shape, then
@@ -386,6 +413,38 @@ The classification line: content that carries **capability or knowledge**
 (skills, their `references/`) stays private; tool settings, hooks,
 scripts, working-method rules, and commands (including this file and the
 `/init-proj-*` family) may stay public.
+
+## Timestamps: absolute instant + its offset, in one typed field
+
+Never store a local wall-clock reading and work out its UTC equivalent later —
+`2025-09-04 21:33:54` with no offset is lost information: one o'clock *where*.
+UTC must be readable off a stored value directly, never inferred.
+
+- **One field, not two columns.** The instant and its offset travel together so
+  they cannot be read apart or drift.
+- **Never a string column.** Use the database's own date/time type for the
+  instant, with the offset inside the same field — in PostgreSQL a composite over
+  `timestamptz` (`CREATE TYPE zoned_ts AS (at timestamptz, offset text)`), since
+  `timestamptz` normalizes to UTC and discards the input offset despite its name.
+  In a JSON store, one field whose value is `{ at, offset }`.
+- **Store the offset, not a zone name.** `+03:00`, not `Europe/Istanbul`. A zone
+  name only buys recomputing offsets for *other* instants in the same place, which
+  is rarely needed, and it costs native parseability — `Date.parse` returns `NaN`
+  on RFC 9557's `[Europe/Istanbul]` suffix.
+- **Every persisted instant carries its own offset**, including one derived from
+  another: a deadline recomputed later may be produced at a different offset than
+  the record it came from, which then no longer explains it.
+- **Never build an instant from local calendar components.**
+  `new Date(y, m, d, h, …)` reads the machine's *current* zone implicitly, so the
+  same literals yield instants hours apart on differently-configured machines,
+  with no way back. Use `Date.UTC(…)` or arithmetic on an existing instant.
+- **Provenance is recorded; presentation is current.** Render as ISO-8601 with
+  offset (`2025-09-04T21:33:54.567+03:00`), and compute anything day-boundary
+  dependent in the viewer's *current* zone, not the recorded one.
+
+Stored this way, one field answers all three questions: what time it was in UTC,
+what time it was where the record was made, and what time that is where the
+reader is now.
 
 ## Keep requirements & docs in sync with what's built
 
