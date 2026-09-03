@@ -64,6 +64,7 @@ COMMON_LINKS=(
   "configurations/claude/CLAUDE.md::.claude/CLAUDE.md"
   "configurations/claude/commands::.claude/commands"
   "configurations/claude/hooks/git-worktree-autoprune.sh::.claude/hooks/git-worktree-autoprune.sh"
+  "configurations/claude/hooks/context-mode-cache-heal.mjs::.claude/hooks/context-mode-cache-heal.mjs"
   "configurations/claude/hooks/herdr-agent-state.sh::.claude/hooks/herdr-agent-state.sh"
   "configurations/claude/hooks/herdr-workspace-guard.sh::.claude/hooks/herdr-workspace-guard.sh"
   "configurations/claude/hooks/herdr-team-teardown.sh::.claude/hooks/herdr-team-teardown.sh"

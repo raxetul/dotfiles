@@ -61,7 +61,7 @@ PHASE (optional — runs just that one phase instead of the full pipeline):
                folder" prompt everywhere, which needs a human at a
                keyboard to answer.
   state        Requires Claude Code closed. Reproducible caches only:
-               plugins/, file-history/, cache/,
+               plugins/, context-mode/, file-history/, cache/,
                paste-cache/, shell-snapshots/, telemetry/, jobs/,
                debug/, downloads/. Not part of the default pipeline —
                opt in with --include-state. Pass --include-history to
@@ -233,6 +233,7 @@ compute_orphan_targets() {
     "${CLAUDE_DIR}/CLAUDE.md.bak.20260629-155842"
     "${CLAUDE_DIR}/settings.json.bak"
     "${CLAUDE_DIR}/settings.json.bak.20260623-120218"
+    "${CLAUDE_DIR}/hooks/context-mode-cache-heal.mjs.bak.20260629-155842"
   )
 
   # statusline.sh: only an orphan if it's a real file — the live one is a
@@ -436,7 +437,7 @@ do_credentials() {
 do_state() {
   guard_not_running_or_force
 
-  local -a reproducible=(plugins file-history cache paste-cache shell-snapshots telemetry jobs debug downloads)
+  local -a reproducible=(plugins context-mode file-history cache paste-cache shell-snapshots telemetry jobs debug downloads)
   local -a targets=()
   local d
   for d in "${reproducible[@]}"; do
@@ -504,6 +505,7 @@ do_verify() {
   check_symlink "root: CLAUDE.md" "${CLAUDE_DIR}/CLAUDE.md"
   check_symlink "root: commands" "${CLAUDE_DIR}/commands"
   check_symlink "root: scripts" "${CLAUDE_DIR}/scripts"
+  check_symlink "hook: context-mode-cache-heal.mjs" "${CLAUDE_DIR}/hooks/context-mode-cache-heal.mjs"
   check_symlink "hook: herdr-agent-state.sh" "${CLAUDE_DIR}/hooks/herdr-agent-state.sh"
   check_symlink "hook: herdr-workspace-guard.sh" "${CLAUDE_DIR}/hooks/herdr-workspace-guard.sh"
 

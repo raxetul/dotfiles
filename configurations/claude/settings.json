@@ -46,6 +46,14 @@
     ],
     "SessionStart": [
       {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$HOME/.claude/hooks/context-mode-cache-heal.mjs\""
+          }
+        ]
+      },
+      {
         "matcher": "*",
         "hooks": [
           {
@@ -79,5 +87,13 @@
   },
   "tui": "fullscreen",
   "theme": "custom:one-dark",
-  "teammateMode": "tmux"
+  "teammateMode": "tmux",
+  "extraKnownMarketplaces": {
+    "context-mode": {
+      "source": {
+        "source": "github",
+        "repo": "mksglu/claude-context-mode"
+      }
+    }
+  }
 }
