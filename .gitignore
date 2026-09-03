@@ -15,6 +15,7 @@ result-*
 # Skills live in the remote-less global repo (${AGENT_SKILLS_DIR}), never
 # in a project repo. See doc/agent-skills.md.
 configurations/claude/skills/
+.claude/skills/
 
 # leak-guard's private pattern file. Holds the employer name, private repo
 # names and internal service hostnames — i.e. exactly the strings that must

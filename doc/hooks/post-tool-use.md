@@ -72,7 +72,7 @@ graph TD
 
 - [.claude/settings.json](../../.claude/settings.json) — registers
   this hook for the `PostToolUse` event with matcher `Write|Edit`.
-- [.claude/skills/doc-author/SKILL.md](../../.claude/skills/doc-author/SKILL.md)
+- the `doc-author` skill in `${AGENT_SKILLS_DIR}/doc-author/SKILL.md` (global repo, not vendored here)
   — the authoring rules this hook is trying to enforce.
 - [CLAUDE.md §4](../../CLAUDE.md) — the project rule the hook
   enforces.

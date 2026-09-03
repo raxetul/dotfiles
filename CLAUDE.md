@@ -332,8 +332,11 @@ See `.claude/commands/` for the full set. Quick map:
 
 - `doc-author` — keeps `doc/*.md` files in lockstep with the scripts
   and configurations they document. Read when you change `setup.sh`,
-  `scripts/*.sh`, or a `packages/*.list` and need to refresh its
-  companion doc.
+  `scripts/*`, or a `packages/*.list` and need to refresh its companion
+  doc. It lives in the global `${AGENT_SKILLS_DIR}` repo, **not here** —
+  a skill never sits in a project repo, least of all a public one (see
+  the global `CLAUDE.md`'s Skills rule and `doc/agent-skills.md`). Its
+  `description` scopes it to this repo so it stays dormant elsewhere.
 
 ## Hooks
 

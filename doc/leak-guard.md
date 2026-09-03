@@ -102,6 +102,7 @@ record format.
 | --- | --- | --- | --- |
 | `deny` | `automode-block` | `configurations/claude/settings.json` | The `autoMode` key — the original leak vector |
 | `deny` | `private-key` | all | `-----BEGIN … PRIVATE KEY-----` |
+| `deny` | `skill-in-repo` | `*SKILL.md` | Any skill vendored into this repo — they belong in `${AGENT_SKILLS_DIR}` |
 | `deny` | `aws-access-key` | all | `AKIA` + 16 uppercase alphanumerics |
 | `deny` | `bearer-token` | all | `Authorization: Bearer <20+ chars>` |
 | `deny` | `localhost-port` | all | `localhost:<2–5 digits>` — one machine's infra map |
