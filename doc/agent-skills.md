@@ -9,7 +9,7 @@ claude-rule: "Claude skills live ONLY in ${AGENT_SKILLS_DIR} (default ${HOME}/ge
 ## Why this exists
 
 Skills used to live inside this repo, at `configurations/claude/skills/`, symlinked into
-`~/.claude/skills/` like any other managed config. `raxetul/dotfiles` was confirmed to be a
+`~/.claude/skills/` like any other managed config. This dotfiles repo was confirmed to be a
 **public** GitHub repository, and 11 skills had already been pushed to it. That is the mistake this
 setup exists to prevent: skills carry capability and knowledge, so they must never sit on a
 **public** remote. They moved into `${AGENT_SKILLS_DIR}` — a git repo of its own that this repo
@@ -64,8 +64,8 @@ same URL *shape* — SSH stays SSH, HTTPS stays HTTPS:
 
 | dotfiles `origin` | expected agent-skills mirror |
 | --- | --- |
-| `git@github.com:raxetul/dotfiles.git` | `git@github.com:raxetul/agent-skills.git` |
-| `https://github.com/raxetul/dotfiles` | `https://github.com/raxetul/agent-skills.git` |
+| `git@github.com:alice/dotfiles.git` | `git@github.com:alice/agent-skills.git` |
+| `https://github.com/bob/dotfiles` | `https://github.com/bob/agent-skills.git` |
 
 If `DOTFILES_DIR` isn't a git repo, or has no parseable `origin`, `ensure-remote` warns and stops
 there — it never breaks `init` or any other subcommand over it.
@@ -107,7 +107,7 @@ The invariant to check by hand:
 
 ```sh
 git -C "${AGENT_SKILLS_DIR}" remote get-url origin
-# must print the expected private mirror, e.g. git@github.com:raxetul/agent-skills.git
+# must print the expected private mirror, e.g. git@github.com:<owner>/agent-skills.git
 ```
 
 ## Repo location and layout
@@ -253,7 +253,7 @@ it in, add a row to `SKILL.md`'s routing table.
 
 | Source | Skills | Notes |
 | --- | --- | --- |
-| `raxetul/dotfiles` (`configurations/claude/skills/`) | `backend-development`, `brand-design`, `cso`, `frontend-design-guidelines`, `learn`, `logging-patterns`, `page-load-animations`, `product-review`, `rfc9457-problem-details`, `roast-my-product`, `SKILL_ROUTER.md` | The original 11 that had leaked to the public remote; moved out, not deleted |
+| this repo (`configurations/claude/skills/`) | `backend-development`, `brand-design`, `cso`, `frontend-design-guidelines`, `learn`, `logging-patterns`, `page-load-animations`, `product-review`, `rfc9457-problem-details`, `roast-my-product`, `SKILL_ROUTER.md` | The original 11 that had leaked to the public remote; moved out, not deleted |
 | `~/gel-ort/workspace/shotato` (`.claude/skills/`) | `browse-shotato`, `camera-shotato`, `design-system-shotato`, `navigation-shotato`, `preview-shotato`, `storage-shotato` | Untracked in the shotato repo; an identical duplicate copy under a linked git worktree (`.claude/worktrees/tdd-setup`, plus a stray filesystem copy of that same worktree under `shotato.worktrees/fix-android-nav-bar-insets/`) was removed rather than re-imported |
 | `~/gel-ort/github/claude-demo` (`.claude/skills/quick-test.md`) | `quick-test.md` | Was git-tracked; staged for removal there (`git rm -r --cached`), not committed — that repo's own commit is the user's call |
 | `~/gel-ort/ops/ansible/my-installation` (`.claude/skills/`) | `add-script-task`, `add-systemd-service` | Same as above: git-tracked, staged for removal, not committed |
