@@ -62,7 +62,9 @@
     "command": "$HOME/.claude/scripts/statusline.sh",
     "padding": 0
   },
-  "enabledPlugins": {},
+  "enabledPlugins": {
+    "context-mode@context-mode": true
+  },
   "tui": "fullscreen",
   "theme": "custom:one-dark",
   "teammateMode": "tmux"
