@@ -37,6 +37,7 @@ graph TD
 | `scripts/claude-worktree` | [claude-worktrees.md](claude-worktrees.md) — parallel Claude sessions in git worktrees |
 | `configurations/herdr/config.toml` | [herdr.md](herdr.md) — herdr keybindings, the ctrl+alt navigation layer, mode inventory |
 | `scripts/nix-uninstall.sh` | (inline help) — legacy Nix cleanup |
+| `scripts/leak-guard` | [leak-guard.md](leak-guard.md) — keeps project/workplace data out of this public repo |
 | `scripts/dc-image-update` | [dc-image-update.md](dc-image-update.md) — interactive docker compose image pull/recreate helper |
 | `scripts/claude-reset.sh` | [claude-folder-reset.md](claude-folder-reset.md) — fully automatic, backup-first `~/.claude` cleanup |
 | `scripts/agent-skills` | [agent-skills.md](agent-skills.md) — global skills repo shared by Claude Code + opencode, its private mirror |

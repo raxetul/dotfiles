@@ -22,3 +22,5 @@ pre-commit:
     shellcheck:
       glob: "{scripts/*.sh,setup.sh,configurations/claude/hooks/*.sh,configurations/claude/hooks/tests/*.sh}"
       run: shellcheck {staged_files}
+    leak-guard:
+      run: scripts/leak-guard scan --mode staged

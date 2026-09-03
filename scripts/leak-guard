@@ -1,0 +1,411 @@
+#!/usr/bin/env bash
+# scripts/leak-guard — keep project- and workplace-specific data out of this
+# PUBLIC dotfiles repo.
+#
+# WHY THIS EXISTS
+#   `~/.claude/settings.json` is a symlink INTO this repo, and Claude Code
+#   writes its learned auto-mode state straight into that file. That state has
+#   already carried an employer name, internal service hostnames, a localhost
+#   port list, .env and prod-config paths, absolute home paths from two
+#   machines, and private repo names — into a repository confirmed PUBLIC.
+#   Deleting the block once does not help: the next session rewrites it. Only a
+#   machine gate does. This is that gate.
+#
+#   Scope is deliberately narrow: this enforces "dotfiles stays generic". It is
+#   not a general-purpose secret scanner, though a few high-confidence
+#   credential shapes are included because they are free to check.
+#
+# USAGE
+#   scripts/leak-guard [scan] [options]      # report findings (default)
+#   scripts/leak-guard install [--dry-run]   # wire into lefthook pre-commit
+#   scripts/leak-guard uninstall [--dry-run] # remove that wiring
+#   scripts/leak-guard patterns              # print the effective pattern set
+#   scripts/leak-guard init-private [--force] # create the gitignored private
+#                                             # pattern file from a template
+#   scripts/leak-guard --help
+#
+# SCAN OPTIONS
+#   --mode repo       every tracked file at HEAD's worktree state (DEFAULT —
+#                     this is the "run it whenever" mode)
+#   --mode staged     only what `git commit` would record (hook mode)
+#   --mode worktree   tracked files plus uncommitted edits
+#   --patterns FILE   extra pattern records, appended to the built-ins
+#                     (repeatable)
+#   --exempt GLOB     path glob to skip (repeatable)
+#   --severity all|deny|warn   which findings to report (default: all)
+#   --format table|plain       plain is grep-like, for piping (default: table)
+#   -q, --quiet       print nothing; rely on the exit code
+#
+# EXIT CODES
+#   0  no `deny` findings (warnings may still have been printed)
+#   1  at least one `deny` finding
+#   2  usage error
+#
+# ENVIRONMENT
+#   DOTFILES_DIR            repo root (default: ${HOME}/gel-ort/dotfiles)
+#   LEAK_GUARD=off          skip scanning entirely, and SAY SO on stderr —
+#                           an escape hatch, never a silent one
+#   LEAK_GUARD_PATTERNS     path to the private pattern file
+#                           (default: ${DOTFILES_DIR}/.leak-guard-patterns)
+#   DRY_RUN=1               install/uninstall/init-private print, change nothing
+#
+# PATTERN RECORDS
+#   One record per line, TAB-separated, `#` starts a comment:
+#
+#       <severity>	<id>	<path-glob>	<regex>	<hint>
+#
+#   severity   deny (fails the commit) | warn (reported, exit stays 0)
+#   id         short kebab-case name, shown in the report
+#   path-glob  `*` for every file, else a glob the path must match
+#   regex      POSIX ERE, matched case-INSENSITIVELY
+#   hint       what to do about it, printed with the finding
+#
+# WHY THE INTERESTING PATTERNS ARE *NOT* IN THIS FILE
+#   An organisation name, a private repo name and an internal service hostname
+#   are exactly the strings that must not appear in a public repo — so a
+#   committed pattern list naming them would BE the leak it is meant to prevent.
+#   Those live in ${LEAK_GUARD_PATTERNS}, which is gitignored. Run
+#   `leak-guard init-private` to get a commented template, then fill it in. The
+#   built-ins below are all structural or generic, and safe to publish.
+#
+# SUPPRESSING A LEGITIMATE MATCH
+#   Put `leak-guard:allow` anywhere on the line. Rule text that must quote a
+#   forbidden shape in order to forbid it is the normal case for this.
+#
+# IDEMPOTENT: scan never writes. install/uninstall/init-private converge on the
+# same state no matter how often they run.
+set -uo pipefail
+
+DOTFILES_DIR="${DOTFILES_DIR:-${HOME}/gel-ort/dotfiles}"
+LEAK_GUARD_PATTERNS="${LEAK_GUARD_PATTERNS:-${DOTFILES_DIR}/.leak-guard-patterns}"
+LEFTHOOK_YML="${DOTFILES_DIR}/configurations/lefthook.yml"
+ALLOW_MARKER='leak-guard:allow'
+
+die() { printf 'leak-guard: %s\n' "$*" >&2; exit 2; }
+warn() { printf 'leak-guard: %s\n' "$*" >&2; }
+usage() { sed -n '2,80p' "$0" | sed 's/^# \{0,1\}//;s/^#$//'; }
+_dry() { [ "${DRY_RUN:-0}" = "1" ]; }
+
+# --- Built-in patterns -------------------------------------------------------
+#
+# Structural and generic only — see the header note. Tabs are load-bearing.
+builtin_patterns() {
+    cat <<'PATTERNS'
+deny	automode-block	configurations/claude/settings.json	"automode"	Learned auto-mode state; never tracked.
+deny	private-key	*	-----BEGIN [A-Z ]*PRIVATE KEY-----	A private key. Never in a repo, public or not.
+deny	aws-access-key	*	AKIA[0-9A-Z]{16}	An AWS access key id.
+deny	bearer-token	*	authorization:[[:space:]]*bearer[[:space:]]+[a-z0-9._-]{20,}	A bearer token.
+deny	localhost-port	*	localhost:[0-9]{2,5}	A local service port map. Describes one machine's infra, not portable config.
+deny	prod-config-name	*	[a-z0-9._-]+\.prod\.(ya?ml|json|toml|conf)	Prod config filename; names deployment topology.
+warn	absolute-home	*	/(home|users)/[a-z][a-z0-9._-]*/	Hardcoded home path. Use ${HOME} (repo hard rule #11).
+warn	dotenv-path	*	\.env(\.[a-z]+)?([[:space:]]|$|[\`'\''",)])	A .env path reference. Check it names no real values.
+PATTERNS
+}
+
+# --- Private pattern template ------------------------------------------------
+private_template() {
+    cat <<'TEMPLATE'
+# .leak-guard-patterns — per-host, GITIGNORED, never committed.
+#
+# The strings that actually identify you and your employer belong here and
+# nowhere else: putting them in a tracked pattern list would publish exactly
+# what the guard exists to keep unpublished.
+#
+# Format (TAB-separated — real tabs, not spaces):
+#   <severity>	<id>	<path-glob>	<regex>	<hint>
+#
+# severity: deny | warn      path-glob: * or a glob      regex: ERE, case-insensitive
+#
+# Fill in the ones that apply, delete the rest. Examples, deliberately blank:
+#
+# deny	org-name	*	<your-employer-name>	Employer name. dotfiles is generic; use the Personal/Business split instead.
+# deny	work-email	*	@<your-work-domain>	Work email address.
+# deny	private-repo	*	<owner>/<private-repo-name>	Private repo name.
+# deny	internal-host	*	<service>-(postgres|redis|kafka)	Internal service hostname.
+# deny	client-name	*	<client-or-customer-name>	Customer identity.
+TEMPLATE
+}
+
+# --- Pattern loading ---------------------------------------------------------
+EXTRA_PATTERN_FILES=()
+EXEMPT_GLOBS=()
+
+load_patterns() {
+    builtin_patterns
+    if [ -r "${LEAK_GUARD_PATTERNS}" ]; then
+        cat "${LEAK_GUARD_PATTERNS}"
+    fi
+    local f
+    for f in ${EXTRA_PATTERN_FILES+"${EXTRA_PATTERN_FILES[@]}"}; do
+        [ -r "${f}" ] || die "pattern file not readable: ${f}"
+        cat "${f}"
+    done
+}
+
+# Drop comments and blank lines. Records keep their tabs.
+effective_patterns() {
+    load_patterns | grep -v '^[[:space:]]*#' | grep -v '^[[:space:]]*$'
+}
+
+# --- File selection ----------------------------------------------------------
+#
+# `staged` reads content from the INDEX, not the worktree: a commit records what
+# is staged, so scanning the file on disk would both miss staged-only leaks and
+# block on unstaged ones.
+files_to_scan() {
+    case "${SCAN_MODE}" in
+        staged)   git -C "${DOTFILES_DIR}" diff --cached --name-only --diff-filter=ACMR ;;
+        repo)     git -C "${DOTFILES_DIR}" ls-files ;;
+        worktree) git -C "${DOTFILES_DIR}" ls-files ;;
+        *)        die "unknown mode: ${SCAN_MODE}" ;;
+    esac
+}
+
+content_of() {
+    local path="$1"
+    if [ "${SCAN_MODE}" = "staged" ]; then
+        git -C "${DOTFILES_DIR}" show ":${path}" 2>/dev/null
+    else
+        [ -r "${DOTFILES_DIR}/${path}" ] && cat "${DOTFILES_DIR}/${path}"
+    fi
+}
+
+# path_matches_glob <path> <glob> — case-glob match. The unquoted ${glob} is the
+# whole point (it must expand as a pattern), hence the directive.
+path_matches_glob() {
+    # shellcheck disable=SC2254
+    case "$1" in
+        $2) return 0 ;;
+        *)  return 1 ;;
+    esac
+}
+
+# The guard's own files always carry forbidden shapes by construction.
+is_exempt() {
+    local path="$1" glob
+    case "${path}" in
+        scripts/leak-guard|doc/leak-guard.md|.leak-guard-patterns) return 0 ;;
+    esac
+    for glob in ${EXEMPT_GLOBS+"${EXEMPT_GLOBS[@]}"}; do
+        path_matches_glob "${path}" "${glob}" && return 0
+    done
+    return 1
+}
+
+# --- Scan --------------------------------------------------------------------
+cmd_scan() {
+    if [ "${LEAK_GUARD:-}" = "off" ]; then
+        warn "LEAK_GUARD=off — scan skipped deliberately (this notice is the point)."
+        return 0
+    fi
+
+    git -C "${DOTFILES_DIR}" rev-parse --is-inside-work-tree >/dev/null 2>&1 \
+        || die "not a git repo: ${DOTFILES_DIR} (set DOTFILES_DIR)"
+
+    local patterns findings=0 denies=0
+    patterns="$(effective_patterns)"
+    [ -n "${patterns}" ] || die "no patterns loaded"
+
+    local rows=""
+    local path severity id glob regex hint hits line no
+    while IFS= read -r path; do
+        [ -n "${path}" ] || continue
+        is_exempt "${path}" && continue
+        local body
+        body="$(content_of "${path}")"
+        [ -n "${body}" ] || continue
+
+        while IFS=$'\t' read -r severity id glob regex hint; do
+            [ -n "${regex}" ] || continue
+            if [ "${glob}" != '*' ]; then
+                path_matches_glob "${path}" "${glob}" || continue
+            fi
+
+            hits="$(printf '%s\n' "${body}" | grep -niE -- "${regex}" 2>/dev/null \
+                    | grep -vF -- "${ALLOW_MARKER}" || true)"
+            [ -n "${hits}" ] || continue
+
+            while IFS= read -r line; do
+                [ -n "${line}" ] || continue
+                no="${line%%:*}"
+                findings=$((findings + 1))
+                [ "${severity}" = "deny" ] && denies=$((denies + 1))
+                case "${SEVERITY_FILTER}" in
+                    deny) [ "${severity}" = "deny" ] || continue ;;
+                    warn) [ "${severity}" = "warn" ] || continue ;;
+                esac
+                rows="${rows}${severity}"$'\t'"${path}:${no}"$'\t'"${id}"$'\t'"${hint}"$'\n'
+            done <<<"${hits}"
+        done <<<"${patterns}"
+    done <<<"$(files_to_scan)"
+
+    if [ "${QUIET}" != "1" ] && [ -n "${rows}" ]; then
+        case "${FORMAT}" in
+            plain) printf '%s' "${rows}" ;;
+            *)
+                {
+                    printf 'SEVERITY\tLOCATION\tPATTERN\tWHAT TO DO\n'
+                    printf '%s' "${rows}"
+                } | column -t -s"$(printf '\t')"
+                ;;
+        esac
+    fi
+
+    if [ "${QUIET}" != "1" ]; then
+        printf '\n%s finding(s): %s deny, %s warn — mode=%s\n' \
+            "${findings}" "${denies}" "$((findings - denies))" "${SCAN_MODE}" >&2
+        if [ "${denies}" -gt 0 ]; then
+            printf 'Commit refused. Fix the deny rows, or mark a legitimate line with %s.\n' \
+                "${ALLOW_MARKER}" >&2
+        fi
+        if [ ! -r "${LEAK_GUARD_PATTERNS}" ]; then
+            printf 'NOTE: %s does not exist, so no employer/private-repo/service patterns\n' \
+                "${LEAK_GUARD_PATTERNS}" >&2
+            printf "      were checked. Run 'leak-guard init-private' and fill it in.\n" >&2
+        fi
+    fi
+
+    [ "${denies}" -eq 0 ]
+}
+
+# --- lefthook wiring ---------------------------------------------------------
+# lefthook runs pre-commit commands from the repo root, so a repo-relative path
+# is what works here. `{root}` is NOT a lefthook template variable — it was
+# tried and passed through literally, producing `sh: {root}/scripts/leak-guard:
+# not found` (exit 127). A leading `{` would also need YAML quoting; the
+# relative path needs neither. install validates the written file either way.
+LEFTHOOK_JOB='    leak-guard:
+      run: scripts/leak-guard scan --mode staged'
+
+# lefthook_config_ok — is ${LEFTHOOK_YML} still parseable after a write?
+#
+# The primary check parses THAT EXACT PATH, deliberately. `lefthook validate`
+# resolves its config from the current directory, so on any layout where the
+# repo root's lefthook.yml is not this file it would happily validate something
+# else and report success on a file it never read — which is how a malformed job
+# slipped through during development. lefthook is asked as well, but only once
+# the two paths are confirmed to be the same file.
+lefthook_config_ok() {
+    local checked=0
+    if command -v python3 >/dev/null 2>&1; then
+        python3 -c 'import sys, yaml; yaml.safe_load(open(sys.argv[1]))' \
+            "${LEFTHOOK_YML}" >/dev/null 2>&1 || return 1
+        checked=1
+    fi
+    if command -v lefthook >/dev/null 2>&1 \
+       && [ "$(readlink -f "${DOTFILES_DIR}/lefthook.yml" 2>/dev/null)" \
+            = "$(readlink -f "${LEFTHOOK_YML}" 2>/dev/null)" ]; then
+        ( cd "${DOTFILES_DIR}" && lefthook validate >/dev/null 2>&1 ) || return 1
+        checked=1
+    fi
+    [ "${checked}" -eq 1 ] || warn "no yaml parser available — config not validated"
+    return 0
+}
+
+cmd_install() {
+    [ -r "${LEFTHOOK_YML}" ] || die "not found: ${LEFTHOOK_YML}"
+    if grep -q '^    leak-guard:' "${LEFTHOOK_YML}"; then
+        printf 'already installed in %s\n' "${LEFTHOOK_YML}"
+        return 0
+    fi
+    # The job is APPENDED, which only lands inside pre-commit's `commands:` when
+    # `pre-commit:` is the last top-level block. Refuse rather than silently
+    # attach the job to some later hook.
+    local last_key
+    last_key="$(grep -nE '^[a-z][a-z-]*:' "${LEFTHOOK_YML}" | tail -1 | cut -d: -f2)"
+    if [ "${last_key}" != "pre-commit" ]; then
+        die "'pre-commit:' is not the last top-level block in ${LEFTHOOK_YML} (last is '${last_key}'). \
+Append the job by hand instead, inside pre-commit's commands:."
+    fi
+    if _dry; then
+        printf 'DRY-RUN: append a leak-guard job to the pre-commit block of %s\n' "${LEFTHOOK_YML}"
+        return 0
+    fi
+    cp "${LEFTHOOK_YML}" "${LEFTHOOK_YML}.leak-guard-bak"
+    printf '%s\n' "${LEFTHOOK_JOB}" >>"${LEFTHOOK_YML}"
+
+    # A malformed job makes lefthook refuse EVERY hook, which would disable
+    # its shellcheck and commit-msg jobs too, so a bad write is rolled back.
+    if ! lefthook_config_ok; then
+        mv "${LEFTHOOK_YML}.leak-guard-bak" "${LEFTHOOK_YML}"
+        die "the appended job did not parse; ${LEFTHOOK_YML} was restored unchanged."
+    fi
+    rm -f "${LEFTHOOK_YML}.leak-guard-bak"
+
+    printf 'installed: leak-guard now runs on every pre-commit\n'
+    printf 'NOTE: lefthook install must have been run once for hooks to fire.\n'
+}
+
+cmd_uninstall() {
+    [ -r "${LEFTHOOK_YML}" ] || die "not found: ${LEFTHOOK_YML}"
+    if ! grep -q '^    leak-guard:' "${LEFTHOOK_YML}"; then
+        printf 'not installed in %s — nothing to do\n' "${LEFTHOOK_YML}"
+        return 0
+    fi
+    if _dry; then
+        printf 'DRY-RUN: remove the leak-guard job from %s\n' "${LEFTHOOK_YML}"
+        return 0
+    fi
+    sed -i.bak '/^    leak-guard:$/,+1d' "${LEFTHOOK_YML}"
+    rm -f "${LEFTHOOK_YML}.bak"
+    printf 'uninstalled from %s\n' "${LEFTHOOK_YML}"
+}
+
+cmd_init_private() {
+    local force=0
+    [ "${1:-}" = "--force" ] && force=1
+    if [ -e "${LEAK_GUARD_PATTERNS}" ] && [ "${force}" -ne 1 ]; then
+        printf 'already exists: %s (pass --force to overwrite)\n' "${LEAK_GUARD_PATTERNS}"
+        return 0
+    fi
+    if _dry; then
+        printf 'DRY-RUN: write template to %s\n' "${LEAK_GUARD_PATTERNS}"
+        return 0
+    fi
+    private_template >"${LEAK_GUARD_PATTERNS}"
+    printf 'wrote template: %s\n' "${LEAK_GUARD_PATTERNS}"
+    printf 'It is gitignored. Fill in the entries that apply to you.\n'
+}
+
+# --- Argument parsing --------------------------------------------------------
+SCAN_MODE="repo"
+SEVERITY_FILTER="all"
+FORMAT="table"
+QUIET=0
+SUB="scan"
+
+case "${1:-}" in
+    -h|--help|help) usage; exit 0 ;;
+    scan|install|uninstall|patterns|init-private) SUB="$1"; shift ;;
+    "") ;;
+    -*) ;;
+    *) die "unknown subcommand: $1 (try --help)" ;;
+esac
+
+INIT_ARGS=()
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --mode)     SCAN_MODE="${2:?--mode needs repo|staged|worktree}"; shift 2 ;;
+        --patterns) EXTRA_PATTERN_FILES+=("${2:?--patterns needs a file}"); shift 2 ;;
+        --exempt)   EXEMPT_GLOBS+=("${2:?--exempt needs a glob}"); shift 2 ;;
+        --severity) SEVERITY_FILTER="${2:?--severity needs all|deny|warn}"; shift 2 ;;
+        --format)   FORMAT="${2:?--format needs table|plain}"; shift 2 ;;
+        -q|--quiet) QUIET=1; shift ;;
+        --dry-run)  DRY_RUN=1; export DRY_RUN; shift ;;
+        --force)    INIT_ARGS+=("--force"); shift ;;
+        -h|--help)  usage; exit 0 ;;
+        *)          die "unknown option: $1 (try --help)" ;;
+    esac
+done
+
+case "${SCAN_MODE}" in repo|staged|worktree) ;; *) die "bad --mode: ${SCAN_MODE}" ;; esac
+case "${SEVERITY_FILTER}" in all|deny|warn) ;; *) die "bad --severity: ${SEVERITY_FILTER}" ;; esac
+case "${FORMAT}" in table|plain) ;; *) die "bad --format: ${FORMAT}" ;; esac
+
+case "${SUB}" in
+    scan)         cmd_scan ;;
+    install)      cmd_install ;;
+    uninstall)    cmd_uninstall ;;
+    patterns)     effective_patterns ;;
+    init-private) cmd_init_private ${INIT_ARGS+"${INIT_ARGS[@]}"} ;;
+esac
