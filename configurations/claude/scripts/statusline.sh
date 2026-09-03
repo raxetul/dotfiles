@@ -89,13 +89,35 @@ mcell() {                        # $1 plaintext, $2 pre-colored, $3 fallback col
 # Re-read on every render, so compact flips back to full-size when a mobile
 # client closes and the pane grows again.
 # ---------------------------------------------------------------------------
-herdr_size() {                        # echo "COLS ROWS" from herdr's live layout
+# The layout is fetched ONCE and reused: it answers both "how wide am I" and
+# "am I the lead pane". A second `herdr pane layout` call per render would
+# double the subprocess cost of every statusline repaint.
+HERDR_LAYOUT="${HERDR_LAYOUT:-}"   # pre-set to stub the layout (tests)
+herdr_layout() {
+  [ -n "$HERDR_LAYOUT" ] && { printf '%s' "$HERDR_LAYOUT"; return 0; }
   [ -n "${HERDR_ENV:-}" ] && [ -n "${HERDR_PANE_ID:-}" ] || return 1
   command -v herdr >/dev/null 2>&1 || return 1
-  herdr pane layout --pane "$HERDR_PANE_ID" 2>/dev/null | jq -r --arg id "$HERDR_PANE_ID" '
+  HERDR_LAYOUT="$(herdr pane layout --pane "$HERDR_PANE_ID" 2>/dev/null)"
+  [ -n "$HERDR_LAYOUT" ] || return 1
+  printf '%s' "$HERDR_LAYOUT"
+}
+
+herdr_size() {                        # echo "COLS ROWS" from herdr's live layout
+  herdr_layout | jq -r --arg id "${HERDR_PANE_ID:-}" '
     .result.layout as $L
     | ( ($L.panes[]? | select(.pane_id==$id) | .rect) // $L.area )
     | "\(.width) \(.height)"' 2>/dev/null
+}
+
+# is_lead — true when this pane is the LEFTMOST in its tab. That is exactly how
+# scripts/claude-worktree picks the leader when placing members, so the two
+# agree by construction. Outside herdr there are no members, so every pane is
+# the lead and the full layout is correct.
+is_lead() {
+  local lead
+  lead="$(herdr_layout | jq -r '.result.layout.panes | sort_by(.rect.x, .rect.y) | .[0].pane_id // empty' 2>/dev/null)" || return 0
+  [ -n "$lead" ] || return 0
+  [ "$lead" = "${HERDR_PANE_ID:-}" ]
 }
 
 W=0; ROWS=0
@@ -119,6 +141,67 @@ COLW=$(( (W - 6) / 3 ))
 # Emits ONE line: model, plus the current phase when the project defines phases
 # (hidden otherwise), then exits before the full 3-column layout runs.
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# context-mode savings — read from its own per-process stats file.
+# context-mode writes ~/.claude/context-mode/sessions/stats-pid-<PID>.json for
+# the Claude process it is attached to. The statusline is a descendant of that
+# process, so walk up the ancestry until a matching file appears; fall back to
+# the most recently written file when the walk finds nothing (single-session
+# case). Prints "TOKENS PCT" or nothing at all when context-mode is absent —
+# every caller must treat "no output" as "not installed", never as zero.
+# ---------------------------------------------------------------------------
+ctx_stats() {
+  local dir="${HOME}/.claude/context-mode/sessions" pid="$$" f="" i=0
+  [ -d "$dir" ] || return 1
+  while [ "$i" -lt 8 ] && [ -n "$pid" ] && [ "$pid" != 0 ] && [ "$pid" != 1 ]; do
+    if [ -f "${dir}/stats-pid-${pid}.json" ]; then f="${dir}/stats-pid-${pid}.json"; break; fi
+    pid="$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')"
+    i=$(( i + 1 ))
+  done
+  if [ -z "$f" ]; then
+    # newest file wins; only correct when a single session is running, which is
+    # why the ancestry walk is tried first.
+    # newest by mtime, without parsing `ls` (BSD stat: -f '%m %N')
+    f="$(find "$dir" -maxdepth 1 -name 'stats-pid-*.json' -exec stat -f '%m %N' {} + 2>/dev/null \
+         | sort -rn | head -1 | cut -d' ' -f2-)"
+  fi
+  [ -n "$f" ] && [ -f "$f" ] || return 1
+  jq -r '"\(.tokens_saved // 0) \(.reduction_pct // 0)"' "$f" 2>/dev/null
+}
+
+# ---------------------------------------------------------------------------
+# context_usage — sets $used (tokens in the window) and $win (window size).
+# Defined before both the member line and the middle pane so the transcript is
+# parsed once and the two can never disagree.
+# ---------------------------------------------------------------------------
+human() {                        # tokens -> 1.0M / 121k / 850
+  local n="$1"
+  if [ "$n" -ge 1000000 ]; then awk -v n="$n" 'BEGIN{printf "%.1fM", n/1000000}'
+  elif [ "$n" -ge 1000 ]; then echo "$(( n / 1000 ))k"
+  else echo "$n"; fi
+}
+
+context_usage() {
+  used=0
+  if [ -n "$transcript" ] && [ -f "$transcript" ]; then
+    local line i cc cr
+    line="$(tac "$transcript" 2>/dev/null | grep -m1 '"input_tokens"' || true)"
+    if [ -n "$line" ]; then
+      read -r i cc cr < <(printf '%s' "$line" | jq -r \
+        '.message.usage | "\(.input_tokens // 0) \(.cache_creation_input_tokens // 0) \(.cache_read_input_tokens // 0)"' 2>/dev/null)
+      used=$(( ${i:-0} + ${cc:-0} + ${cr:-0} ))
+    fi
+  fi
+  if [ -n "${CLAUDE_CONTEXT_WINDOW:-}" ]; then win="$CLAUDE_CONTEXT_WINDOW"
+  elif printf '%s' "$model_id" | grep -qi '1m'; then win=1000000
+  elif [ "$used" -gt 200000 ]; then win=1000000
+  else win=200000; fi
+}
+
+CTX_SAVED=""; CTX_PCT=""
+_cs="$(ctx_stats || true)"
+[ -n "$_cs" ] && { CTX_SAVED="${_cs%% *}"; CTX_PCT="${_cs##* }"; }
+
 compact=0
 case "${CLAUDE_STATUSLINE_COMPACT:-auto}" in
   1|on|yes|true)  compact=1 ;;
@@ -143,6 +226,40 @@ if [ "$compact" = 1 ]; then
   fi
   if [ "$(vislen "$c_plain")" -le "$W" ]; then printf '%b' "$c_col"
   else printf '%b' "$(seg "$(trunc "$c_plain" "$W")" "$B$MAG")"; fi
+  exit 0
+fi
+
+# ---------------------------------------------------------------------------
+# member mode — every herdr pane EXCEPT the lead (the leftmost in the tab).
+# A member is doing one handed task; the workspace/git/phase columns are the
+# lead's orchestration context and are noise in a member pane. Emits ONE line:
+# model · context-mode savings · context tokens used of the window.
+# Outside herdr, or in the lead pane, this is skipped and the full 3-column
+# layout renders as before.
+# ---------------------------------------------------------------------------
+if ! is_lead; then
+  context_usage
+  m_plain="🤖 ${model}"
+  m_col="$(seg "🤖 ${model}" "$B$MAG")"
+
+  if [ -n "$CTX_SAVED" ] && [ "$CTX_SAVED" -gt 0 ] 2>/dev/null; then
+    _cs="⚡ $(human "$CTX_SAVED") saved"
+    [ "${CTX_PCT:-0}" -gt 0 ] 2>/dev/null && _cs="${_cs} (${CTX_PCT}%)"
+    m_plain="${m_plain}  ${_cs}"
+    m_col="${m_col}  $(seg "$_cs" "$GRN")"
+  fi
+
+  _tk="📊 $(human "$used") / $(human "$win")"
+  m_plain="${m_plain}  ${_tk}"
+  # colour the used half by fill level, same thresholds as the lead's meter
+  _p=0; [ "$win" -gt 0 ] && _p=$(( used * 100 / win ))
+  if   [ "$_p" -lt 60 ]; then _tc="$GRN"
+  elif [ "$_p" -lt 85 ]; then _tc="$YEL"
+  else _tc="$RED"; fi
+  m_col="${m_col}  $(seg "📊 $(human "$used")" "$_tc")$(seg " / $(human "$win")" "$DIM")"
+
+  if [ "$(vislen "$m_plain")" -le "$W" ]; then printf '%b' "$m_col"
+  else printf '%b' "$(seg "$(trunc "$m_plain" "$W")" "$B$MAG")"; fi
   exit 0
 fi
 
@@ -190,28 +307,7 @@ L3="$(mcell "$L3_PLAIN" "$L3_COL" "$DIM")"
 # ---------------------------------------------------------------------------
 # MIDDLE PANE — context-window meter
 # ---------------------------------------------------------------------------
-human() {                        # tokens -> 1.0M / 121k / 850
-  local n="$1"
-  if [ "$n" -ge 1000000 ]; then awk -v n="$n" 'BEGIN{printf "%.1fM", n/1000000}'
-  elif [ "$n" -ge 1000 ]; then echo "$(( n / 1000 ))k"
-  else echo "$n"; fi
-}
-
-used=0
-if [ -n "$transcript" ] && [ -f "$transcript" ]; then
-  line="$(tac "$transcript" 2>/dev/null | grep -m1 '"input_tokens"' || true)"
-  if [ -n "$line" ]; then
-    read -r i cc cr < <(printf '%s' "$line" | jq -r \
-      '.message.usage | "\(.input_tokens // 0) \(.cache_creation_input_tokens // 0) \(.cache_read_input_tokens // 0)"' 2>/dev/null)
-    used=$(( ${i:-0} + ${cc:-0} + ${cr:-0} ))
-  fi
-fi
-
-# window size
-if [ -n "${CLAUDE_CONTEXT_WINDOW:-}" ]; then win="$CLAUDE_CONTEXT_WINDOW"
-elif printf '%s' "$model_id" | grep -qi '1m'; then win=1000000
-elif [ "$used" -gt 200000 ]; then win=1000000
-else win=200000; fi
+context_usage                      # sets $used and $win (defined above)
 
 pct=0; [ "$win" -gt 0 ] && pct=$(( used * 100 / win ))
 [ "$pct" -gt 100 ] && pct=100
@@ -230,7 +326,20 @@ for ((x=0;x<fill;x++)); do bar_fill+="█"; done
 for ((x=0;x<empty;x++)); do bar_empty+="░"; done
 
 if [ "$used" -gt 0 ]; then
-  M1="$(cell "⚡ context  ${pct}%" "$B$MC")"
+  # Row 1 carries the meter AND, when context-mode is attached, what it kept
+  # out of the window — the two belong together: the percentage is what got in,
+  # the savings is what didn't.
+  M1_PLAIN="⚡ context  ${pct}%"
+  M1_COL="$(seg "⚡ context  ${pct}%" "$B$MC")"
+  if [ -n "$CTX_SAVED" ] && [ "$CTX_SAVED" -gt 0 ] 2>/dev/null; then
+    _sv="  ⚡ $(human "$CTX_SAVED")"
+    [ "${CTX_PCT:-0}" -gt 0 ] 2>/dev/null && _sv="${_sv} (${CTX_PCT}%)"
+    if [ "$(vislen "${M1_PLAIN}${_sv}")" -le "$COLW" ]; then
+      M1_PLAIN="${M1_PLAIN}${_sv}"
+      M1_COL="${M1_COL}$(seg "$_sv" "$GRN")"
+    fi
+  fi
+  M1="$(mcell "$M1_PLAIN" "$M1_COL" "$B$MC")"
   # used tokens take the fill color, the window total stays dim
   M2_PLAIN="📊 $(human "$used") / $(human "$win")"
   M2_COL="$(seg "📊 $(human "$used")" "$MC")$(seg " / $(human "$win")" "$DIM")"
@@ -241,7 +350,11 @@ if [ "$used" -gt 0 ]; then
   M3="$(printf '%b[%b%s%b%s%b]%b%*s' "$DIM" "$MC" "$bar_fill" "$DIM" "$bar_empty" "$DIM" "$RST" "$barpad" '')"
 else
   M1="$(cell "⚡ context" "$B$BLU")"
-  M2="$(cell " no usage yet" "$DIM")"
+  if [ -n "$CTX_SAVED" ] && [ "$CTX_SAVED" -gt 0 ] 2>/dev/null; then
+    M2="$(mcell " ⚡ $(human "$CTX_SAVED") saved" "$(seg " ⚡ $(human "$CTX_SAVED") saved" "$GRN")" "$DIM")"
+  else
+    M2="$(cell " no usage yet" "$DIM")"
+  fi
   M3="$(cell "" "$DIM")"
 fi
 
