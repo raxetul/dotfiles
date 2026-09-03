@@ -1,7 +1,7 @@
 ---
 status: source-of-truth
 maintainer: emrahurhan@buyutech.com.tr
-claude-rule: "The claude-worktree and herdr-team commands are documented here and MUST be kept in lockstep with scripts/claude-worktree and scripts/herdr-team, and with the herdr-workspace-guard.sh hook."
+claude-rule: "The claude-worktree and herdr-team commands are documented here and MUST be kept in lockstep with scripts/claude-worktree and scripts/herdr-team, and with the herdr-workspace-guard.sh and herdr-team-teardown.sh hooks. The teardown hook's two lead signals (unnamed agent entry + leftmost pane) and its SessionEnd reason gate are asserted by configurations/claude/hooks/tests/herdr-team-teardown.test.sh — changing either means updating that suite in the same change."
 ---
 
 # Parallel Claude sessions with git worktrees
@@ -302,6 +302,94 @@ Two corollaries this puts on the lead:
   since that input can't be sent programmatically either, a human has to
   click it. Check `hasTrustDialogAccepted` for the target cwd in
   `~/.claude.json` before spawning to avoid the lock in the first place.
+
+## Lead exit tears the team down first
+
+A lead's members are ordinary Claude sessions in their own panes. herdr has **no
+parent/child link between panes** — the team exists only as geometry (leader
+left, members right). So when the lead's session ended, its pane closed and the
+members were simply left behind: live Claude processes with nobody orchestrating
+them, holding workspace layout.
+
+`configurations/claude/hooks/herdr-team-teardown.sh` closes them first. It is a
+Claude Code **`SessionEnd`** hook, wired in `configurations/claude/settings.json`
+and symlinked to `~/.claude/hooks/` by `scripts/symlinks.sh`.
+
+### The lead check is the whole design
+
+The hook fires in **every** Claude session, members included. The expensive
+failure mode is not "forgot to close a member" — it is a *member* concluding it
+is the lead and closing its lead plus its siblings. Two **independent** signals
+must therefore both agree:
+
+```mermaid
+flowchart TD
+    A["SessionEnd fires<br/>(every session)"] --> R{"reason"}
+    R -->|clear / resume| STOP1["do nothing<br/>(process lives on)"]
+    R -->|logout / prompt_input_exit / other| E{"inside herdr?<br/>HERDR_ENV + PANE + WORKSPACE"}
+    E -->|no| STOP2["do nothing"]
+    E -->|yes| S1{"signal 1:<br/>is my agent entry UNNAMED?"}
+    S1 -->|"has a name -> I am a member"| STOP3["do nothing"]
+    S1 -->|"name is null"| S2{"signal 2:<br/>am I the LEFTMOST pane of my tab?"}
+    S2 -->|no| STOP4["do nothing, log why"]
+    S2 -->|yes| M["I am the lead"]
+    M --> C["close every NAMED agent pane<br/>in MY workspace, except me"]
+```
+
+| Signal | Lead | Member | Why it discriminates |
+| --- | --- | --- | --- |
+| `.name` in `herdr agent list` | `null` | `<role>` | only `agent start <label>` sets a name |
+| Pane geometry | leftmost (min `rect.x`) | `x > leader.x` | how `claude-worktree` finds the leader |
+
+Either signal failing means **do nothing**. The hook fails safe toward leaving
+panes open, never toward closing someone else's. The redundancy is real, not
+decorative: with signal 1 disabled, a member exiting is still stopped by
+signal 2.
+
+### What counts as a member
+
+Agents in **my** workspace, with a pane id other than mine, **that have a name**.
+
+| Pane | Torn down? | Why |
+| --- | --- | --- |
+| Member spawned by `claude-worktree` / `herdr-team spawn` | ✅ | named agent in my workspace |
+| A pane a human opened and ran `claude` in | ❌ | no agent name — not a spawned member |
+| Plain shell pane | ❌ | never appears in `herdr agent list` at all |
+| Named member in **another** workspace | ❌ | workspace-scoped, then re-checked against the `<ws>:` id prefix |
+
+### SessionEnd reasons
+
+Claude Code's enum is `clear | resume | logout | prompt_input_exit | other`.
+
+| Reason | Process going away? | Teardown |
+| --- | --- | --- |
+| `clear` (`/clear`) | no | ❌ skipped |
+| `resume` | no | ❌ skipped |
+| `logout` | yes | ✅ |
+| `prompt_input_exit` | yes | ✅ |
+| `other` | yes | ✅ |
+
+### Knobs
+
+| Setting | Effect |
+| --- | --- |
+| `HERDR_TEAM_TEARDOWN=all` | close every member (**default**) |
+| `HERDR_TEAM_TEARDOWN=idle` | keep members whose status is `working` |
+| `HERDR_TEAM_TEARDOWN=off` | do nothing |
+| `DRY_RUN=1` | log the decisions, close nothing |
+
+Every run appends to `${XDG_STATE_HOME:-~/.local/state}/dotfiles/herdr-team-teardown.log`,
+including the skips and their reasons. The hook **always exits 0** — a cleanup
+step must never be the reason a session cannot quit.
+
+### Tests
+
+`configurations/claude/hooks/tests/herdr-team-teardown.test.sh` stubs `herdr`
+(fixture `agent list` / `pane layout`, recorded `pane close`) and asserts 13
+cases: the lead tears down on each exiting reason, `idle` mode spares a working
+member, and **nothing** is closed for `clear`/`resume`, for a member exiting,
+for a non-leftmost unnamed pane, for another workspace's member, for an unnamed
+sibling, or outside herdr.
 
 ## Team scoping — cwd is never identity
 

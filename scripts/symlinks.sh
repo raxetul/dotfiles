@@ -66,6 +66,7 @@ COMMON_LINKS=(
   "configurations/claude/hooks/git-worktree-autoprune.sh::.claude/hooks/git-worktree-autoprune.sh"
   "configurations/claude/hooks/herdr-agent-state.sh::.claude/hooks/herdr-agent-state.sh"
   "configurations/claude/hooks/herdr-workspace-guard.sh::.claude/hooks/herdr-workspace-guard.sh"
+  "configurations/claude/hooks/herdr-team-teardown.sh::.claude/hooks/herdr-team-teardown.sh"
   "configurations/claude/scripts::.claude/scripts"
   "configurations/themes/claude/one-dark.json::.claude/themes/one-dark.json"
   "configurations/cargo/bin/cargo-test-tree::.cargo/bin/cargo-test-tree"
