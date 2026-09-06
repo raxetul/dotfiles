@@ -1,6 +1,6 @@
 ---
 status: source-of-truth
-maintainer: emrahurhan@buyutech.com.tr
+maintainer: raxetul@gmail.com
 claude-rule: "scripts/claude-reset.sh is fully automatic and destructive by default (--dry-run is the only preview mode). Before editing its phase list or target paths, re-read this doc's inventory table so a target doesn't get added/removed without updating both the script and this table in the same change."
 ---
 

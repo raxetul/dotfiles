@@ -1,6 +1,6 @@
 ---
 source: configurations/atuin/config.toml
-maintainer: emrahurhan@buyutech.com.tr
+maintainer: raxetul@gmail.com
 claude-rule: "Keep this file in sync whenever configurations/atuin/config.toml changes."
 ---
 

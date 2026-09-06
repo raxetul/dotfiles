@@ -1,6 +1,6 @@
 ---
 status: source-of-truth
-maintainer: emrahurhan@buyutech.com.tr
+maintainer: raxetul@gmail.com
 claude-rule: "configurations/claude/settings.json is the tracked, host-agnostic file — symlinked to ~/.claude/settings.json. It must never carry autoMode or any other project-scoped/volatile block; those belong in a settings.local.json (project- or user-level, gitignored). Before editing configurations/claude/settings.json, check `jq -e 'has(\"autoMode\")' configurations/claude/settings.json` is false."
 ---
 

@@ -1,6 +1,6 @@
 ---
 source: (cross-cutting)
-maintainer: emrahurhan@buyutech.com.tr
+maintainer: raxetul@gmail.com
 claude-rule: "Keep this file in sync whenever a theme file under configurations/themes/ or its consumer config is touched."
 ---
 

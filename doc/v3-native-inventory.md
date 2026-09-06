@@ -1,7 +1,7 @@
 ---
 status: in-progress
 branch: refactor/v3-native
-maintainer: emrahurhan@buyutech.com.tr
+maintainer: raxetul@gmail.com
 claude-rule: "Phase-1 inventory for the Nix-removal refactor. Update entries as packages get verified on each distro."
 progress: |
   Phases 1-3 done (inventory, native package lists, symlink loop in

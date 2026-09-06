@@ -1,6 +1,6 @@
 ---
 status: source-of-truth
-maintainer: emrahurhan@buyutech.com.tr
+maintainer: raxetul@gmail.com
 claude-rule: "This doc MUST be kept in lockstep with scripts/dc-image-update — any change to its scan/mark/apply behavior, menu keys, state schema, or exit codes is a doc change in the same commit."
 ---
 

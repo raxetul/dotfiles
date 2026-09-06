@@ -1,6 +1,6 @@
 ---
 status: source-of-truth
-maintainer: emrahurhan@buyutech.com.tr
+maintainer: raxetul@gmail.com
 claude-rule: "Every package added to packages/Brewfile or packages/*.list MUST get a row here AND in doc/packages-native.md in the same change. See CLAUDE.md §4."
 ---
 

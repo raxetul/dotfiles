@@ -1,6 +1,6 @@
 ---
 source: .claude/hooks/post-tool-use.sh
-maintainer: emrahurhan@buyutech.com.tr
+maintainer: raxetul@gmail.com
 claude-rule: "Update this doc whenever the source changes."
 ---
 # post-tool-use.sh hook
