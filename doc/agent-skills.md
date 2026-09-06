@@ -1,6 +1,6 @@
 ---
 status: source-of-truth
-maintainer: emrahurhan@buyutech.com.tr
+maintainer: raxetul@gmail.com
 claude-rule: "Claude skills live ONLY in ${AGENT_SKILLS_DIR} (default ${HOME}/gel-ort/agent-skills) — a git repo of its own, which MUST be mirrored to a PRIVATE GitHub repo named after the dotfiles owner (<owner>/agent-skills, same host and URL shape as the dotfiles origin). They are never vendored inside configurations/claude/skills/ (or any other path) in this dotfiles repo, and never pushed to a PUBLIC remote. setup.sh asks before creating that mirror; scripts/update-dotfiles creates it without asking when it is still missing; neither ever flips an existing repo's visibility. scripts/symlinks.sh links ~/.claude/skills/<name> from that repo dynamically (every top-level entry, not a fixed list); scripts/agent-skills manages the repo itself (init/ensure-remote/status/commit/bundle/restore/link/list), with git bundle kept as a second, fully local backup layer. New technology variety inside a skill is still expressed as a references/ file, never a new skill. Solana/crypto/hackathon-specific skills stay archived outside both, at ${HOME}/gel-ort/claude-skills-archive/."
 ---
 

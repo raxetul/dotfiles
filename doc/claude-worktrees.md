@@ -1,6 +1,6 @@
 ---
 status: source-of-truth
-maintainer: emrahurhan@buyutech.com.tr
+maintainer: raxetul@gmail.com
 claude-rule: "The claude-worktree and herdr-team commands are documented here and MUST be kept in lockstep with scripts/claude-worktree and scripts/herdr-team, and with the herdr-workspace-guard.sh and herdr-team-teardown.sh hooks. The teardown hook's two lead signals (unnamed agent entry + leftmost pane) and its SessionEnd reason gate are asserted by configurations/claude/hooks/tests/herdr-team-teardown.test.sh — changing either means updating that suite in the same change."
 ---
 

@@ -1,5 +1,5 @@
 ---
-maintainer: emrahurhan@buyutech.com.tr
+maintainer: raxetul@gmail.com
 claude-rule: "When you change scripts/dotfiles-state.sh, or add/remove a state_record call in setup.sh / symlinks.sh / run-custom-install-hook, update this doc to match (record schema, domains, writers)."
 ---
 

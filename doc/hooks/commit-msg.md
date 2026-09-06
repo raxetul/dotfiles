@@ -1,6 +1,6 @@
 ---
 source: .claude/hooks/commit-msg.sh
-maintainer: emrahurhan@buyutech.com.tr
+maintainer: raxetul@gmail.com
 claude-rule: "Update this doc whenever the source changes."
 ---
 # commit-msg.sh hook

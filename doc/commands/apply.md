@@ -1,6 +1,6 @@
 ---
 source: .claude/commands/apply.md
-maintainer: emrahurhan@buyutech.com.tr
+maintainer: raxetul@gmail.com
 claude-rule: "Update this doc whenever the source changes."
 ---
 # /apply

@@ -1,6 +1,6 @@
 ---
 status: source-of-truth
-maintainer: emrahurhan@buyutech.com.tr
+maintainer: raxetul@gmail.com
 claude-rule: "herdr's keybindings are documented here and MUST be kept in lockstep with configurations/herdr/config.toml. The 'no sticky prefix mode' finding below is a verified absence — do not re-litigate it without re-checking `herdr --default-config`."
 ---
 

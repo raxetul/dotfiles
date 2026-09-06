@@ -1,6 +1,6 @@
 ---
 source: .claude/
-maintainer: emrahurhan@buyutech.com.tr
+maintainer: raxetul@gmail.com
 claude-rule: "Update this guide when the .claude/ tree or the rules in CLAUDE.md change shape."
 ---
 # Promoting agentic config from repo-local to global
