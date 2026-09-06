@@ -12,71 +12,64 @@ local-only (`auto_sync = false`) — nothing leaves the machine.
 ## Policy: no surface may HIDE history
 
 Three different UI surfaces read the same local history DB
-(`~/.local/share/atuin/history.db`). Ctrl+R and the grey suggestion are
-**global** — a command typed in one tab is visible from every other
-tab/session/host. The ↑ key is the one deliberate narrowing, and it is only
-allowed because Ctrl+R stays global behind it: nothing ↑ omits is actually
-lost.
+(`~/.local/share/atuin/history.db`). All three are **global**: a command typed
+in one tab is visible from every other tab/session/host, on every surface.
+
+The ↑ key was narrowed to `session-preload` for two weeks and reverted — see
+"Why ↑ is back on `global`" below for the measurement that ended it. Narrowing a
+surface is not forbidden outright, but it has to survive this test: **how much
+does it hide on a real, long-lived, many-pane session?** Reason about it with
+that shape in mind, not a fresh single shell.
 
 ```mermaid
 flowchart LR
     DB[(atuin history.db<br/>local, encrypted)]
 
     CtrlR["Ctrl+R<br/>atuin search -i<br/>GLOBAL — everything"] -->|reads| DB
-    UpKey["↑ up-arrow<br/>--shell-up-key-binding<br/>SESSION+ — mine first"] -->|reads| DB
+    UpKey["↑ up-arrow<br/>--shell-up-key-binding<br/>GLOBAL — everything"] -->|reads| DB
     Suggest["grey autosuggestion<br/>zsh-autosuggestions strategy<br/>GLOBAL"] -->|reads| DB
 
     classDef surface fill:#89b4fa,stroke:#1e1e2e,color:#1e1e2e
-    classDef narrowed fill:#f9e2af,stroke:#1e1e2e,color:#1e1e2e
-    class CtrlR,Suggest surface
-    class UpKey narrowed
+    class CtrlR,Suggest,UpKey surface
 ```
 
 | Surface | Invocation | Config key(s) read | Value |
 | --- | --- | --- | --- |
 | Ctrl+R search | `atuin search -i` | `filter_mode` | `"global"` |
-| Up-arrow recall | `atuin search -i --shell-up-key-binding` | `filter_mode_shell_up_key_binding` | `"session-preload"` |
+| Up-arrow recall | `atuin search -i --shell-up-key-binding` | `filter_mode_shell_up_key_binding` | `"global"` |
 | Grey autosuggestion | `_zsh_autosuggest_strategy_atuin` (from `atuin init zsh`) → `ATUIN_QUERY="$1" atuin search --cmd-only --author '$all-user' --limit 1 --search-mode prefix` | `filter_mode` (no override) | `"global"` |
 
-### Why ↑ uses `session-preload` — and what it costs
+### Why ↑ is back on `global`
 
-**atuin has no session-aware ordering.** Verified in the v18.19.0 source
-(`atuin-client/src/database.rs`): every search `ORDER BY` is a plain
-`f.timestamp DESC`, and `smart_sort` plus the three
-`search.*_score_multiplier` knobs are recency/frequency only — none of them
-looks at the `session` column. So "show my commands first" cannot be done with
-a sort. The only lever is a **filter**, `session-preload` (`SESSION+` in the
-TUI), whose SQL is:
+↑ ran `session-preload` from 2026-08-24 to 2026-09-06. Its SQL is
 
 ```sql
 WHERE session = '<this session>' OR timestamp < <this session's start time>
 ```
 
-Recency ordering then floats this terminal's own commands to the top, because
-they are the newest rows matching. The session start time is decoded from the
-UUIDv7 in `$ATUIN_SESSION`; if that value is not a v7 UUID the `OR` clause is
-dropped and the mode silently degrades to plain `session` — i.e. only this
-terminal's commands. Worth knowing if ↑ ever looks suspiciously empty.
+which puts this terminal's own commands at the top by recency, at the price of
+hiding what other sessions ran after this one started. That price was estimated
+at ~30% when the mode was adopted. Measured again on 2026-09-06, on a shell that
+had been open since 2026-09-03:
 
-**The cost.** Commands run in *other* sessions *after this one started* are
-excluded from ↑. The excluded set grows with session age, and long-lived
-Claude Code / herdr panes make that significant:
-
-| Measured 2026-08-24, session started 2026-08-18 (6 days old) | Commands |
+| Since this session started | Commands |
 | --- | --- |
-| This session's own | 324 |
-| Everything predating the session | 7 591 |
-| **↑ (`session-preload`) sees** | **7 915** |
-| **Ctrl+R (`global`) sees** | **11 309** |
-| Hidden from ↑ — 22 concurrent sessions | 3 394 (~30%) |
+| Total recorded | 865 |
+| This session's own | **7** |
+| Hidden from ↑ | **858 across 12 sessions (99%)** |
 
-Those 3 394 are one Ctrl+R away. That escape hatch is the entire justification;
-if `filter_mode` were ever narrowed too, this arrangement would stop being
-acceptable.
+The mode assumes most of your typing happens inside the session you are sitting
+in. With herdr keeping a dozen long-lived panes — each its own atuin session —
+that assumption is simply false, and the cost grows with both session age and
+pane count. A ↑ key that hides 99% of recent history is not a preference, it is
+a broken key, so it went back to `global`.
 
-**Plain `session` remains forbidden** — it drops the `OR timestamp <` clause
-and hides everything older as well, which is the regression `a0b8995` fixed.
-To revert, set `filter_mode_shell_up_key_binding = "global"`.
+`session-preload` stays in `search.filters`, reachable from the Ctrl+R cycle
+key. That is the right home for it: opt in for one search when you know you want
+just this pane, instead of narrowing every ↑ press by default.
+
+**Plain `session` remains forbidden**, for the same reason and more so — it also
+drops the `OR timestamp <` clause, hiding everything older as well.
 
 ## TUI height: inline vs alternate screen
 
