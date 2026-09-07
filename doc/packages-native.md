@@ -1,6 +1,6 @@
 ---
 status: source-of-truth
-branch: refactor/v3-native
+branch: main
 maintainer: raxetul@gmail.com
 claude-rule: "Every package added to packages/Brewfile or packages/*.list MUST get a row here in the same change. See CLAUDE.md §6."
 ---
