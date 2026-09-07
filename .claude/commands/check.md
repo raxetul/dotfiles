@@ -18,9 +18,13 @@ the first failure — report all three at the end):
    ```
 2. **`packages/*.list` syntax** — each non-comment line must be a
    single package name (no shell metacharacters, no spaces — except
-   `snap.list`, which permits trailing flags like `--classic`).
+   `snap.list`, which permits trailing flags like `--classic`, and
+   `script-install.list`, which is a two-column
+   `<probe-bin> <installer cmd>` lane whose command column may
+   legitimately carry shell metacharacters).
    ```sh
    for f in packages/*.list; do
+     case "$f" in packages/script-install.list) continue ;; esac
      awk '/^\s*[^#]/ && /[;&|<>$]/ { print FILENAME":"NR": bad chars: "$0 }' "$f"
    done
    ```

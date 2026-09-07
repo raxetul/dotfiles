@@ -24,8 +24,10 @@ on first failure — reports all three at the end:
    `configurations/git/template/hooks/*` (those are bare shims).
 2. **`packages/*.list` syntax** — each non-comment line must be a
    single package name (no shell metacharacters, no spaces; the
-   exception is `snap.list`, which allows trailing flags like
-   `--classic`). Walks every `.list` under `packages/`.
+   exceptions are `snap.list`, which allows trailing flags like
+   `--classic`, and `script-install.list`, a two-column
+   `<probe-bin> <installer cmd>` lane whose command column may
+   carry shell metacharacters — skipped by the walk).
 3. **`commitlint --from origin/main`** — validates every commit on
    the current branch against the Conventional Commits ruleset.
    Lists offending hashes but does **not** propose rewriting
