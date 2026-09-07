@@ -57,6 +57,7 @@ graph TD
 | `/update`       | [commands/update.md](commands/update.md)       |
 | `/commit`       | [commands/commit.md](commands/commit.md)       |
 | `/check`        | [commands/check.md](commands/check.md)         |
+| `/migrate-config` | [commands/migrate-config.md](commands/migrate-config.md) |
 
 ## Hooks (`.claude/hooks/*.sh`)
 
