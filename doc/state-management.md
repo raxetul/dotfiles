@@ -44,11 +44,11 @@ collapse — and `prune` rewrites the file to that reduced set.
 | Domain        | Actions            | `id`              | `detail`                  |
 | ------------- | ------------------ | ----------------- | ------------------------- |
 | `symlink`     | `create` / `remove`| `~`-relative dst  | `src=<repo path>`         |
-| `package`     | `install` / `present` | package name   | `mgr=<apt\|pacman\|dnf\|brew>` |
-| `plugin`      | `clone`            | checkout path     | `name=<id>`               |
-| `bootstrap`   | `fetch`            | file path         | `name=<id>`               |
+| `package`     | `install` / `present` / `purge` | package name | `mgr=<apt\|pacman\|dnf\|brew\|script>` |
+| `plugin`      | `clone` / `remove` | checkout path     | `name=<id>`               |
+| `bootstrap`   | `fetch` / `remove` | file path         | `name=<id>`               |
 | `custom-hook` | `run`              | `<pkg>/<hook>`    | `rc=<exit code>`          |
-| `shell`       | `chsh`             | new login shell   | `from=<previous shell>`   |
+| `shell`       | `chsh` / `revert`  | new login shell   | `from=<previous shell>`   |
 
 `install` vs `present` is the load-bearing distinction: only `install`
 packages are ours to remove. `present` packages were already on the host
@@ -67,6 +67,7 @@ including the child scripts it calls — groups under one run.
 | `setup.sh` (shell step)       | `shell chsh` with the prior login shell                        |
 | `scripts/symlinks.sh`         | `symlink create` / `symlink remove` (also derivable from the array — this is the audit/uninstall trail) |
 | `scripts/run-custom-install-hook` | `custom-hook run` per executed before/after hook          |
+| `scripts/uninstall.sh`       | `plugin remove` / `bootstrap remove` / `package purge` / `shell revert` — the negation records that drop entries from the realized set |
 
 `.path` segments are **not** recorded here — they are self-describing via
 their `# >>> <pkg> begin … end` markers (CLAUDE.md §10), so an uninstaller
@@ -85,10 +86,10 @@ scripts/dotfiles-state.sh path                 # print the ledger path
 
 `DRY_RUN=1` prints the intended record to stderr and writes nothing.
 
-## How `uninstall.sh` will consume it (Phase 4)
+## How `uninstall.sh` consumes it
 
-The yet-to-be-written `scripts/uninstall.sh` reads the reduced ledger to
-reverse the exact realized set:
+`scripts/uninstall.sh` reads the reduced ledger to reverse the exact
+realized set:
 
 - **symlinks** — reverse via `scripts/symlinks.sh uninstall` (array-driven;
   the ledger is the cross-check).

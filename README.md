@@ -99,13 +99,20 @@ when you add a new mapping or want to bring a fresh host up to date.
 ## Uninstall
 
 ```sh
-./scripts/symlinks.sh uninstall   # remove every symlink this repo planted
+./scripts/uninstall.sh            # remove every user-scope artifact:
+                                   # symlinks, plugins, .path segments,
+                                   # empty dirs left behind
+./scripts/uninstall.sh --dry-run  # preview every action, execute none
+./scripts/uninstall.sh --purge    # also remove the packages this repo
+                                   # installed (never ones you had)
+./scripts/uninstall.sh --shell    # also revert the login shell
 ```
 
-System-level packages are not auto-removed — `brew uninstall`, `apt
-purge`, `pacman -R`, or `dnf remove` driven against the `packages/`
-lists is a manual step. Phase 4 of v3-native will ship a wrapping
-`scripts/uninstall.sh` that does both.
+`--purge` is ledger-driven (`scripts/dotfiles-state.sh`): it removes
+only packages recorded as *installed by this repo*, never ones already
+`present` on the host — see
+[doc/state-management.md](doc/state-management.md). AUR / Snap
+fallbacks aren't ledger-tracked; they're flagged for manual removal.
 
 ## Adding packages
 

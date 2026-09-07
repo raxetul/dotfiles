@@ -13,10 +13,11 @@ progress: |
   tmux via TPM (yank, catppuccin + theme) and
   vim via vim-plug (~24 plugins) — see configurations/tmux/tmux.conf
   and configurations/vim/vimrc.
-  Phase 4 foundation in place: scripts/dotfiles-state.sh records the
-  realized footprint (see doc/state-management.md) so the still-unwritten
-  scripts/uninstall.sh can reverse it and safely --purge.
-  Outstanding: scripts/uninstall.sh itself.
+  Phase 4 done: scripts/dotfiles-state.sh records the realized
+  footprint (see doc/state-management.md), and scripts/uninstall.sh
+  reverses it in one pass — symlinks, ledger-recorded plugins and
+  bootstraps, .path segments, with optional ledger-driven --purge
+  (install-only, never present) and --shell revert.
 ---
 
 # v3-native — Phase 1 Inventory
@@ -40,8 +41,9 @@ native equivalent for each supported package manager.
    - third-party assets (tpm, zsh plugins, vim plugins): `~/.config/...`
      or `~/.local/share/...`
 4. **Easy uninstall** — `scripts/uninstall.sh` removes every user-scope
-   artifact in one pass; native packages are listed in the *.list files
-   for `apt purge -y $(cat …)` / `brew bundle cleanup --force` flows.
+   artifact in one pass; `--purge` removes only the ledger's
+   `install` records (never `present` ones) via the matching package
+   manager.
 
 ---
 
@@ -282,7 +284,7 @@ doc/packages-*.md        # 4 files (will be replaced by 1 doc/packages-native.md
 
 ## Uninstall path (the constraint that drove the design)
 
-`scripts/uninstall.sh` (to be written in Phase 4) reads the realized-state
+`scripts/uninstall.sh` reads the realized-state
 ledger (`scripts/dotfiles-state.sh`, see
 [state-management.md](state-management.md)) rather than re-deriving the
 footprint, so `--purge` only removes packages we actually installed:

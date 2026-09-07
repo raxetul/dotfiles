@@ -33,6 +33,7 @@ graph TD
 | `scripts/symlinks.sh` | (inline help via `--help`) — symlink driver |
 | `scripts/update-dotfiles` | (inline help) — refresh entrypoint |
 | `scripts/dotfiles-state.sh` | [state-management.md](state-management.md) — realized-state ledger |
+| `scripts/uninstall.sh` | (inline help via `--help`) — one-pass uninstall: symlinks + ledger-recorded plugins/bootstraps + `.path` segments, optional ledger-driven `--purge` and `--shell` revert |
 | `scripts/gpg-setup.sh` | (inline help) — GPG signing wizard |
 | `scripts/claude-worktree` | [claude-worktrees.md](claude-worktrees.md) — parallel Claude sessions in git worktrees |
 | `configurations/herdr/config.toml` | [herdr.md](herdr.md) — herdr keybindings, the ctrl+alt navigation layer, mode inventory |

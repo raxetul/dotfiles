@@ -97,11 +97,11 @@ global one, see [doc/agentic-promotion.md](doc/agentic-promotion.md).
    native package manager doing its job (`sudo apt install …`,
    `brew install …`). Never plant files in `/etc`, `/usr/local`,
    `/opt`, or `/var` outside what the package manager owns.
-   Corollary: the repo ships `scripts/symlinks.sh uninstall` that
-   strips every user-scope artifact in one pass; future
-   `scripts/uninstall.sh` (Phase 4 of v3-native) will wrap that with
-   optional `apt purge` / `brew uninstall` driven by the `.list`
-   files + optional `chsh` revert.
+   Corollary: `scripts/uninstall.sh` strips every user-scope artifact
+   in one pass — the `scripts/symlinks.sh` links, ledger-recorded
+   plugins/bootstraps, and `.path` segments — with optional
+   ledger-driven `--purge` (only packages this repo installed, never
+   ones already `present`) and optional `--shell` revert.
 9. **Custom-install hooks live in `packages/custom-install/<pkg>/`,
    one folder per package, with REQUIRED `before.sh` and `after.sh`
    slots.** `before.sh` runs *before* the package install step
