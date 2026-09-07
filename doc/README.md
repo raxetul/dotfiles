@@ -41,6 +41,11 @@ graph TD
 | `scripts/dc-image-update` | [dc-image-update.md](dc-image-update.md) — interactive docker compose image pull/recreate helper |
 | `scripts/claude-reset.sh` | [claude-folder-reset.md](claude-folder-reset.md) — fully automatic, backup-first `~/.claude` cleanup |
 | `scripts/agent-skills` | [agent-skills.md](agent-skills.md) — global skills repo shared by Claude Code + opencode, its private mirror |
+| `scripts/add-ssh-key-for-host` | (inline help via `--help`) — add an SSH key entry + `IdentityFile` block for a host in `~/.ssh/config` |
+| `scripts/backup-configs.sh` | (inline help via `--help`) — scoped pre-symlink backup of repo-managed configs (dry-run default, `--apply` to run) |
+| `scripts/ssh-gen` | (inline help via `--help`) — generate an ed25519 SSH key in `~/.ssh/` |
+| `scripts/ssh-get-pub-key` | (inline help via `--help`) — print the public half of a named SSH key in `~/.ssh/` |
+| `scripts/git-filter-repo` | (vendored upstream, b486a4e) — git history rewriting, the `filter-branch`/BFG replacement |
 
 ## Packages
 
