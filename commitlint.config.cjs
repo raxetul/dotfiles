@@ -1,0 +1,1 @@
+configurations/git/commitlint.config.cjs
