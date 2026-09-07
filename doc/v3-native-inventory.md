@@ -1,6 +1,6 @@
 ---
-status: in-progress
-branch: refactor/v3-native
+status: source-of-truth
+branch: main
 maintainer: raxetul@gmail.com
 claude-rule: "Phase-1 inventory for the Nix-removal refactor. Update entries as packages get verified on each distro."
 progress: |
