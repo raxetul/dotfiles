@@ -47,6 +47,11 @@ graph TD
 | `scripts/ssh-gen` | (inline help via `--help`) — generate an ed25519 SSH key in `~/.ssh/` |
 | `scripts/ssh-get-pub-key` | (inline help via `--help`) — print the public half of a named SSH key in `~/.ssh/` |
 | `scripts/git-filter-repo` | (vendored upstream, b486a4e) — git history rewriting, the `filter-branch`/BFG replacement |
+| `scripts/clean-package-cache.sh` | (inline help via `--help`) — on-demand disk reclaim: package-manager caches, orphans, language-tool caches (also `update-dotfiles --only=cache-clean`) |
+| `scripts/run-custom-install-hook` | (inline help via `--help`) — runs one `packages/custom-install/<pkg>/{before,after}.sh` hook, teed live + to the state log |
+| `scripts/run-script-installers` | script lane for `packages/script-install.list` — upstream installer commands, fired only when the probe binary is missing from PATH |
+| `scripts/init-load` | creates the gitignored per-host `.load` shell-init centre (idempotent, never clobbers a hand-edited file) |
+| `scripts/herdr-team` | (inline help via `--help`) — workspace-scoped control of herdr team members; refuses any cross-workspace target |
 
 ## Packages
 
