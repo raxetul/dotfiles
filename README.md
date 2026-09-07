@@ -108,9 +108,12 @@ when you add a new mapping or want to bring a fresh host up to date.
 ./scripts/uninstall.sh --shell    # also revert the login shell
 ```
 
-`--purge` is ledger-driven (`scripts/dotfiles-state.sh`): it removes
-only packages recorded as *installed by this repo*, never ones already
-`present` on the host — see
+Directories left empty by the removals are pruned (`rmdir` only —
+a directory still holding your files survives untouched). `--purge`
+is ledger-driven (`scripts/dotfiles-state.sh`): it removes only
+packages recorded as *installed by this repo*, never ones already
+`present` on the host — via the native package manager, or, for
+script-installed tools, the binary under `~/.local/bin`. See
 [doc/state-management.md](doc/state-management.md). AUR / Snap
 fallbacks aren't ledger-tracked; they're flagged for manual removal.
 
