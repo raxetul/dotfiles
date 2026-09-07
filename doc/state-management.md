@@ -67,6 +67,7 @@ including the child scripts it calls — groups under one run.
 | `setup.sh` (shell step)       | `shell chsh` with the prior login shell                        |
 | `scripts/symlinks.sh`         | `symlink create` / `symlink remove` (also derivable from the array — this is the audit/uninstall trail) |
 | `scripts/run-custom-install-hook` | `custom-hook run` per executed before/after hook          |
+| `scripts/run-script-installers` | `package present` / `package install` (`mgr=script`) — script-lane tools from `packages/script-install.list`, probed via `command -v` |
 | `scripts/uninstall.sh`       | `plugin remove` / `bootstrap remove` / `package purge` / `shell revert` — the negation records that drop entries from the realized set |
 
 `.path` segments are **not** recorded here — they are self-describing via
