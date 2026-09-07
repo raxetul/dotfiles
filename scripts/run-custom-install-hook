@@ -23,7 +23,8 @@
 #                    the log either way.
 #
 # Exit codes:
-#   0   hook ran (or was missing/non-executable — that's a no-op).
+#   0   hook ran (or was missing — that's a no-op).
+#   1   hook file exists but is not executable (fix: chmod +x).
 #   !=0 propagated from the hook.
 set -euo pipefail
 
@@ -57,9 +58,14 @@ mkdir -p "${LOG_DIR}"
 # log which script started, runs it, and propagates the exit code.
 printf '\n--- %s/%s.sh ---\n' "${PKG}" "${HOOK}" >> "${LOG_FILE}"
 
-if [ ! -x "${SCRIPT}" ]; then
+if [ ! -e "${SCRIPT}" ]; then
     printf '   (no %s.sh for %s)\n' "${HOOK}" "${PKG}" | tee -a "${LOG_FILE}"
     exit 0
+fi
+if [ ! -x "${SCRIPT}" ]; then
+    printf 'ERR: %s exists but is not executable — fix with: chmod +x %s\n' \
+        "${SCRIPT}" "${SCRIPT}" | tee -a "${LOG_FILE}" >&2
+    exit 1
 fi
 
 # Run the hook with stdout+stderr teed live. PIPESTATUS preserves the
