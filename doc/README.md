@@ -36,6 +36,7 @@ graph TD
 | `scripts/uninstall.sh` | (inline help via `--help`) — one-pass uninstall: symlinks + ledger-recorded plugins/bootstraps + `.path` segments + rmdir-only empty-dir pruning, optional ledger-driven `--purge` (native managers and script-lane `~/.local/bin`) and `--shell` revert |
 | `scripts/gpg-setup.sh` | (inline help) — GPG signing wizard |
 | `scripts/claude-worktree` | [claude-worktrees.md](claude-worktrees.md) — parallel Claude sessions in git worktrees |
+| `setup.sh --light` | [light-profile.md](light-profile.md) — second account on an already-provisioned machine: config symlinks only, no package install |
 | `configurations/herdr/config.toml` | [herdr.md](herdr.md) — herdr keybindings, the ctrl+alt navigation layer, mode inventory |
 | `scripts/nix-uninstall.sh` | (inline help) — legacy Nix cleanup |
 | `scripts/leak-guard` | [leak-guard.md](leak-guard.md) — keeps project/workplace data out of this public repo |

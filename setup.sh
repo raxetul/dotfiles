@@ -23,6 +23,9 @@
 #   ./setup.sh                # baseline (CLI + dev only)
 #   ./setup.sh --desktop      # baseline + Linux desktop GUI stack
 #   ./setup.sh --update       # upgrade already-installed packages
+#   ./setup.sh --light        # second account on an already-provisioned box:
+#                             #   config symlinks only, no package install
+#   ./setup.sh --light --with-shell   # …and also chsh to zsh
 #
 # Every step is idempotent: re-running this script is safe.
 set -euo pipefail
@@ -31,10 +34,13 @@ DIR=$(cd "$(dirname "$0")" && pwd)
 
 PROFILE="server"
 UPDATE=0
+WITH_SHELL=0
 for arg in "$@"; do
     case "${arg}" in
-        --desktop) PROFILE="desktop" ;;
-        --server)  PROFILE="server"  ;;
+        --desktop)    PROFILE="desktop" ;;
+        --server)     PROFILE="server"  ;;
+        --light)      PROFILE="light"   ;;
+        --with-shell) WITH_SHELL=1 ;;
         --update)  UPDATE=1 ;;
         -h|--help)
             sed -n '2,27p' "$0"
@@ -58,6 +64,15 @@ say() { printf '==> %s\n' "$*"; }
 state_begin_run >/dev/null
 
 # ------------------------------------------------------------------
+# ------------------------------------------------------------------
+# --light stops here for everything package-related. The profile exists for a
+# SECOND account on a box the primary user already provisioned, so Steps 1–3.6
+# (Homebrew, custom-install before/after hooks, native packages, AUR/Snap
+# fallbacks, script installers) are skipped outright: the binaries are present
+# and a non-admin second user cannot sudo them in anyway.
+# ------------------------------------------------------------------
+if [ "${PROFILE}" != "light" ]; then
+
 # Step 1 — Homebrew on macOS (idempotent).
 # ------------------------------------------------------------------
 if [ "${OS}" = "Darwin" ]; then
@@ -316,6 +331,8 @@ if [ -f "${DIR}/packages/script-install.list" ]; then
 fi
 
 # ------------------------------------------------------------------
+fi   # end of the non-light package section
+
 # Step 4 — bootstrap user-scope plugin managers (idempotent).
 # ------------------------------------------------------------------
 say "bootstrapping plugin managers"
@@ -328,8 +345,9 @@ if [ ! -f "${HOME}/.vim/autoload/plug.vim" ]; then
     state_record bootstrap fetch "${HOME}/.vim/autoload/plug.vim" "name=vim-plug"
 fi
 
-# TPM (tmux plugin manager)
-if [ ! -d "${HOME}/.config/tmux/plugins/tpm" ]; then
+# TPM (tmux plugin manager) — skipped on --light: tmux.conf is not linked
+# there, so a plugin manager for it would have nothing to read.
+if [ "${PROFILE}" != "light" ] && [ ! -d "${HOME}/.config/tmux/plugins/tpm" ]; then
     say "  installing TPM"
     mkdir -p "${HOME}/.config/tmux/plugins"
     git clone --depth=1 https://github.com/tmux-plugins/tpm \
@@ -369,6 +387,10 @@ fi
 
 # ------------------------------------------------------------------
 # Step 4.5 — ensure the agent-skills repo exists and has its private mirror.
+# Skipped on --light: skills are consumed by Claude Code and opencode, and the
+# light profile links neither. It also creates a PRIVATE GitHub repo under the
+# running user's account, which is the wrong side effect for a second account.
+if [ "${PROFILE}" != "light" ]; then
 #
 # Skills are never vendored in this repo (see doc/agent-skills.md) — they
 # live in a separate git repo that scripts/symlinks.sh links from. On a
@@ -386,14 +408,22 @@ fi
 "${DIR}/scripts/agent-skills" ensure-remote --interactive
 
 # ------------------------------------------------------------------
+fi
+
 # Step 5 — plant symlinks from configurations/ into $HOME.
 # ------------------------------------------------------------------
 say "planting symlinks (scripts/symlinks.sh)"
 [ "${PROFILE}" = "desktop" ] && export DOTFILES_DESKTOP=1
+[ "${PROFILE}" = "light" ]   && export DOTFILES_LIGHT=1
 "${DIR}/scripts/symlinks.sh" install
 
 # ------------------------------------------------------------------
 # Step 6 — make zsh the login shell (idempotent).
+# On --light this is OPT-IN via --with-shell. Changing another account's login
+# shell on a server needs root or that account's password, and a second user
+# may deliberately want to keep their existing shell — so the light profile
+# never does it silently.
+if [ "${PROFILE}" != "light" ] || [ "${WITH_SHELL}" = "1" ]; then
 # ------------------------------------------------------------------
 ZSH_BIN="$(command -v zsh || true)"
 current_login_shell() {
@@ -424,7 +454,14 @@ else
 fi
 
 # ------------------------------------------------------------------
+else
+    say "skipping login-shell change (--light without --with-shell)"
+fi
+
 # Step 7 — install lefthook git hooks for this repo.
+# Skipped on --light: these are hooks for developing THIS repo, not something a
+# consumer of the dotfiles needs.
+if [ "${PROFILE}" != "light" ]; then
 # ------------------------------------------------------------------
 if command -v lefthook >/dev/null 2>&1; then
     say "installing lefthook git hooks"
@@ -434,3 +471,4 @@ else
 fi
 
 say "done"
+fi
