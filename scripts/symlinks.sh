@@ -82,6 +82,37 @@ LINUX_LINKS=(
   "configurations/gpg/gpg-agent.conf.linux::.gnupg/gpg-agent.conf"
 )
 
+# LIGHT_LINKS — the `setup.sh --light` subset, for a SECOND user account on a
+# machine where the packages are already installed (typically a Linux server).
+# It is a hand-picked subset of COMMON_LINKS, not a filter over it: adding an
+# entry to COMMON_LINKS must NOT silently widen the light profile, because the
+# whole point is that a light user gets a small, reviewed surface.
+#
+# In: shell rc (which sources configurations/aliases/*), prompt, history,
+# editor, git, herdr, the bat theme the aliases use, and scripts/ on PATH.
+# Out: claude/*, opencode/*, nvim, tmux, ghostty, gpg, cargo — and the
+# agent-skills symlinks, which exist for Claude/opencode and have no consumer
+# here. See doc/light-profile.md.
+LIGHT_LINKS=(
+  "configurations/zsh/zshrc::.zshrc"
+  "configurations/bash/bashrc::.bashrc"
+  "configurations/starship/starship.toml::.config/starship.toml"
+  "configurations/atuin/config.toml::.config/atuin/config.toml"
+  "configurations/themes/bat/Catppuccin-mocha.tmTheme::.config/bat/themes/Catppuccin-mocha.tmTheme"
+  "configurations/git/gitconfig::.config/git/config"
+  "configurations/git/workspace.gitconfig::.config/git/workspace.gitconfig"
+  "configurations/git/commit-template::.config/git/commit-template"
+  "configurations/git/template/hooks/commit-msg::.config/git/template/hooks/commit-msg"
+  "configurations/git/template/hooks/pre-commit::.config/git/template/hooks/pre-commit"
+  "configurations/vim/vimrc::.vimrc"
+  "configurations/vim/ftplugin/nix.vim::.vim/ftplugin/nix.vim"
+  "configurations/vim/ftplugin/go.vim::.vim/ftplugin/go.vim"
+  "configurations/vim/ftplugin/yaml.vim::.vim/ftplugin/yaml.vim"
+  "configurations/vim/ftplugin/python.vim::.vim/ftplugin/python.vim"
+  "configurations/herdr/config.toml::.config/herdr/config.toml"
+  "scripts::.scripts"
+)
+
 LINUX_DESKTOP_LINKS=(
   "configurations/dunst/dunstrc::.config/dunst/dunstrc"
   "configurations/waybar/config.jsonc::.config/waybar/config.jsonc"
@@ -126,6 +157,13 @@ _skill_links() {
 
 # Emit the active mapping (one entry per line) for the current OS + profile.
 _active_links() {
+  # Light profile: an explicit subset, and nothing else — no OS-specific
+  # entries (the only ones are gpg-agent, which light deliberately omits) and
+  # no skill links.
+  if [ "${DOTFILES_LIGHT:-0}" = "1" ]; then
+    printf '%s\n' "${LIGHT_LINKS[@]}"
+    return
+  fi
   printf '%s\n' "${COMMON_LINKS[@]}"
   case "$(_os)" in
     darwin) printf '%s\n' "${DARWIN_LINKS[@]}" ;;
