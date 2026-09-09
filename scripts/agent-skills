@@ -95,7 +95,9 @@ _build_remote_url() {
 # dotfiles repo or its origin can't be read.
 _expected_mirror() {
   local dotfiles_dir url parsed shape host owner
-  dotfiles_dir="${DOTFILES_DIR:-${HOME}/gel-ort/dotfiles}"
+  # shellcheck source=scripts/dotfiles-dir.sh
+  . "$(dirname "${BASH_SOURCE[0]:-$0}")/dotfiles-dir.sh"
+  dotfiles_dir="${DOTFILES_DIR}"
   # `rev-parse`, not `[ -d .git ]`: in a linked worktree .git is a *file*, and
   # this repo is routinely used from worktrees.
   if ! git -C "${dotfiles_dir}" rev-parse --git-dir >/dev/null 2>&1; then

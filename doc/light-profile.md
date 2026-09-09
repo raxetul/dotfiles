@@ -6,6 +6,18 @@ claude-rule: "The --light profile is documented here and MUST be kept in lockste
 
 # `--light` — a second account on an already-provisioned machine
 
+This is **axis 2** of the two-axis install model — see
+[opt-dotfiles-install.md](opt-dotfiles-install.md) for axis 1 (the shared
+repo itself, `/opt/dotfiles`, installed light or hard) and the
+`install.sh` one-liner that drives both:
+
+```
+AXIS 1 — the shared repo at /opt/dotfiles, owned root:dotfiles
+         installed "light" (config only) or "hard" (default: + packages)
+AXIS 2 — each user attaches that repo to their own shell (this doc),
+         again light or hard. Everything user-specific -> $HOME/.dotfiles/
+```
+
 For the case where the machine already runs these dotfiles under one account
 and a **second user** on the same box wants the shell environment without
 re-installing anything. Typically a Linux server.

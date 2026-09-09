@@ -10,7 +10,8 @@
 #   2. ledger-recorded plugin checkouts and bootstrap files (tpm,
 #      zsh-you-should-use, vim-plug, bash-preexec) plus the manager-
 #      owned plugin trees (~/.vim/plugged, ~/.config/tmux/plugins),
-#   3. every `# >>> <pkg> begin … end` segment in .path,
+#   3. every `# >>> <pkg> begin … end` segment in $HOME/.dotfiles/path
+#      (and the legacy in-repo .path, if this host never migrated),
 #   4. directories the above left empty (rmdir only — a dir that still
 #      holds user files survives untouched).
 #
@@ -46,7 +47,9 @@ done
 
 say() { printf '==> %s\n' "$*"; }
 
-REPO_ROOT="${DOTFILES_DIR:-${HOME}/gel-ort/dotfiles}"
+# shellcheck source=scripts/dotfiles-dir.sh
+. "$(dirname "${BASH_SOURCE[0]:-$0}")/dotfiles-dir.sh"
+REPO_ROOT="${DOTFILES_DIR}"
 if [ ! -d "${REPO_ROOT}" ]; then
     printf 'ERR: repo not found at %s — set DOTFILES_DIR.\n' "${REPO_ROOT}" >&2
     exit 1
@@ -171,20 +174,27 @@ for d in "${HOME}/.vim/plugged" "${HOME}/.config/tmux/plugins"; do
     do_rm_rf "${d}"
 done
 
-# === Step 3 — .path segments =======================================
-say ".path segments"
-PATH_FILE="${REPO_ROOT}/.path"
-if [ -f "${PATH_FILE}" ] && grep -q '^# >>> .* begin$' "${PATH_FILE}"; then
-    n_seg="$(grep -c '^# >>> .* begin$' "${PATH_FILE}")"
-    if [ "${DRY_RUN}" = "1" ]; then
-        printf '  [dry-run] strip %s segment(s) from %s\n' "${n_seg}" "${PATH_FILE}"
+# === Step 3 — path segments ========================================
+# $HOME/.dotfiles/path is current; ${REPO_ROOT}/.path is the legacy
+# in-repo location — stripped too, in case this host never migrated.
+say "path segments"
+strip_path_segments() {
+    local path_file="$1"
+    if [ -f "${path_file}" ] && grep -q '^# >>> .* begin$' "${path_file}"; then
+        local n_seg
+        n_seg="$(grep -c '^# >>> .* begin$' "${path_file}")"
+        if [ "${DRY_RUN}" = "1" ]; then
+            printf '  [dry-run] strip %s segment(s) from %s\n' "${n_seg}" "${path_file}"
+        else
+            sed -i.bak '/^# >>> .* begin$/,/^# >>> .* end$/d' "${path_file}"
+            printf '  stripped %s segment(s) from %s\n' "${n_seg}" "${path_file}"
+        fi
     else
-        sed -i.bak '/^# >>> .* begin$/,/^# >>> .* end$/d' "${PATH_FILE}"
-        printf '  stripped %s segment(s) from .path\n' "${n_seg}"
+        printf '  (none to strip in %s)\n' "${path_file}"
     fi
-else
-    printf '  (none to strip)\n'
-fi
+}
+strip_path_segments "${HOME}/.dotfiles/path"
+strip_path_segments "${REPO_ROOT}/.path"
 
 # === Step 4 — directories left empty ===============================
 if [ "${DRY_RUN}" = "1" ]; then

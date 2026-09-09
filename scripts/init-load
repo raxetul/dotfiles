@@ -1,34 +1,39 @@
 #!/usr/bin/env bash
-# scripts/init-load — create ${DOTFILES_DIR}/.load if it doesn't exist.
+# scripts/init-load — create $HOME/.dotfiles/load if it doesn't exist.
 # Idempotent: never overwrites a hand-edited file. To regenerate from
-# the current template, `rm .load && init-load`.
+# the current template, `rm ~/.dotfiles/load && init-load`.
 #
-# `.load` is the per-host shell-init centre. configurations/{zsh,bash}/rc
+# `load` is the per-host shell-init centre. configurations/{zsh,bash}/rc
 # are minimal stubs that export DOTFILES_DIR and source this file. All
 # shared init (history, plugins, completion, aliases, exports, tool
-# init, theme palettes) lives here so the rc files stay 4 lines apiece.
+# init, theme palettes) lives here so the rc files stay a few lines
+# apiece.
 #
-# `.load` itself then sources .path (the segment-managed PATH + env
+# `load` itself then sources `path` (the segment-managed PATH + env
 # file written by packages/custom-install/<pkg>/after.sh hooks).
 #
-# Both .load and .path are gitignored — they live inside the repo dir
-# so $DOTFILES_DIR is the one true location, but neither is tracked.
+# Both live in $HOME/.dotfiles/ — per-user state, never inside the
+# shared repo (which may be root:dotfiles-owned at /opt/dotfiles and
+# not writable by every attached user). Neither is tracked by git.
 set -euo pipefail
 
-REPO_ROOT="${DOTFILES_DIR:-${HOME}/gel-ort/dotfiles}"
-[ -d "${REPO_ROOT}" ] || {
-    printf 'ERR: repo not found at %s — set DOTFILES_DIR.\n' "${REPO_ROOT}" >&2
+# shellcheck source=scripts/dotfiles-dir.sh
+. "$(dirname "${BASH_SOURCE[0]:-$0}")/dotfiles-dir.sh"
+[ -d "${DOTFILES_DIR}" ] || {
+    printf 'ERR: repo not found at %s — set DOTFILES_DIR.\n' "${DOTFILES_DIR}" >&2
     exit 1
 }
 
-LOAD_FILE="${REPO_ROOT}/.load"
+PER_USER_DIR="${HOME}/.dotfiles"
+mkdir -p "${PER_USER_DIR}"
+LOAD_FILE="${PER_USER_DIR}/load"
 
 # Version sentinel — every time the template here changes meaningfully,
-# bump this and the marker line baked into the generated .load. The
+# bump this and the marker line baked into the generated load file. The
 # detection block below checks for the current marker; an existing
-# .load that doesn't contain it is treated as outdated.
-TEMPLATE_VERSION=4
-TEMPLATE_MARKER="# .load template-version: ${TEMPLATE_VERSION}"
+# load file that doesn't contain it is treated as outdated.
+TEMPLATE_VERSION=5
+TEMPLATE_MARKER="# load template-version: ${TEMPLATE_VERSION}"
 
 if [ -f "${LOAD_FILE}" ]; then
     if grep -qxF "${TEMPLATE_MARKER}" "${LOAD_FILE}"; then
@@ -37,8 +42,8 @@ if [ -f "${LOAD_FILE}" ]; then
     fi
     cat >&2 <<MSG
 WARN: ${LOAD_FILE} is outdated (template v${TEMPLATE_VERSION} not found).
-      The shell rc files have been minimized to stubs that source .load,
-      so an old .load will not pick up plugin/tool init / aliases /
+      The shell rc files have been minimized to stubs that source it,
+      so an old load file will not pick up plugin/tool init / aliases /
       exports / history settings.
       To migrate (your custom additions under '=== User additions below ==='
       will need to be re-added afterwards — back them up first):
@@ -55,26 +60,49 @@ ${TEMPLATE_MARKER}
 EOF
 
 cat >> "${LOAD_FILE}" <<'EOF'
-# .load — shell-init centre. Sourced by configurations/{zsh,bash}/rc
-# (symlinked to ~/.zshrc and ~/.bashrc). Gitignored — per-host.
+# load — shell-init centre. Sourced by configurations/{zsh,bash}/rc
+# (symlinked to ~/.zshrc and ~/.bashrc). Lives in $HOME/.dotfiles/ —
+# per-user, not inside the (possibly shared, root-owned) repo.
 #
 # Everything that used to live in the rc files is here now. The rc
 # files just export DOTFILES_DIR and source this. Shell-specific
 # blocks are gated on $ZSH_VERSION / $BASH_VERSION so one file feeds
 # both shells.
 
-DOTFILES_DIR="${DOTFILES_DIR:-${HOME}/gel-ort/dotfiles}"
+DOTFILES_DIR="${DOTFILES_DIR:-}"
+if [ -z "${DOTFILES_DIR}" ]; then
+    if [ -d /opt/dotfiles ]; then
+        DOTFILES_DIR=/opt/dotfiles
+    else
+        DOTFILES_DIR="${HOME}/gel-ort/dotfiles"
+    fi
+fi
 
-# === Bootstrap PATH (must precede .path source + tool init) ===
-[ -d "${HOME}/.scripts" ]   && PATH="${HOME}/.scripts:${PATH}"
-[ -d "${HOME}/.local/bin" ] && PATH="${HOME}/.local/bin:${PATH}"
+# === Bootstrap PATH (must precede path source + tool init) ===
+# Guarded like the .path segments below (rule #9 in CLAUDE.md) — every
+# new shell otherwise re-prepends these two dirs, and since `load` is
+# sourced fresh per shell (never once per login), an unguarded prepend
+# duplicates them on every nested shell / plugin re-source.
+[ -d "${HOME}/.scripts" ] && case ":${PATH}:" in
+    *":${HOME}/.scripts:"*) ;;
+    *) PATH="${HOME}/.scripts:${PATH}" ;;
+esac
+[ -d "${HOME}/.local/bin" ] && case ":${PATH}:" in
+    *":${HOME}/.local/bin:"*) ;;
+    *) PATH="${HOME}/.local/bin:${PATH}" ;;
+esac
 export PATH
 
-# === Per-package PATH + env from .path ===
-# Each segment in .path is bracketed by `# >>> <pkg> begin` / `# >>> <pkg> end`
+# === Per-package PATH + env from path ===
+# Each segment is bracketed by `# >>> <pkg> begin` / `# >>> <pkg> end`
 # and managed by that package's custom-install/<pkg>/after.sh hook.
-if [ -r "${DOTFILES_DIR}/.path" ]; then
-    # shellcheck disable=SC1091  # generated, gitignored
+# $HOME/.dotfiles/path is current; ${DOTFILES_DIR}/.path is the legacy
+# in-repo location, read as a fallback until this host migrates.
+if [ -r "${HOME}/.dotfiles/path" ]; then
+    # shellcheck disable=SC1091  # generated, per-user
+    . "${HOME}/.dotfiles/path"
+elif [ -r "${DOTFILES_DIR}/.path" ]; then
+    # shellcheck disable=SC1091  # generated, legacy
     . "${DOTFILES_DIR}/.path"
 fi
 

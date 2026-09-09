@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # ~/.bashrc — minimal stub. Every customization lives in
-# ${DOTFILES_DIR}/.load (gitignored, per-host). See
-# scripts/init-load for the template that generates .load.
+# $HOME/.dotfiles/load (per-user, one per account — NOT inside the
+# shared repo, which may be root:dotfiles-owned at /opt/dotfiles). See
+# scripts/init-load for the template that generates it.
 
 # If not running interactively, don't do anything (system default guard).
 case $- in
@@ -9,6 +10,24 @@ case $- in
     *) return ;;
 esac
 
-export DOTFILES_DIR="${DOTFILES_DIR:-${HOME}/gel-ort/dotfiles}"
-# shellcheck disable=SC1091  # generated, gitignored
-[ -r "${DOTFILES_DIR}/.load" ] && . "${DOTFILES_DIR}/.load"
+# DOTFILES_DIR resolution inlined from scripts/dotfiles-dir.sh: this is
+# the one place that can't source it, since nothing is known yet about
+# where the repo lives. Keep the two in sync by hand.
+if [ -z "${DOTFILES_DIR:-}" ]; then
+    if [ -d /opt/dotfiles ]; then
+        DOTFILES_DIR=/opt/dotfiles
+    else
+        DOTFILES_DIR="${HOME}/gel-ort/dotfiles"
+    fi
+fi
+export DOTFILES_DIR
+
+# $HOME/.dotfiles/load is current; ${DOTFILES_DIR}/.load is the legacy
+# in-repo location (pre-/opt/dotfiles installs) — read as a fallback so
+# an existing live install keeps working until it migrates.
+# shellcheck disable=SC1091  # generated, per-user
+if [ -r "${HOME}/.dotfiles/load" ]; then
+    . "${HOME}/.dotfiles/load"
+elif [ -r "${DOTFILES_DIR}/.load" ]; then
+    . "${DOTFILES_DIR}/.load"
+fi

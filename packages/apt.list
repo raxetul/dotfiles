@@ -7,7 +7,7 @@
 # discord, veracrypt, JetBrains Mono Nerd Font) fall through to either
 # snap.list or a release-binary fallback in a
 # packages/custom-install/<pkg>/after.sh hook (starship, atuin,
-# lefthook; claude too, though it's on no list). See CLAUDE.md §9–§10.
+# lefthook; claude too, though it's on no list). See CLAUDE.md §8–§9.
 #
 # Source of truth for the apt column of doc/packages-native.md. Keep
 # the two in lockstep (CLAUDE.md §6).

@@ -23,7 +23,8 @@ pins anything.
 ${XDG_STATE_HOME:-$HOME/.local/state}/dotfiles/state.tsv
 ```
 
-Per-host, under `$HOME` (footprint policy, CLAUDE.md §8), alongside the
+Per-user, under `$HOME` — unaffected by whether the repo itself lives at
+`/opt/dotfiles` or a plain dev checkout (CLAUDE.md §15) — alongside the
 existing `custom-install.log` / `update-dotfiles.log`. It is not in the
 repo and not symlinked — it is host state, written at install time.
 
@@ -70,9 +71,9 @@ including the child scripts it calls — groups under one run.
 | `scripts/run-script-installers` | `package present` / `package install` (`mgr=script`) — script-lane tools from `packages/script-install.list`, probed via `command -v` |
 | `scripts/uninstall.sh`       | `plugin remove` / `bootstrap remove` / `package purge` / `shell revert` — the negation records that drop entries from the realized set |
 
-`.path` segments are **not** recorded here — they are self-describing via
-their `# >>> <pkg> begin … end` markers (CLAUDE.md §10), so an uninstaller
-strips them by reading `.path` directly.
+`path` segments are **not** recorded here — they are self-describing via
+their `# >>> <pkg> begin … end` markers (CLAUDE.md §9), so an uninstaller
+strips them by reading `$HOME/.dotfiles/path` directly.
 
 ## CLI
 

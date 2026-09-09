@@ -64,6 +64,16 @@ say() { printf '==> %s\n' "$*"; }
 state_begin_run >/dev/null
 
 # ------------------------------------------------------------------
+# Ensure $HOME/.dotfiles/load exists. It's sourced by
+# configurations/{zsh,bash}/rc and in turn sources $HOME/.dotfiles/path
+# (managed by custom-install after.sh hooks). Runs BEFORE the --light
+# package-skip guard below: --light still needs ~/.scripts (and
+# ~/.local/bin) on PATH via load's bootstrap section, same as a full
+# install — only the package-installing steps are profile-gated.
+# ------------------------------------------------------------------
+DOTFILES_DIR="${DIR}" "${DIR}/scripts/init-load"
+
+# ------------------------------------------------------------------
 # ------------------------------------------------------------------
 # --light stops here for everything package-related. The profile exists for a
 # SECOND account on a box the primary user already provisioned, so Steps 1–3.6
@@ -92,14 +102,6 @@ if [ "${OS}" = "Darwin" ]; then
         eval "$(/usr/local/bin/brew shellenv)"
     fi
 fi
-
-# ------------------------------------------------------------------
-# Ensure the gitignored .load file exists. It's sourced by
-# configurations/{zsh,bash}/rc and in turn sources .path (managed by
-# custom-install after.sh hooks). Creating it early so later steps
-# can rely on it.
-# ------------------------------------------------------------------
-DOTFILES_DIR="${DIR}" "${DIR}/scripts/init-load"
 
 # ------------------------------------------------------------------
 # Step 1.5 — packages/custom-install/<pkg>/before.sh hooks.
@@ -383,7 +385,7 @@ fi
 # hooks (packages/custom-install/<pkg>/after.sh), run in Step 3.5 above:
 # each falls back to the upstream binary only when the native package
 # manager didn't provide the tool, and owns its PATH via .path. See
-# CLAUDE.md §10 and packages/custom-install/README.md.
+# CLAUDE.md §9 and packages/custom-install/README.md.
 
 # ------------------------------------------------------------------
 # Step 4.5 — ensure the agent-skills repo exists and has its private mirror.

@@ -35,13 +35,13 @@ flowchart LR
     TRACKED -.->|must never contain| BAD[autoMode / project-scoped soft_deny]
 ```
 
-## Exception to hard rule #13
+## Exception to hard rule #12
 
-Hard rule #13 ("Centralized Claude commands and rules are always tracked") governs **commands and
+Hard rule #12 ("Centralized Claude commands and rules are always tracked") governs **commands and
 rules** (`.claude/commands/`, the global `CLAUDE.md`) — content meant to be portable across hosts.
 `autoMode` is neither: it's a live classifier state block scoped to one project's environment, and
 belongs with the other volatile/local overrides in a gitignored `settings.local.json`, not in the
-tracked file rule #13 protects.
+tracked file rule #12 protects.
 
 ## `/auto-mode-setup` reproduces this churn — it's not a one-off
 

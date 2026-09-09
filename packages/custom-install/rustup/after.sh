@@ -78,8 +78,8 @@ if [ -d "${HOME}/.cargo/bin" ]; then
     esac
 fi
 
-# Write the PATH addition to ${DOTFILES_DIR}/.path. .path is sourced
-# from .load, which is sourced from zshrc + bashrc. Each segment is
+# Write the PATH addition to $HOME/.dotfiles/path. path is sourced
+# from load, which is sourced from zshrc + bashrc. Each segment is
 # bracketed by `# >>> <pkg> begin` / `# >>> <pkg> end` so re-running
 # this hook deletes the old segment in-place before appending the
 # fresh one — idempotent regardless of how many times we run.
@@ -107,8 +107,9 @@ fi
 #      baked-in path stale. Re-run this hook
 #      (`update-dotfiles --only=custom-install-after`) after any
 #      `rustup default <channel>` to refresh the segment.
-_repo_root="${DOTFILES_DIR:-${HOME}/gel-ort/dotfiles}"
-_path_file="${_repo_root}/.path"
+_path_dir="${HOME}/.dotfiles"
+_path_file="${_path_dir}/path"
+mkdir -p "${_path_dir}"
 touch "${_path_file}"
 # Strip any existing rustup segment (-i.bak for BSD sed compatibility on macOS).
 sed -i.bak '/^# >>> rustup begin$/,/^# >>> rustup end$/d' "${_path_file}"
@@ -137,7 +138,7 @@ EOF
     echo "# >>> rustup end"
 } >> "${_path_file}"
 
-unset _repo_root _path_file TOOLCHAIN_BIN_DIR
+unset _path_dir _path_file TOOLCHAIN_BIN_DIR
 
 # ----------------------------------------------------------------------
 # Phase 2 — cargo crates

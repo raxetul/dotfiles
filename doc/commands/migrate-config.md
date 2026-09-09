@@ -8,7 +8,7 @@ claude-rule: "Update this doc whenever the source changes."
 ## Purpose
 
 Bring an app's existing live configuration under dotfiles
-management — the automated form of hard rule #12 in `CLAUDE.md`.
+management — the automated form of hard rule #11 in `CLAUDE.md`.
 Probes the live tree, moves the hand-edited files into
 `configurations/<app>/`, symlinks them back so edits keep taking
 effect, wires the mapping into `scripts/symlinks.sh`, and
@@ -68,13 +68,13 @@ a nested `~/.config/<app>/sub/foo` lands as
   repo, never a duplicate of it.
 - References home as `${HOME}` and the repo as
   `${DOTFILES_DIR}` — no literal home paths anywhere,
-  including the registered `dst` (rule #11).
+  including the registered `dst` (rule #10).
 
 ## Related
 
 - [.claude/commands/migrate-config.md](../../.claude/commands/migrate-config.md)
   — the source this doc mirrors.
-- [CLAUDE.md](../../CLAUDE.md) — hard rule #12, the procedure
+- [CLAUDE.md](../../CLAUDE.md) — hard rule #11, the procedure
   this command automates.
 - [scripts/symlinks.sh](../../scripts/symlinks.sh) — where the
   new mapping is registered.

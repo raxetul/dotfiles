@@ -37,6 +37,10 @@ graph TD
 | `scripts/gpg-setup.sh` | (inline help) — GPG signing wizard |
 | `scripts/claude-worktree` | [claude-worktrees.md](claude-worktrees.md) — parallel Claude sessions in git worktrees |
 | `setup.sh --light` | [light-profile.md](light-profile.md) — second account on an already-provisioned machine: config symlinks only, no package install |
+| `install.sh` | [opt-dotfiles-install.md](opt-dotfiles-install.md) — one-line installer: shared `/opt/dotfiles` + per-user attach, both axes |
+| `scripts/provision-shared-group.sh` | (inline help via `--help`) — Linux-only root step: `dotfiles` group, ownership, setgid on `/opt/dotfiles` |
+| `scripts/migrate-to-opt.sh` | (inline help via `--help`) — move an existing checkout to `/opt/dotfiles`, idempotent, `DRY_RUN=1` honored |
+| `scripts/dotfiles-dir.sh` | sourced by every script needing `DOTFILES_DIR`'s default: explicit env > `/opt/dotfiles` > `${HOME}/gel-ort/dotfiles` |
 | `configurations/herdr/config.toml` | [herdr.md](herdr.md) — herdr keybindings, the ctrl+alt navigation layer, mode inventory |
 | `scripts/nix-uninstall.sh` | (inline help) — legacy Nix cleanup |
 | `scripts/leak-guard` | [leak-guard.md](leak-guard.md) — keeps project/workplace data out of this public repo |
@@ -89,6 +93,7 @@ graph TD
 
 | Topic              | Doc                                                                                                 |
 | ------------------ | --------------------------------------------------------------------------------------------------- |
+| Shared install      | [opt-dotfiles-install.md](opt-dotfiles-install.md) — `/opt/dotfiles`, `install.sh`, group provisioning, migration. |
 | Theming            | [theming.md](theming.md) — Catppuccin Mocha palette + per-app mapping.                              |
 | Shell history      | [atuin.md](atuin.md) — atuin's three search surfaces, all pinned to global (non-session) scope.     |
 | Project init       | [init-proj.md](init-proj.md) — the `/init-proj-*` command family and how per-project standards layer. |

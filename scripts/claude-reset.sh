@@ -466,7 +466,9 @@ do_state() {
 # ------------------------------------------------------------------
 do_relink() {
   require_cmd git
-  local repo_root="${DOTFILES_DIR:-${HOME}/gel-ort/dotfiles}"
+  # shellcheck source=scripts/dotfiles-dir.sh
+  . "$(dirname "${BASH_SOURCE[0]:-$0}")/dotfiles-dir.sh"
+  local repo_root="${DOTFILES_DIR}"
   [ -d "${repo_root}" ] || die "repo not found at ${repo_root} — set DOTFILES_DIR"
 
   if [ "${DRY_RUN}" -eq 1 ]; then

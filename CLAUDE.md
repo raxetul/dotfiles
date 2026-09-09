@@ -89,20 +89,7 @@ global one, see [doc/agentic-promotion.md](doc/agentic-promotion.md).
    tree should show "configure" vs "install" without opening
    files. Don't put install lists back under `configurations/` and
    don't put `.conf`/`.toml` config under `packages/`.
-8. **Footprint policy — user-scoped, easy uninstall.** Every
-   artifact the repo plants lives under `$HOME`: symlinks under
-   `~/.config/` and `~/.vim*`, scripts under `~/.scripts/`,
-   plugin checkouts under `~/.config/<tool>/plugins/` or
-   `~/.local/share/`. The only writes outside `$HOME` are the
-   native package manager doing its job (`sudo apt install …`,
-   `brew install …`). Never plant files in `/etc`, `/usr/local`,
-   `/opt`, or `/var` outside what the package manager owns.
-   Corollary: `scripts/uninstall.sh` strips every user-scope artifact
-   in one pass — the `scripts/symlinks.sh` links, ledger-recorded
-   plugins/bootstraps, and `.path` segments — with optional
-   ledger-driven `--purge` (only packages this repo installed, never
-   ones already `present`) and optional `--shell` revert.
-9. **Custom-install hooks live in `packages/custom-install/<pkg>/`,
+8. **Custom-install hooks live in `packages/custom-install/<pkg>/`,
    one folder per package, with REQUIRED `before.sh` and `after.sh`
    slots.** `before.sh` runs *before* the package install step
    (register a third-party APT/COPR repo, accept an upstream key,
@@ -117,12 +104,13 @@ global one, see [doc/agentic-promotion.md](doc/agentic-promotion.md).
      package contributes one `before ----` and one `after ----`
      banner per run, with `(no-op stub)` output when the script
      just exits).
-   - **PATH additions go through `${DOTFILES_DIR}/.path`.** When
+   - **PATH additions go through `$HOME/.dotfiles/path`.** When
      the package adds binaries to PATH (rustup → `~/.cargo/bin`,
      future tools likewise) or defines a `FOO_HOME`-style env var,
-     the `after.sh` MUST write a segment into the gitignored
-     `${DOTFILES_DIR}/.path` file, bracketed by markers so re-runs
-     are idempotent:
+     the `after.sh` MUST write a segment into the per-user
+     `$HOME/.dotfiles/path` file (rule #15 — never the shared repo,
+     which may be root:dotfiles-owned), bracketed by markers so
+     re-runs are idempotent:
 
      ```sh
      # >>> rustup begin
@@ -135,12 +123,14 @@ global one, see [doc/agentic-promotion.md](doc/agentic-promotion.md).
 
      The hook strips any existing `# >>> <pkg> begin …  end`
      section before appending the fresh one — `sed -i.bak
-     '/^# >>> <pkg> begin$/,/^# >>> <pkg> end$/d'`. `.path` is
-     sourced from `.load`, which is sourced from
-     `configurations/{zsh,bash}/rc`. Both `.load` and `.path` are
-     gitignored (per-host); `scripts/init-load` ensures `.load`
+     '/^# >>> <pkg> begin$/,/^# >>> <pkg> end$/d'`. `path` is
+     sourced from `load`, which is sourced from
+     `configurations/{zsh,bash}/rc`. Neither is tracked by git — they
+     live in `$HOME/.dotfiles/`, outside the repo entirely (a legacy
+     in-repo `.load`/`.path` pair is read as a fallback until a host
+     migrates — see rule #15); `scripts/init-load` ensures `load`
      exists. Don't put one-off `PATH=…` lines in the shell rc
-     files; they belong in `.path`.
+     files; they belong in `path`.
    - Every script must be executable, idempotent (re-running with
      the work already done is a no-op), skip cleanly if the package
      isn't installed, honor `DRY_RUN=1`, and use `$DOTFILES_DIR` to
@@ -157,11 +147,11 @@ global one, see [doc/agentic-promotion.md](doc/agentic-promotion.md).
    [`packages/custom-install/README.md`](packages/custom-install/README.md)
    for the full contract. Anything that's *configuration* (lives in
    `~/.config/<app>/`) belongs in `configurations/<app>/`, not here.
-10. **`.path` is the single source of truth for per-package PATH and
+9. **`path` is the single source of truth for per-package PATH and
     env. Centralized, clean, one bracketed segment per package.** Any
     package that installs binaries outside the bootstrap dirs, or that
-    needs a `FOO_HOME`-style env var, gets exactly one segment in the
-    gitignored `${DOTFILES_DIR}/.path`:
+    needs a `FOO_HOME`-style env var, gets exactly one segment in
+    `$HOME/.dotfiles/path`:
 
     ```sh
     # >>> <pkg> begin
@@ -174,10 +164,10 @@ global one, see [doc/agentic-promotion.md](doc/agentic-promotion.md).
     ```
 
     - **The segment is written by that package's
-      `custom-install/<pkg>/after.sh`** (rule #9), which strips the old
+      `custom-install/<pkg>/after.sh`** (rule #8), which strips the old
       segment (`sed -i.bak '/^# >>> <pkg> begin$/,/^# >>> <pkg> end$/d'`)
-      and re-appends before adding the fresh one — idempotent. `.path`
-      is sourced by `.load`, which is sourced by
+      and re-appends before adding the fresh one — idempotent. `path`
+      is sourced by `load`, which is sourced by
       `configurations/{zsh,bash}/rc`.
     - **The `[ -d ]` and `case` guards are mandatory** — they keep the
       segment a no-op on hosts where the dir doesn't exist and
@@ -185,17 +175,17 @@ global one, see [doc/agentic-promotion.md](doc/agentic-promotion.md).
       every host even if only one platform needs it (the guards make
       the others harmless), so behavior doesn't fork per distro.
     - **The only non-package PATH entries** are the generic bootstrap
-      dirs `~/.scripts` and `~/.local/bin`, set once in `.load` (via
+      dirs `~/.scripts` and `~/.local/bin`, set once in `load` (via
       `scripts/init-load`). A tool that installs *into* `~/.local/bin`
       needs no segment; one that installs elsewhere (atuin →
       `~/.atuin/bin`, rustup → `~/.cargo/bin` + toolchain) does.
     - **Never** put `PATH=…` / `export FOO_HOME=…` lines in `setup.sh`,
       `scripts/*`, `configurations/{zsh,bash}/rc`, or any other shell
-      file. If a tool needs a path, it gets a `.path` segment via its
+      file. If a tool needs a path, it gets a `path` segment via its
       `after.sh`. No exceptions — that's what "centralized" buys us.
-11. **Reference the home directory through `${HOME}`, never a static
+10. **Reference the home directory through `${HOME}`, never a static
     path.** Anywhere a path under the user's home is needed — in any
-    `configurations/<app>/` file, in `.load`, in `.path`, and in the
+    `configurations/<app>/` file, in `load`, in `path`, and in the
     scripts/hooks that generate them — write `${HOME}/…` (or `$HOME/…`),
     never a hardcoded `/home/<user>/…` or `/Users/<user>/…`. The same
     config is symlinked across hosts and both OSes where the home root
@@ -205,9 +195,10 @@ global one, see [doc/agentic-promotion.md](doc/agentic-promotion.md).
       only expands unquoted and at word start, so it silently fails
       inside quotes or mid-string — don't rely on it in config files.
     - For the repo root specifically, use the `${DOTFILES_DIR}`
-      variable (which itself defaults to `${HOME}/gel-ort/dotfiles`),
-      not a literal path — see `.load` / `scripts/init-load`.
-12. **Migrating a live config into the repo follows one fixed
+      variable, resolved by `scripts/dotfiles-dir.sh` (explicit env >
+      `/opt/dotfiles` > `${HOME}/gel-ort/dotfiles`) — never a literal
+      path. See rule #15.
+11. **Migrating a live config into the repo follows one fixed
     procedure** — the same one used for `claude` and `ghostty`. To
     bring an app's existing config under management:
     1. **Probe for secrets and runtime state first.** Move only the
@@ -222,13 +213,13 @@ global one, see [doc/agentic-promotion.md](doc/agentic-promotion.md).
        user's edits keep taking effect live.
     4. **Register the mapping** in the `COMMON_LINKS` (or a
        platform-specific) array in `scripts/symlinks.sh`, with a
-       `${HOME}`-relative `dst` (rule #1, #11). A whole directory may
+       `${HOME}`-relative `dst` (rule #1, #10). A whole directory may
        be linked as one entry (see `scripts::.scripts`).
     5. **Verify**: `scripts/symlinks.sh list` shows the new entry and
        `readlink` on the live path resolves into the repo.
     The `/migrate-config` command automates steps 2–5 (and prompts on
     step 1). Use it rather than doing the moves ad hoc.
-13. **Centralized Claude commands and rules are always tracked.** Every
+12. **Centralized Claude commands and rules are always tracked.** Every
     slash command under `configurations/claude/commands/` and every
     global rule in `configurations/claude/CLAUDE.md` must be committed
     — never left untracked. Both are symlinked globally (the whole
@@ -236,7 +227,7 @@ global one, see [doc/agentic-promotion.md](doc/agentic-promotion.md).
     file works on this host but silently vanishes on a fresh clone. When
     a new command or global rule appears there (often authored live via
     `~/.claude/`), commit it in the same pass; don't leave it dangling.
-14. **Plugin sets are declarative — the repo config is the source of
+13. **Plugin sets are declarative — the repo config is the source of
     truth, so reconcile (install declared + prune undeclared) on every
     update.** For any app whose plugins are managed by a manifest in
     `configurations/<app>/` (tmux's `@plugin` lines in `tmux.conf`,
@@ -260,7 +251,7 @@ global one, see [doc/agentic-promotion.md](doc/agentic-promotion.md).
     stage. `setup.sh` only *bootstraps* the managers; the install/prune
     reconcile is an update concern, reachable via `/update` (or
     `update-dotfiles --only=configurations`).
-15. **Project initialization is the `/init-proj-*` command family, and
+14. **Project initialization is the `/init-proj-*` command family, and
     per-project standards live in the project — never in the global
     Claude config.** The aim is a small global footprint: a rule loads
     only inside the project it governs, so each session's context stays
@@ -288,7 +279,24 @@ global one, see [doc/agentic-promotion.md](doc/agentic-promotion.md).
       via the matching type command.
     - Every side-effecting step is previewed as a pre-CLI brief table
       and every destructive one is confirmed before running. New types
-      follow this layering; new command files are committed (rule #13).
+      follow this layering; new command files are committed (rule #12).
+15. **Two axes: the shared repo, and each user's attachment to it.**
+    The repo itself lives at `/opt/dotfiles`, owned `root:dotfiles`
+    (group-readable, setgid so new files inherit the group — see
+    `scripts/provision-shared-group.sh`), installed either "light"
+    (config only) or "hard" (default: + packages) — `setup.sh` without
+    `--light` is "hard"; there is no `--hard` flag. Independently, each
+    user attaches their shell to that repo, again light or hard.
+    Everything user-specific lives OUTSIDE the repo, under `$HOME`:
+    `$HOME/.dotfiles/` (`load`, `path` — see rules #8, #9) and
+    `$HOME/.local/state/dotfiles/` (the realized-state ledger). A dev
+    checkout that never migrates to `/opt/dotfiles` keeps working: every
+    reader falls back to `${HOME}/gel-ort/dotfiles` and the legacy
+    in-repo `.load`/`.path` pair. See
+    [`doc/opt-dotfiles-install.md`](doc/opt-dotfiles-install.md) (the
+    `install.sh` one-liner and `scripts/migrate-to-opt.sh`) and
+    [`doc/light-profile.md`](doc/light-profile.md) (the light/hard
+    per-user axis).
 
 ## Soft conventions
 
@@ -326,7 +334,7 @@ See `.claude/commands/` for the full set. Quick map:
 | `/update` | Runs `scripts/update-dotfiles`. Forwards `--dry-run` / `--desktop` / `--only=…` when asked.        |
 | `/commit` | Builds a Conventional Commit message from `git diff --cached`.                                     |
 | `/check`  | Runs `shellcheck scripts/*.sh setup.sh`, validates `packages/*.list`, and `commitlint --from origin/main`. |
-| `/migrate-config` | Brings a live `~/.config/<app>` config under the repo: probe → move → symlink back → wire `COMMON_LINKS` → verify (per hard rule #12). |
+| `/migrate-config` | Brings a live `~/.config/<app>` config under the repo: probe → move → symlink back → wire `COMMON_LINKS` → verify (per hard rule #11). |
 
 ## Skills
 

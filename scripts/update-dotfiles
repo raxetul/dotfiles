@@ -75,7 +75,9 @@ done
 # invoked from PATH, and `dirname $0/..` would point at $HOME. The repo
 # location is exported by configurations/{zsh,bash}/rc as $DOTFILES_DIR;
 # fall back to the documented default if it's missing (cron, fresh shell).
-REPO_ROOT="${DOTFILES_DIR:-${HOME}/gel-ort/dotfiles}"
+# shellcheck source=scripts/dotfiles-dir.sh
+. "$(dirname "${BASH_SOURCE[0]:-$0}")/dotfiles-dir.sh"
+REPO_ROOT="${DOTFILES_DIR}"
 [ -d "${REPO_ROOT}" ] || { printf 'ERR: repo not found at %s — set DOTFILES_DIR.\n' "${REPO_ROOT}" >&2; exit 1; }
 cd "${REPO_ROOT}"
 
@@ -415,7 +417,7 @@ stage_configurations_tmux_reload() {
         warn "tmux source-file failed (non-fatal)"
 }
 
-# Reconcile TPM against tmux.conf (CLAUDE.md §14): tmux.conf's `@plugin`
+# Reconcile TPM against tmux.conf (CLAUDE.md §13): tmux.conf's `@plugin`
 # lines are the source of truth — install_plugins adds the declared ones,
 # clean_plugins removes any checkout no longer declared (e.g. resurrect /
 # continuum after they were dropped from the config).
@@ -430,7 +432,7 @@ stage_configurations_tpm() {
     do_or_say "${bin}/clean_plugins" || warn "tpm clean_plugins failed (non-fatal)"
 }
 
-# Reconcile vim-plug against vimrc (CLAUDE.md §14): `Plug` directives are the
+# Reconcile vim-plug against vimrc (CLAUDE.md §13): `Plug` directives are the
 # source of truth — PlugInstall adds the declared ones, PlugClean! (the `!`
 # skips the interactive confirm) removes any plugin dir no longer declared.
 stage_configurations_vim_plug() {
