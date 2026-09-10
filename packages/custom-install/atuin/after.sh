@@ -11,13 +11,14 @@
 #      ATUIN_NO_MODIFY_PATH=1 so it doesn't edit the shell rc files —
 #      .path owns PATH, not the installer.
 #
-#   2. Write the ~/.atuin/bin segment into .path. ~/.atuin/bin is NOT
-#      one of .load's bootstrap dirs (~/.scripts, ~/.local/bin), so
-#      without this segment `command -v atuin` fails in interactive
-#      shells and the `atuin init` guard in .load never fires — which
-#      is exactly the bug this hook fixes. The [ -d ] guard keeps the
-#      segment a harmless no-op on hosts where brew/pacman/dnf installed
-#      atuin elsewhere (there ~/.atuin/bin simply won't exist).
+#   2. Write the ~/.atuin/bin segment into $HOME/.dotfiles/path.
+#      ~/.atuin/bin is NOT one of load's bootstrap dirs (~/.scripts,
+#      ~/.local/bin), so without this segment `command -v atuin` fails
+#      in interactive shells and the `atuin init` guard in load never
+#      fires — which is exactly the bug this hook fixes. The [ -d ]
+#      guard keeps the segment a harmless no-op on hosts where
+#      brew/pacman/dnf installed atuin elsewhere (there ~/.atuin/bin
+#      simply won't exist).
 #
 # Idempotent. Honors DRY_RUN=1.
 set -euo pipefail
@@ -34,14 +35,15 @@ if [ "$(uname)" = "Linux" ] && ! command -v atuin >/dev/null 2>&1 \
     fi
 fi
 
-# --- 2. .path segment for ~/.atuin/bin ---
-_repo_root="${DOTFILES_DIR:-${HOME}/gel-ort/dotfiles}"
-_path_file="${_repo_root}/.path"
+# --- 2. path segment for ~/.atuin/bin ---
+_path_dir="${HOME}/.dotfiles"
+_path_file="${_path_dir}/path"
 if [ "${DRY_RUN:-0}" = "1" ]; then
     echo "DRY-RUN: write atuin segment (~/.atuin/bin) to ${_path_file}"
-    unset _repo_root _path_file
+    unset _path_dir _path_file
     exit 0
 fi
+mkdir -p "${_path_dir}"
 touch "${_path_file}"
 # Strip any existing atuin segment (-i.bak for BSD sed on macOS).
 sed -i.bak '/^# >>> atuin begin$/,/^# >>> atuin end$/d' "${_path_file}"
@@ -54,4 +56,4 @@ cat >> "${_path_file}" <<'EOF'
 esac
 # >>> atuin end
 EOF
-unset _repo_root _path_file
+unset _path_dir _path_file

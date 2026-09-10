@@ -33,14 +33,15 @@ else
     curl -fsSL https://opencode.ai/install | bash -s -- --no-modify-path
 fi
 
-# --- .path segment for ~/.opencode/bin ---
-_repo_root="${DOTFILES_DIR:-${HOME}/gel-ort/dotfiles}"
-_path_file="${_repo_root}/.path"
+# --- path segment for ~/.opencode/bin ---
+_path_dir="${HOME}/.dotfiles"
+_path_file="${_path_dir}/path"
 if [ "${DRY_RUN:-0}" = "1" ]; then
     echo "DRY-RUN: write opencode segment (~/.opencode/bin) to ${_path_file}"
-    unset _repo_root _path_file
+    unset _path_dir _path_file
     exit 0
 fi
+mkdir -p "${_path_dir}"
 touch "${_path_file}"
 sed -i.bak '/^# >>> opencode begin$/,/^# >>> opencode end$/d' "${_path_file}"
 rm -f "${_path_file}.bak"
@@ -52,4 +53,4 @@ cat >> "${_path_file}" <<'EOF'
 esac
 # >>> opencode end
 EOF
-unset _repo_root _path_file
+unset _path_dir _path_file

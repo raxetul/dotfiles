@@ -5,7 +5,7 @@ allowed-tools: Bash(ls*), Bash(find*), Bash(readlink*), Bash(file*), Bash(stat*)
 ---
 
 Bring an app's existing live configuration under dotfiles management,
-exactly as hard rule #12 in `CLAUDE.md` prescribes. Target: `$ARGUMENTS`
+exactly as hard rule #11 in `CLAUDE.md` prescribes. Target: `$ARGUMENTS`
 (an app name such as `ghostty`, optionally followed by specific paths;
 default scope is everything under `~/.config/<app>/`).
 
@@ -33,7 +33,7 @@ Procedure:
    `projects/`, `sessions/`, `backups/` behind). Grep candidates for
    obvious secrets (`token`, `secret`, `api[_-]?key`, `password`,
    `BEGIN .*PRIVATE KEY`) and for hardcoded `/home/…` / `/Users/…`
-   paths that violate rule #11. Present the keep/skip list and any
+   paths that violate rule #10. Present the keep/skip list and any
    secret/path findings, then **wait for confirmation**.
 
 4. **Move (don't copy)** each kept file into `configurations/<app>/`,
@@ -50,7 +50,7 @@ Procedure:
    `COMMON_LINKS` (or `DARWIN_LINKS` / `LINUX_LINKS` /
    `LINUX_DESKTOP_LINKS` when the config is platform-specific). The
    `dst` is relative to `${HOME}` and must not contain a literal home
-   path (rules #1, #11).
+   path (rules #1, #10).
 
 7. **Preserve Nerd Font / PUA glyphs** (rule #5). If the moved file is
    a terminal config (starship, tmux, ghostty, waybar, vim status

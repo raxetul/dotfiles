@@ -63,27 +63,33 @@ you can target them with `--only=custom-install-before` /
 6. **Use `$DOTFILES_DIR`** to find anything in this repo; never
    recompute it from `$0` (these scripts are also invocable from
    `~/.scripts/` via PATH).
-7. **Route PATH + per-package env through `${DOTFILES_DIR}/.path`.**
+7. **Route PATH + per-package env through `$HOME/.dotfiles/path`.**
    If the package adds binaries to PATH or defines a
    `FOO_HOME`-style env var, the `after.sh` MUST write a segment
-   into `.path` bracketed by `# >>> <pkg> begin` / `# >>> <pkg> end`
-   (see [.load and .path](#load-and-path--shell-init-centre)).
+   into `path` bracketed by `# >>> <pkg> begin` / `# >>> <pkg> end`
+   (see [load and path](#load-and-path--shell-init-centre)).
    Do NOT add ad-hoc `PATH=…` lines to `configurations/{zsh,bash}/rc`.
 
-## `.load` and `.path` — shell init centre
+## `load` and `path` — shell init centre
 
-Two gitignored files at repo root form the runtime shell-init centre:
+Two files under `$HOME/.dotfiles/` — per-user state, never inside the
+repo (which may be shared and root:dotfiles-owned at `/opt/dotfiles`) —
+form the runtime shell-init centre:
 
 ```text
-${DOTFILES_DIR}/.load    # sourced by zshrc + bashrc — the entrypoint
-${DOTFILES_DIR}/.path    # sourced by .load — PATH + per-package env
+$HOME/.dotfiles/load    # sourced by zshrc + bashrc — the entrypoint
+$HOME/.dotfiles/path    # sourced by load — PATH + per-package env
 ```
 
-* **`.load`** is the orchestrator. `scripts/init-load` creates it on
+A legacy in-repo `${DOTFILES_DIR}/.load` / `${DOTFILES_DIR}/.path` pair
+is still read as a fallback by hosts that haven't run
+`scripts/migrate-to-opt.sh` yet; every writer targets the new location.
+
+* **`load`** is the orchestrator. `scripts/init-load` creates it on
   first `setup.sh` / `update-dotfiles` run; the user can then edit
   it freely for host-specific exports, aliases, or plugin init
-  calls. Its only auto-generated content is the `. .path` line.
-* **`.path`** is fully managed by `after.sh` hooks. Each package
+  calls. Its only auto-generated content is the `. path` line.
+* **`path`** is fully managed by `after.sh` hooks. Each package
   owns one segment bracketed by:
 
   ```sh
@@ -97,14 +103,15 @@ ${DOTFILES_DIR}/.path    # sourced by .load — PATH + per-package env
   a fresh one. Idempotent by construction.
 
 `configurations/{zsh,bash}/rc` only have to do `source
-"${DOTFILES_DIR}/.load"` — everything else propagates through
-`.load` → `.path` → segments.
+"$HOME/.dotfiles/load"` (with the legacy fallback above) — everything
+else propagates through `load` → `path` → segments.
 
 ### Skeleton segment writer (`after.sh`)
 
 ```sh
-_repo_root="${DOTFILES_DIR:-${HOME}/gel-ort/dotfiles}"
-_path_file="${_repo_root}/.path"
+_path_dir="${HOME}/.dotfiles"
+_path_file="${_path_dir}/path"
+mkdir -p "${_path_dir}"
 touch "${_path_file}"
 sed -i.bak '/^# >>> <pkg> begin$/,/^# >>> <pkg> end$/d' "${_path_file}"
 rm -f "${_path_file}.bak"
@@ -117,7 +124,7 @@ export FOO_HOME="${HOME}/.foo"
 esac
 # >>> <pkg> end
 EOF
-unset _repo_root _path_file
+unset _path_dir _path_file
 ```
 
 The `case` guard makes sourcing idempotent across shell reloads; the
@@ -231,6 +238,7 @@ vs. what actually changed.
   on Debian/Ubuntu (the one Linux family with no native `ollama`
   package) falls back to the `ollama` snap — deliberately *not*
   `packages/snap.list`, which would double-install on Fedora, and
-  deliberately *not* the upstream installer, which writes outside
-  `$HOME` (systemd unit, system user) in violation of CLAUDE.md §8.
-  Neither script ever touches `~/.ollama` (20GB of models).
+  deliberately *not* the upstream installer, which writes a systemd
+  unit and a system user outside any user's home — the wrong footprint
+  for a package binary regardless of where the dotfiles repo itself
+  lives. Neither script ever touches `~/.ollama` (20GB of models).

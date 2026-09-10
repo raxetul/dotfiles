@@ -107,10 +107,10 @@ record format.
 | `deny` | `bearer-token` | all | `Authorization: Bearer <20+ chars>` |
 | `deny` | `localhost-port` | all | `localhost:<2–5 digits>` — one machine's infra map |
 | `deny` | `prod-config-name` | all | `*.prod.{yml,yaml,json,toml,conf}` |
-| `warn` | `absolute-home` | all | `/home/<user>/`, `/Users/<user>/` — see hard rule #11 |
+| `warn` | `absolute-home` | all | `/home/<user>/`, `/Users/<user>/` — see hard rule #10 |
 | `warn` | `dotenv-path` | all | `.env` / `.env.<suffix>` references |
 
-`absolute-home` is **warn, not deny** on purpose: `CLAUDE.md`'s own hard rule #11
+`absolute-home` is **warn, not deny** on purpose: `CLAUDE.md`'s own hard rule #10
 has to quote those shapes in order to forbid them, and a rule that cannot be
 committed is worse than useless.
 

@@ -24,8 +24,10 @@ set -euo pipefail
 # When invoked from PATH (~/.scripts is a dir-symlink into the repo),
 # $0 resolves under ~/.scripts/ and `dirname $0/..` would land at $HOME.
 # Trust $DOTFILES_DIR (exported by configurations/{zsh,bash}/rc); fall
-# back to the documented default for non-interactive contexts.
-REPO_ROOT="${DOTFILES_DIR:-${HOME}/gel-ort/dotfiles}"
+# back to the documented resolution order for non-interactive contexts.
+# shellcheck source=scripts/dotfiles-dir.sh
+. "$(dirname "${BASH_SOURCE[0]:-$0}")/dotfiles-dir.sh"
+REPO_ROOT="${DOTFILES_DIR}"
 [ -d "${REPO_ROOT}" ] || { printf 'ERR: repo not found at %s — set DOTFILES_DIR.\n' "${REPO_ROOT}" >&2; exit 1; }
 
 # Realized-state ledger — record each symlink we plant/remove so uninstall.sh

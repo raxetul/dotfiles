@@ -1,7 +1,7 @@
 ---
 status: source-of-truth
 maintainer: raxetul@gmail.com
-claude-rule: "The /init-proj-* command family is documented here and MUST be kept in lockstep with configurations/claude/commands/init-proj-*.md. Per-project standards live in the project's own ./CLAUDE.md, never in the global config. See CLAUDE.md §15."
+claude-rule: "The /init-proj-* command family is documented here and MUST be kept in lockstep with configurations/claude/commands/init-proj-*.md. Per-project standards live in the project's own ./CLAUDE.md, never in the global config. See CLAUDE.md §14."
 ---
 
 # Project initialization — the `/init-proj-*` command family

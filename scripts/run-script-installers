@@ -25,7 +25,9 @@
 #   DRY_RUN        "1" → print the intended installer per tool, run nothing.
 set -euo pipefail
 
-REPO_ROOT="${DOTFILES_DIR:-${HOME}/gel-ort/dotfiles}"
+# shellcheck source=scripts/dotfiles-dir.sh
+. "$(dirname "${BASH_SOURCE[0]:-$0}")/dotfiles-dir.sh"
+REPO_ROOT="${DOTFILES_DIR}"
 LIST="${REPO_ROOT}/packages/script-install.list"
 [ -f "${LIST}" ] || exit 0
 

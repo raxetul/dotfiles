@@ -10,20 +10,22 @@ manages. Two failure modes this catches:
   `configurations/claude/commands`, `configurations/claude/scripts`,
   `scripts`) points a live dir *into* the repo, so files created through
   the live path land in the repo but stay **untracked in git**. These
-  silently work on this host and vanish on a fresh clone (hard rule #13).
+  silently work on this host and vanish on a fresh clone (hard rule #12).
   → stage, commit (Conventional Commits), and push them.
 - **Unmanaged siblings** — a *file* symlink (e.g.
   `configurations/ghostty/config`) links one file inside a live folder;
   any *other* file the app dropped next to it (`~/.config/ghostty/…`) is
   **not** in the repo. → surface it as a migration candidate and ask.
 
-All git work targets `${DOTFILES_DIR:-${HOME}/gel-ort/dotfiles}`. Never
-touch credential/cache/history/state artifacts (per hard rule #12 step 1).
+All git work targets the resolved `DOTFILES_DIR` (see
+`scripts/dotfiles-dir.sh`: explicit env > `/opt/dotfiles` > `${HOME}/gel-ort/dotfiles`).
+Never touch credential/cache/history/state artifacts (per hard rule #11 step 1).
 
 Procedure:
 
-1. **Resolve the repo root and mapping.** Set
-   `REPO="${DOTFILES_DIR:-${HOME}/gel-ort/dotfiles}"`. Read the active
+1. **Resolve the repo root and mapping.** Set `REPO` by sourcing
+   `scripts/dotfiles-dir.sh` (or its resolution order, if run outside a
+   shell that can source it). Read the active
    symlink mapping with `scripts/symlinks.sh list` (one `src::dst` per
    line, `src` repo-relative, `dst` `$HOME`-relative). Confirm each live
    `dst` actually resolves into `$REPO` via `readlink`; note any that
@@ -40,7 +42,7 @@ Procedure:
    - **Enforce companion rules before committing:** if the change adds a
      `packages/*.list` / `Brewfile` entry, `doc/packages-native.md` must
      move too (hard rule #4); a new `configurations/claude/commands/*` or
-     `CLAUDE.md` change is exactly the rule #13 case this command exists
+     `CLAUDE.md` change is exactly the rule #12 case this command exists
      to fix — stage it. Flag, don't silently commit, anything that looks
      like a secret or runtime-state file.
    - Draft a **Conventional Commit** message (`feat`/`fix`/`chore`/

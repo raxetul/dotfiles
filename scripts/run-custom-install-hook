@@ -40,7 +40,9 @@ case "${HOOK}" in
     *) printf 'ERR: hook must be "before" or "after", got %q\n' "${HOOK}" >&2; exit 1 ;;
 esac
 
-REPO_ROOT="${DOTFILES_DIR:-${HOME}/gel-ort/dotfiles}"
+# shellcheck source=scripts/dotfiles-dir.sh
+. "$(dirname "${BASH_SOURCE[0]:-$0}")/dotfiles-dir.sh"
+REPO_ROOT="${DOTFILES_DIR}"
 SCRIPT="${REPO_ROOT}/packages/custom-install/${PKG}/${HOOK}.sh"
 
 # Realized-state ledger — record that this hook ran (its .path segment, if
