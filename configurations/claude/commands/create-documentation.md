@@ -27,28 +27,48 @@ This is my doc folder structure for every project. Write into the project root:
 ```
 docs/
 ├── README.md              # index / landing page — links every other doc
-├── requirements.md        # PILLAR 1 — what the system must do (functional + NFR)
-├── architecture.md        # PILLAR 2 — what the project is, technically
-├── development.md          # PILLAR 3 — how to develop it, technically
-├── usage.md                # PILLAR 4 — installation, modules, how to use
+├── requirements.md        # PILLAR 1 — what it must do (FR + NFR, each with an ID)
+├── decisions.md           # PILLAR 2 — why it is built this way (ADR entries, TD-NNN)
+├── progress.md            # PILLAR 3 — phases, completion, and the Awaiting list
+├── skills.md              # PILLAR 4 — which skills this project activates, and when
+├── development.md         # PILLAR 5 — architecture, patterns, tech, code samples, dev loop
+├── guides.md              # PILLAR 6 — task-oriented walkthroughs, use cases, runbooks
 ├── <topic>.md             # further Markdown files per coherent topic, as needed
 └── diagrams/
     └── <slug>.mmd         # one Mermaid file per diagram (standalone, editable)
 ```
 
-**The four pillars are mandatory.** Every project's docs cover, at minimum:
+**The six pillars are mandatory.** Every project's docs cover, at minimum:
 
 | Pillar | Answers | Typical contents |
 |---|---|---|
-| **Requirements** | What must it do? | functional + non-functional requirement items, cross-linked by ID |
-| **Architecture** | *What* is it, technically? | components, responsibilities, data/control flow, key decisions — diagram-led |
-| **Development** | *How* to develop it? | setup, build/run/test loop, code layout, conventions, how to extend/contribute |
-| **Usage** | How to consume it? | installation, the modules/features it exposes, how to use each (with examples) |
+| **Requirements** | What must it do? | functional + non-functional items, each with an ID; cites `TD-NNN` where a decision constrains it |
+| **Technical decisions** | Why this way? | one ADR-style entry per decision — context, options weighed, choice, consequences — ID `TD-NNN`, listing the requirement IDs it serves |
+| **Progress** | Where is it? | phase table with completion state, plus the **Awaiting** list (what the agent needs from the user; see below) |
+| **Skills activated** | What expertise applies? | the skills this project's work involves, each with the trigger that fires it and what it governs here |
+| **Development** | What is it, and how do I work on it? | architecture and component responsibilities (diagram-led), data/control flow, patterns in use, technologies and why, annotated code samples, setup, build/run/test loop, conventions, how to extend |
+| **User guides** | How do I use it? | task-oriented walkthroughs, partial use cases, runbooks for recurring operations — organized by what the reader wants to accomplish, never an API dump |
 
-Split a pillar across several `docs/*.md` when it grows large (e.g.
-`usage-<module>.md`), but never drop one: a pillar with nothing to say yet
+### The Awaiting list in `progress.md`
+
+`progress.md` ends with an **Awaiting** section — project state, not conversation:
+what the agent is blocked on and needs the user to decide, approve or supply.
+One line per item: the ask, why it blocks, and what happens once it is answered.
+Add an item the moment you are blocked; remove it in the same change that acts
+on the answer. It survives the session that produced it — a question raised only
+in chat at the end of a long session is lost with that session's context.
+
+### Pillar 5 is deliberately wide
+
+Architecture is **inside** Development, not beside it. Split them and the two
+files spend their length citing each other; readers end up needing both open.
+Split pillar 5 across several files when it grows (`development-<area>.md`) —
+that is a size decision, not a re-split of "what it is" from "how to work on it".
+
+Split any pillar across several `docs/*.md` when it grows large (e.g.
+`guides-<module>.md`), but never drop one: a pillar with nothing to say yet
 gets a stub file whose body is an explicit `_TBD_`, not silence. Additional
-topic docs are welcome on top of the four.
+topic docs are welcome on top of the six.
 
 Rules:
 - **Markdown files** live directly under `docs/`. **Diagrams** live as
