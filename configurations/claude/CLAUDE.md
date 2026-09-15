@@ -377,21 +377,39 @@ scaffolding.
 
 ## Documentation structure
 
-Every project's documentation covers these four pillars (a doc, section,
-or set of docs per pillar — the `/create-documentation` command lays them
-out under `docs/`):
+Every project's documentation covers these six pillars (a doc, section, or set
+of docs per pillar — `/create-documentation` lays them out under `docs/`):
 
-- **Requirements** — what the system must do (functional + non-functional
-  requirement items, kept in sync per the rule below).
-- **Architecture** — *what* the project is, technically: components,
-  their responsibilities, data/control flow, key decisions. Diagram-led
-  per "Visual-first documentation".
-- **Development** — *how* to develop it, technically: setup, build/run/test
-  loop, code layout, conventions, how to extend it, how to contribute.
-- **Usage** — how to consume it: installation, the modules/features it
-  exposes, and how to use each (with examples).
+| # | Pillar | File | Answers |
+| --- | --- | --- | --- |
+| 1 | **Requirements** | `requirements.md` | What must it do? Functional + non-functional items, each with an ID. |
+| 2 | **Technical decisions** | `decisions.md` | Why is it built this way? One ADR-style entry per decision, ID `TD-NNN`. |
+| 3 | **Progress** | `progress.md` | Where is it? Phases, completion, and the awaiting list (below). |
+| 4 | **Skills activated** | `skills.md` | Which skills does working on this project involve, and when does each fire? |
+| 5 | **Development** | `development.md` | *What* it is technically **and** *how* to work on it: architecture, patterns, technologies, annotated code samples, setup, build/run/test loop, conventions. |
+| 6 | **User guides** | `guides.md` | How to use it: task-oriented walkthroughs, partial use cases, runbooks — not an API dump. |
 
 A pillar with nothing to say yet gets a stub marked `_TBD_`, not silence.
+
+**Requirements cross-link to decisions by ID.** A requirement constrained by a
+technical decision cites it (`… per TD-004`); a decision lists the requirement
+IDs it serves. Neither file repeats the other's content — the link is the
+mechanism that keeps a rewrite of one from silently orphaning the other.
+
+**Pillar 5 absorbed what used to be a separate Architecture pillar.** They were
+split before and the split never held: "what it is" and "how to work on it" kept
+citing each other until the two files had to be read together anyway.
+
+### The awaiting list
+
+Pillar 3 carries an **Awaiting** section: what I am blocked on and need you to
+decide, approve or supply. It is project state, not conversation — it outlives
+the session that produced it, which is the point. A question raised only in chat
+at the end of a long session dies with that session's context.
+
+I add an item the turn I hit the blocker, and remove it in the change that acts
+on the answer. `/completion` reports it beside the phase table; the format and
+the rest of the rules live in `/create-documentation`.
 
 ## Skills
 
