@@ -1,99 +1,99 @@
 {
+  "enabledPlugins": {
+    "context-mode@context-mode": true
+  },
   "env": {
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
   },
-  "permissions": {
-    "defaultMode": "auto"
+  "extraKnownMarketplaces": {
+    "context-mode": {
+      "source": {
+        "repo": "mksglu/claude-context-mode",
+        "source": "github"
+      }
+    }
   },
-  "model": "opus[1m]",
   "hooks": {
     "PostToolUse": [
       {
-        "matcher": "Bash",
         "hooks": [
           {
-            "type": "command",
-            "command": "atuin hook claude-code"
+            "command": "atuin hook claude-code",
+            "type": "command"
           }
-        ]
+        ],
+        "matcher": "Bash"
       }
     ],
     "PostToolUseFailure": [
       {
-        "matcher": "Bash",
         "hooks": [
           {
-            "type": "command",
-            "command": "atuin hook claude-code"
+            "command": "atuin hook claude-code",
+            "type": "command"
           }
-        ]
+        ],
+        "matcher": "Bash"
       }
     ],
     "PreToolUse": [
       {
-        "matcher": "Bash",
         "hooks": [
           {
-            "type": "command",
-            "command": "atuin hook claude-code"
+            "command": "atuin hook claude-code",
+            "type": "command"
           },
           {
-            "type": "command",
-            "command": "bash \"$HOME/.claude/hooks/herdr-workspace-guard.sh\""
+            "command": "bash \"$HOME/.claude/hooks/herdr-workspace-guard.sh\"",
+            "type": "command"
           }
-        ]
+        ],
+        "matcher": "Bash"
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "command": "bash \"$HOME/.claude/hooks/herdr-team-teardown.sh\"",
+            "timeout": 10,
+            "type": "command"
+          }
+        ],
+        "matcher": "*"
       }
     ],
     "SessionStart": [
       {
         "hooks": [
           {
-            "type": "command",
-            "command": "\"$HOME/.claude/hooks/context-mode-cache-heal.mjs\""
+            "command": "\"$HOME/.claude/hooks/context-mode-cache-heal.mjs\"",
+            "type": "command"
           }
         ]
       },
       {
-        "matcher": "*",
         "hooks": [
           {
-            "type": "command",
             "command": "bash \"$HOME/.claude/hooks/herdr-agent-state.sh\" session",
-            "timeout": 10
+            "timeout": 10,
+            "type": "command"
           }
-        ]
-      }
-    ],
-    "SessionEnd": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"$HOME/.claude/hooks/herdr-team-teardown.sh\"",
-            "timeout": 10
-          }
-        ]
+        ],
+        "matcher": "*"
       }
     ]
   },
+  "model": "opus[1m]",
+  "permissions": {
+    "defaultMode": "auto"
+  },
   "statusLine": {
-    "type": "command",
     "command": "$HOME/.claude/scripts/statusline.sh",
-    "padding": 0
+    "padding": 0,
+    "type": "command"
   },
-  "enabledPlugins": {
-    "context-mode@context-mode": true
-  },
-  "tui": "fullscreen",
-  "theme": "custom:one-dark",
   "teammateMode": "tmux",
-  "extraKnownMarketplaces": {
-    "context-mode": {
-      "source": {
-        "source": "github",
-        "repo": "mksglu/claude-context-mode"
-      }
-    }
-  }
+  "theme": "custom:one-dark",
+  "tui": "fullscreen"
 }
