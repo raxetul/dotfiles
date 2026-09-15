@@ -34,18 +34,18 @@ is the "why" and the "what's actually in there" behind it.
 
 ```mermaid
 flowchart TD
-    START([claude-reset.sh, no args]) --> BACKUP[backup: mandatory\ntar everything about to change]
+    START([claude-reset.sh, no args]) --> BACKUP["backup: mandatory<br/>tar everything about to change"]
     BACKUP -->|archive failed / empty| FAIL[[exit 1 — stop, nothing deleted]]
-    BACKUP -->|verified| ORPHANS[orphans:\n.DS_Store, dated .bak files,\norphaned statusline.sh,\ndangling symlinks]
-    ORPHANS --> RUNCHECK{Claude Code\nrunning?}
-    RUNCHECK -->|yes, no --force-running| STOP[[exit 3 — stop here\nbackup + orphans already done]]
-    RUNCHECK -->|no, or --force-running| CREDS[credentials:\nbackups/*.claude.json.backup.*,\nconfig.json, daemon-auth-*,\nKeychain entry, oauthAccount field]
+    BACKUP -->|verified| ORPHANS["orphans:<br/>.DS_Store, dated .bak files,<br/>orphaned statusline.sh,<br/>dangling symlinks"]
+    ORPHANS --> RUNCHECK{"Claude Code<br/>running?"}
+    RUNCHECK -->|yes, no --force-running| STOP[["exit 3 — stop here<br/>backup + orphans already done"]]
+    RUNCHECK -->|no, or --force-running| CREDS["credentials:<br/>backups/*.claude.json.backup.*,<br/>config.json, daemon-auth-*,<br/>Keychain entry, oauthAccount field"]
     CREDS --> STATEQ{--include-state?}
-    STATEQ -->|yes| STATE[state:\nplugins/, context-mode/,\nfile-history/, cache/, …]
+    STATEQ -->|yes| STATE["state:<br/>plugins/, context-mode/,<br/>file-history/, cache/, …"]
     STATEQ -->|no| RELINK
-    STATE --> RELINK[relink:\nsymlinks.sh install +\nagent-skills link]
-    RELINK --> VERIFY[verify: read-only report]
-    VERIFY --> DONE([done — start Claude Code,\nlog back in])
+    STATE --> RELINK["relink:<br/>symlinks.sh install +<br/>agent-skills link"]
+    RELINK --> VERIFY["verify: read-only report"]
+    VERIFY --> DONE(["done — start Claude Code,<br/>log back in"])
 ```
 
 `--dry-run` walks the exact same graph but every action node only prints

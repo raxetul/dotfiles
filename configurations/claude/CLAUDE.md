@@ -84,7 +84,7 @@ qualifies, in particular:
 - **Same directory, two Claude sessions ≠ one team.** Two independent leads
   can have the exact same project checked out (same `cwd`) in two different
   herdr workspaces — that happened for real: workspaces `w1` and `w5` both
-  had `buyutech-planning-app` open at once. They are two independent leads,
+  had the same work project open at once. They are two independent leads,
   never teammates, even though `cwd` matches. I never use cwd/project path to
   decide who's on my team.
 - **Every targeting call is workspace-scoped, never by bare name.** herdr's

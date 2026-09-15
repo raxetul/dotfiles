@@ -29,27 +29,27 @@ Missing either exits 3 before anything else runs.
 
 ```mermaid
 flowchart TD
-    A[scan DIR recursively] --> B[find compose.yaml / compose.yml /<br/>docker-compose.yaml / docker-compose.yml]
+    A[scan DIR recursively] --> B["find compose.yaml / compose.yml /<br/>docker-compose.yaml / docker-compose.yml"]
     B -->|prune| P["every dot-directory (except the<br/>scan root itself) + node_modules<br/>target vendor dist build"]
-    B --> C{docker compose -f file<br/>config --format json}
-    C -->|ok| D[jq: services[].image]
+    B --> C{"docker compose -f file<br/>config --format json"}
+    C -->|ok| D["jq: services[].image"]
     C -->|fails| E["⚠ degraded: grep image: lines<br/>(best-effort service name too)"]
     D --> F[image list + used-by]
     E --> F
-    F --> G[load .dc-image-update.json<br/>from scan root]
+    F --> G["load .dc-image-update.json<br/>from scan root"]
     G --> H["merge: known marks restored,<br/>unseen images -> '' + ← new,<br/>vanished images kept, not shown"]
-    H --> I[docker ps --format image<br/>-> ▶running marker]
+    H --> I["docker ps --format image<br/>-> ▶running marker"]
     I --> J[render menu]
     J -->|invalid key| J
-    J -->|Enter / s / --yes| K[write state atomically<br/>tmp file + mv]
-    J -->|q| Z[exit, no write]
+    J -->|Enter / s / --yes| K["write state atomically<br/>tmp file + mv"]
+    J -->|q| Z["exit, no write"]
     K -->|--dry-run: skip write, print plan| L
     K --> L[for each P/R image]
     L --> M[digest before -> docker pull -> digest after]
-    M --> N{mark == R AND<br/>digest changed?}
-    N -->|no| O[report up-to-date /<br/>not-running / skipped]
+    M --> N{"mark == R AND<br/>digest changed?"}
+    N -->|no| O["report up-to-date /<br/>not-running / skipped"]
     N -->|yes| Q["docker ps --filter ancestor=image<br/>+ inspect compose.* labels"]
-    Q --> R[group by com.docker.compose.project,<br/>one 'compose up -d' per project]
+    Q --> R["group by com.docker.compose.project,<br/>one 'compose up -d' per project"]
     R --> S[results table + exit code]
     O --> S
 ```

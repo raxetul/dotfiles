@@ -23,7 +23,7 @@ that shape in mind, not a fresh single shell.
 
 ```mermaid
 flowchart LR
-    DB[(atuin history.db<br/>local, encrypted)]
+    DB[("atuin history.db<br/>local, encrypted")]
 
     CtrlR["Ctrl+R<br/>atuin search -i<br/>GLOBAL — everything"] -->|reads| DB
     UpKey["↑ up-arrow<br/>--shell-up-key-binding<br/>GLOBAL — everything"] -->|reads| DB
@@ -105,9 +105,9 @@ noise/secrets out of the DB in the first place:
 
 ```mermaid
 flowchart LR
-    CMD[command typed] --> F{matches\nhistory_filter regex?}
+    CMD[command typed] --> F{"matches<br/>history_filter regex?"}
     F -->|yes| DROP[not recorded]
-    F -->|no| DB[(history.db)]
+    F -->|no| DB["(history.db)"]
 ```
 
 Current patterns (leading-token guards for common secret shapes, plus
