@@ -1,5 +1,5 @@
 ---
-description: Generate or refresh a project's docs/ tree (Markdown + embeddable Mermaid) in one of two house styles — work (Büyütech green) or personal (turquoise).
+description: Generate or refresh a project's six-pillar docs/ tree (Markdown + embeddable Mermaid) in one of two house styles — work (Büyütech green) or personal (turquoise). Writes directly when a project has no documentation; proposes a per-file table and waits for approval when it does.
 argument-hint: "[work|personal] [topic/scope notes — optional]"
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash(ls*), Bash(find*), Bash(test*), Bash(cat*), Bash(git*)
 ---
@@ -83,24 +83,76 @@ Rules:
 - Each `.mmd` file starts with a `%%` comment naming the diagram, then the
   style's `%%{init}%%` theme directive (Step 3), then the graph.
 
-## Step 2 — discover, propose, confirm
+## Step 2 — discover, then branch on what you found
 
-1. If `docs/` already exists, read it first and **refresh in place** (update,
-   don't duplicate); preserve any content that's still accurate.
-2. Inspect the project to decide what to document — prefer real sources:
-   `README*`, `CLAUDE.md`, `project.md`, `PHASES.md`/`REQUIREMENTS.md`, package
-   manifests, `compose*.y*ml`, the source tree, and (if present) the workspace
-   `common/` catalog. Use the topic notes from `$ARGUMENTS` to focus scope.
-3. **Propose an outline** — the list of `docs/*.md` files and `diagrams/*.mmd`
-   you intend to create, one line each — and **wait for my confirmation**
-   before writing anything.
-4. Honor any locked project decisions (language, stack, conventions) and never
-   invent facts: no fabricated dates, versions, owners, or sources. Use today's
-   real date for any "last updated" field; leave unknowns as an explicit
-   `_TBD_` for me to fill. Flag every assumption.
-5. **Information security:** keep it self-contained — no external image/badge
-   URLs, no CDN links, no customer names or part numbers (TISAX/ISO 27001).
-   "Badges" are inline-code text, not remote images.
+The gate depends on whether the project already has documentation. Decide that
+**first**, because it decides whether you write straight away or stop and ask.
+
+### 2a. Survey
+
+Inspect real sources, never guess: `README*`, `CLAUDE.md`, `project.md`,
+`PHASES.md` / `REQUIREMENTS.md`, `docs/` and `doc/`, package manifests,
+`compose*.y*ml`, the source tree. Use `$ARGUMENTS` to focus scope.
+
+Then classify the project:
+
+| Found | Path |
+| --- | --- |
+| **No documentation at all** — no `docs/`, no `doc/`, nothing beyond a README stub | 🟢 **2b — write it, no gate** |
+| **Any existing documentation** — a `docs/` tree, a `doc/` tree, or substantive project docs under another name | 🔵 **2c — table, then wait** |
+
+A lone `README.md` does not count as documentation; a `README.md` that is
+genuinely carrying the project's architecture or usage does. If you are unsure
+which you are looking at, treat it as existing and go to 2c — asking costs a
+round trip, overwriting someone's work costs more.
+
+### 2b. Zero-documentation project — write directly
+
+Nothing to preserve, nothing to conflict with, so no approval gate: lay down the
+full six-pillar tree and report what you created. Pillars with nothing to say
+yet get their `_TBD_` stub. Do not ask first; the user asked for documentation
+and there is no prior work to weigh.
+
+### 2c. Existing documentation — propose as a table, then stop
+
+**Never overwrite existing documentation without approval.** Produce one table,
+one row per target file, and **wait**:
+
+| File | Pillar | Now | Proposed | Existing content |
+| --- | --- | --- | --- | --- |
+| `docs/requirements.md` | 1 Requirements | exists, 40 lines | update — add IDs, link `TD-NNN` | kept, restructured |
+| `docs/decisions.md` | 2 Technical decisions | missing | create | — |
+| `docs/architecture.md` | — | exists, 120 lines | **fold into** `development.md` | moved verbatim, then edited |
+| `doc/atuin.md` | — | exists | **leave** | out of scope — per-artifact doc |
+
+Column rules:
+
+- **Now** — `missing`, or `exists, N lines`. Measure it; do not write "exists"
+  for a file you did not open.
+- **Proposed** — exactly one of `create`, `update`, `fold into <file>`,
+  `split into <files>`, `leave`. No vaguer verb.
+- **Existing content** — what happens to the words that are already there:
+  `kept`, `kept, restructured`, `moved verbatim`, `rewritten`, `dropped`. 🔴
+  Any row saying `dropped` needs a reason in the same cell; a proposal that
+  silently deletes prose is the failure this gate exists to catch.
+- Every pillar gets a row even when the answer is "missing → create".
+- Files you are deliberately **not** touching get rows too, marked `leave`. What
+  you are leaving alone is as informative as what you are changing.
+
+Close the table with the counts — `N create, N update, N fold, N leave` — and
+the question. Then stop. On approval, apply exactly the table; if you discover
+mid-way that a row was wrong, stop and re-propose that row rather than
+improvising.
+
+### 2d. Always
+
+- Honor locked project decisions (language, stack, conventions) and never invent
+  facts: no fabricated dates, versions, owners or sources. Use today's real date
+  for any "last updated" field; leave unknowns as an explicit `_TBD_`. Flag every
+  assumption.
+- **Information security:** self-contained — no external image/badge URLs, no CDN
+  links, no customer names or part numbers (TISAX/ISO 27001). "Badges" are
+  inline-code text, not remote images.
 
 ## Step 3 — apply the chosen style
 
