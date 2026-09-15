@@ -10,16 +10,16 @@ edit the doc whenever they edit its source.
 ```mermaid
 graph TD
     SU[setup.sh]
-    SU -->|macOS| B[brew bundle<br/>packages/Brewfile]
-    SU -->|Linux| L[distro detect<br/>via /etc/os-release]
-    L -->|apt| LA[packages/apt.list<br/>+ apt-desktop.list]
-    L -->|pacman| LP[packages/pacman.list<br/>+ pacman-desktop.list]
-    L -->|dnf| LD[packages/dnf.list<br/>+ dnf-desktop.list]
+    SU -->|macOS| B["brew bundle<br/>packages/Brewfile"]
+    SU -->|Linux| L["distro detect<br/>via /etc/os-release"]
+    L -->|apt| LA["packages/apt.list<br/>+ apt-desktop.list"]
+    L -->|pacman| LP["packages/pacman.list<br/>+ pacman-desktop.list"]
+    L -->|dnf| LD["packages/dnf.list<br/>+ dnf-desktop.list"]
     L -->|fallback| LF[aur.list / snap.list]
 
-    SU --> SL[scripts/symlinks.sh<br/>install]
-    SL --> CFG[configurations/&lt;app&gt;/]
-    SL --> HOME[~/.config/, ~/.vimrc, ~/.zshrc, …]
+    SU --> SL["scripts/symlinks.sh<br/>install"]
+    SL --> CFG["configurations/&lt;app&gt;/"]
+    SL --> HOME["~/.config/, ~/.vimrc, ~/.zshrc, …"]
 
     SU --> SH[chsh -s zsh]
     SU --> LH[lefthook install]

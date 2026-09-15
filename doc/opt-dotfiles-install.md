@@ -6,13 +6,13 @@ doc covers the shared-repo half (axis 1) and the tooling around it.
 
 ```mermaid
 graph TD
-    A["AXIS 1 — the shared repo\n/opt/dotfiles, owned root:dotfiles"]
-    A -->|"install.sh (root)\ndefault: hard"| A1["clone/update + group setup\n+ packages (via the invoking user)"]
-    A -->|"install.sh --light (root)"| A2["clone/update + group setup only\nno packages, no attach"]
+    A["AXIS 1 — the shared repo<br/>/opt/dotfiles, owned root:dotfiles"]
+    A -->|"install.sh (root)<br/>default: hard"| A1["clone/update + group setup<br/>+ packages (via the invoking user)"]
+    A -->|"install.sh --light (root)"| A2["clone/update + group setup only<br/>no packages, no attach"]
 
-    B["AXIS 2 — each user's attach\nto the shared repo"]
-    B -->|"install.sh --attach (no root)"| B1["setup.sh — full symlink set\n+ packages (needs this user's own sudo)"]
-    B -->|"install.sh --attach --light (no root)"| B2["setup.sh --light — LIGHT_LINKS only\nno packages, no root ever"]
+    B["AXIS 2 — each user's attach<br/>to the shared repo"]
+    B -->|"install.sh --attach (no root)"| B1["setup.sh — full symlink set<br/>+ packages (needs this user's own sudo)"]
+    B -->|"install.sh --attach --light (no root)"| B2["setup.sh --light — LIGHT_LINKS only<br/>no packages, no root ever"]
 ```
 
 ## Where things live

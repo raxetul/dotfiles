@@ -121,10 +121,10 @@ ${AGENT_SKILLS_DIR}                    (default: ${HOME}/gel-ort/agent-skills)
 │   └── references/…
 ├── brand-design/ · cso/ · frontend-design-guidelines/ · learn/ · logging-patterns/
 ├── page-load-animations/ · product-review/ · rfc9457-problem-details/ · roast-my-product/
-├── browse-shotato/ · camera-shotato/ · design-system-shotato/ · navigation-shotato/
-├── preview-shotato/ · storage-shotato/                 # migrated from the shotato project
-├── add-script-task/ · add-systemd-service/             # migrated from the my-installation project
-└── quick-test.md                                       # migrated from the claude-demo project
+├── <app>-browse/ · <app>-camera/ · <app>-design-system/   # per-feature skills,
+├── <app>-navigation/ · <app>-preview/ · <app>-storage/     # migrated out of an app repo
+├── add-script-task/ · add-systemd-service/             # migrated from an ansible repo
+└── quick-test.md                                       # migrated from a demo repo
 ```
 
 Every top-level entry is a skill: normally a directory with `SKILL.md` (optionally a `references/`
@@ -151,46 +151,43 @@ to touch `symlinks.sh` directly.
 
 ```mermaid
 flowchart LR
-    subgraph GLOBAL["${AGENT_SKILLS_DIR} — git repo, PRIVATE GitHub mirror"]
-        direction TB
-        S1[backend-development]
-        S2["… 8 more domain-agnostic skills"]
-        S3["browse-shotato · camera-shotato · …\n(migrated from shotato)"]
-        S4["add-script-task · add-systemd-service\n(migrated from my-installation)"]
-        S5["quick-test.md\n(migrated from claude-demo)"]
-        RM[README.md — NOT symlinked]
-    end
+    GLOBAL["${AGENT_SKILLS_DIR}<br/>one dir per skill"]
+    SL["scripts/symlinks.sh<br/>_skill_links()"]
+    HOME["~/.claude/skills/&lt;name&gt;"]
+    RM["README.md"]
 
-    SL["scripts/symlinks.sh\n_skill_links() — dynamic, walks every top-level entry"]
-    HOME["~/.claude/skills/<name>\n(one symlink per entry)"]
-
-    GLOBAL -->|discovered by| SL -->|plants| HOME
-    RM -.->|excluded by name| SL
-
-    subgraph DOTFILES["dotfiles repo"]
-        direction TB
-        CS["scripts/agent-skills\ninit · ensure-remote · status · commit · bundle · restore · link · list"]
-        SETUP["setup.sh Step 4.5\ngit init if missing, then\nensure-remote --interactive (ASKS first)"]
-        UPD["scripts/update-dotfiles\nstage agent-skills-remote\nensure-remote (no prompt, may be unattended)"]
-    end
-
-    CS -.->|manages| GLOBAL
-    SETUP -.->|bootstraps repo on new host| GLOBAL
-    UPD -.->|re-checks the mirror on every update| GLOBAL
-
-    MIRROR["<owner>/agent-skills on GitHub\ncreated PRIVATE, name derived from dotfiles' own origin owner"]
-    GLOBAL -->|"origin — agent-skills commit, then git push"| MIRROR
-    MIRROR -->|"git clone on the next host"| GLOBAL
-    DFREMOTE["dotfiles origin\ngit@host:<owner>/dotfiles.git"]
-    DFREMOTE -.->|"host + owner + URL shape copied from here"| MIRROR
-
-    BUNDLE["${AGENT_SKILLS_BUNDLE_DIR}/agent-skills-<date>.bundle\n(last 5 kept)"]
-    GLOBAL -->|"agent-skills bundle"| BUNDLE
-    BUNDLE -->|"agent-skills restore <bundle>\n(git fetch, never git remote add)"| GLOBAL
-
-    ARCHIVE["${HOME}/gel-ort/claude-skills-archive/\n(untracked, Solana/crypto skills, kept not deleted)"]
-    GLOBAL -.->|separate from, never merges with| ARCHIVE
+    GLOBAL -->|"every top-level entry"| SL -->|"one symlink each"| HOME
+    RM -.->|"excluded by name"| SL
 ```
+
+Skills are discovered dynamically — the list is never hardcoded, so adding a
+directory is all it takes. opencode reads `~/.claude/skills/` directly, so the
+same symlinks serve both tools.
+
+## Remote and backup
+
+Two independent durability layers: a private GitHub mirror (primary) and local
+git bundles (offline fallback).
+
+```mermaid
+flowchart LR
+    GLOBAL["${AGENT_SKILLS_DIR}"]
+    MIRROR["&lt;owner&gt;/agent-skills<br/>GitHub, created PRIVATE"]
+    BUNDLE["agent-skills-&lt;date&gt;.bundle<br/>last 5 kept"]
+    DFREMOTE["dotfiles origin<br/>supplies host + owner"]
+
+    GLOBAL -->|"push"| MIRROR
+    MIRROR -->|"clone on a new host"| GLOBAL
+    GLOBAL -->|"bundle"| BUNDLE
+    BUNDLE -->|"restore"| GLOBAL
+    DFREMOTE -.->|"name derived from"| MIRROR
+```
+
+| Caller | When | Prompts? |
+| --- | --- | --- |
+| `setup.sh` Step 4.5 | new host bootstrap | 🔵 yes — asks before creating the repo |
+| `scripts/update-dotfiles` | every update | 🟢 no — may run unattended |
+| `scripts/agent-skills ensure-remote` | manually | `--interactive` opts into the prompt |
 
 ## Bundle backup discipline
 
@@ -254,9 +251,9 @@ it in, add a row to `SKILL.md`'s routing table.
 | Source | Skills | Notes |
 | --- | --- | --- |
 | this repo (`configurations/claude/skills/`) | `backend-development`, `brand-design`, `cso`, `frontend-design-guidelines`, `learn`, `logging-patterns`, `page-load-animations`, `product-review`, `rfc9457-problem-details`, `roast-my-product`, `SKILL_ROUTER.md` | The original 11 that had leaked to the public remote; moved out, not deleted |
-| `~/gel-ort/workspace/shotato` (`.claude/skills/`) | `browse-shotato`, `camera-shotato`, `design-system-shotato`, `navigation-shotato`, `preview-shotato`, `storage-shotato` | Untracked in the shotato repo; an identical duplicate copy under a linked git worktree (`.claude/worktrees/tdd-setup`, plus a stray filesystem copy of that same worktree under `shotato.worktrees/fix-android-nav-bar-insets/`) was removed rather than re-imported |
-| `~/gel-ort/github/claude-demo` (`.claude/skills/quick-test.md`) | `quick-test.md` | Was git-tracked; staged for removal there (`git rm -r --cached`), not committed — that repo's own commit is the user's call |
-| `~/gel-ort/ops/ansible/my-installation` (`.claude/skills/`) | `add-script-task`, `add-systemd-service` | Same as above: git-tracked, staged for removal, not committed |
+| A mobile app repo (`.claude/skills/`) | six per-feature skills (browse, camera, design-system, navigation, preview, storage) | Untracked in that repo; an identical duplicate under a linked git worktree — plus a stray filesystem copy of the same worktree — was removed rather than re-imported |
+| a demo repo (`.claude/skills/quick-test.md`) | `quick-test.md` | Was git-tracked; staged for removal there (`git rm -r --cached`), not committed — that repo's own commit is the user's call |
+| an ansible repo (`.claude/skills/`) | `add-script-task`, `add-systemd-service` | Same as above: git-tracked, staged for removal, not committed |
 
 No name collisions occurred across these four sources — nothing needed the `<name>-<project>`
 disambiguation the migration was prepared to apply.

@@ -10,7 +10,7 @@ claude-rule: "configurations/claude/settings.json is the tracked, host-agnostic 
 
 `configurations/claude/settings.json` is git-tracked and symlinked to `~/.claude/settings.json`
 (hard rule #1). Claude Code's **auto mode** classifier can write an `autoMode` block into whatever
-settings file is active — and once, it wrote one scoped to a *different* project (`noturi`:
+settings file is active — and once, it wrote one scoped to a *different* project (
 absolute paths, repo name, project-specific CLI rules) straight into this tracked, host-agnostic
 file. That block doesn't belong in a repo shared across hosts and read by every project — it's
 volatile, machine/project-local state, not a dotfiles config value.
@@ -21,7 +21,7 @@ volatile, machine/project-local state, not a dotfiles config value.
 | --- | --- | --- | --- |
 | `configurations/claude/settings.json` (→ `~/.claude/settings.json`) | Host-agnostic, all projects | **Tracked** | `model`, `hooks`, `theme`, `tui`, `statusLine`, `enabledPlugins`, `permissions.defaultMode` |
 | `~/.claude/settings.local.json` | User-local, all projects on this machine | Gitignored | `autoMode` when no single project owns it |
-| `<project>/.claude/settings.local.json` | Project-local (e.g. `noturi`) | Gitignored (repo `.gitignore` or a global `**/.claude/settings.local.json` pattern) | `autoMode` scoped to that project's environment/soft_deny rules |
+| `<project>/.claude/settings.local.json` | Project-local | Gitignored (repo `.gitignore` or a global `**/.claude/settings.local.json` pattern) | `autoMode` scoped to that project's environment/soft_deny rules |
 
 Settings load order is user → project → local (later wins), so a project-local
 `settings.local.json` layers cleanly on top of the tracked file without touching it.
@@ -29,9 +29,9 @@ Settings load order is user → project → local (later wins), so a project-loc
 ```mermaid
 flowchart LR
     CLASS[Auto mode classifier] -->|writes autoMode block| TARGET{Which file?}
-    TARGET -->|host-agnostic keys only| TRACKED["configurations/claude/settings.json\n(tracked, symlinked)"]
-    TARGET -->|project-scoped autoMode| PLOCAL["<project>/.claude/settings.local.json\n(gitignored)"]
-    TARGET -->|no owning project| ULOCAL["~/.claude/settings.local.json\n(gitignored)"]
+    TARGET -->|host-agnostic keys only| TRACKED["configurations/claude/settings.json<br/>(tracked, symlinked)"]
+    TARGET -->|project-scoped autoMode| PLOCAL["<project>/.claude/settings.local.json<br/>(gitignored)"]
+    TARGET -->|no owning project| ULOCAL["~/.claude/settings.local.json<br/>(gitignored)"]
     TRACKED -.->|must never contain| BAD[autoMode / project-scoped soft_deny]
 ```
 
@@ -48,7 +48,7 @@ tracked file rule #12 protects.
 This is not a one-time accident: **every** `/auto-mode-setup` run writes a fresh
 `autoMode` block into whatever settings file is currently active for that
 project, scoped to that project's own environment/allow/soft_deny rules. It
-happened once for `noturi` and, on 2026-08-20, again for this repo
+happened once for another project and, on 2026-08-20, again for this repo
 (`raxetul/dotfiles`) — same failure class, different project. Treat it as
 **the command's normal behavior**, not a fluke: after every
 `/auto-mode-setup` run, expect the tracked `configurations/claude/settings.json`
@@ -70,8 +70,8 @@ pattern alone is what protects it).
 
 ```mermaid
 flowchart LR
-    RUN["/auto-mode-setup run"] -->|writes autoMode| TRACKED2["configurations/claude/settings.json\n(tracked — wrong spot, again)"]
-    TRACKED2 -->|merge| LOCAL2[".claude/settings.local.json\n(gitignored — right spot)"]
+    RUN["/auto-mode-setup run"] -->|writes autoMode| TRACKED2["configurations/claude/settings.json<br/>(tracked — wrong spot, again)"]
+    TRACKED2 -->|merge| LOCAL2[".claude/settings.local.json<br/>(gitignored — right spot)"]
     TRACKED2 -->|git checkout --| CLEAN["tracked file restored"]
 ```
 

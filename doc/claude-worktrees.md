@@ -25,8 +25,8 @@ flowchart TD
         W1["../dotfiles.worktrees/feature-x<br/>branch feature-x"]
         W2["../dotfiles.worktrees/review-pr-42<br/>branch review-pr-42"]
     end
-    M -. shares .git .-> W1
-    M -. shares .git .-> W2
+    M -.->|"shares .git"| W1
+    M -.->|"shares .git"| W2
 
     subgraph TAB["herdr tab — team layout"]
         direction LR
@@ -187,12 +187,12 @@ scripts can never disagree on the next free name:
 ```mermaid
 flowchart TD
     A["cwt &lt;branch&gt; --role frontend"] --> B["herdr-team name frontend"]
-    B --> C{"'frontend' free in\nANY workspace?"}
+    B --> C{"'frontend' free in<br/>ANY workspace?"}
     C -- yes --> D["use 'frontend'"]
-    C -- no --> E{"'frontend-&lt;mascot&gt;' free?\n(try haro, tachikoma, ... in order)"}
+    C -- no --> E{"'frontend-&lt;mascot&gt;' free?<br/>(try haro, tachikoma, ... in order)"}
     E -- "yes, first free mascot" --> F["use 'frontend-&lt;mascot&gt;'"]
     E -- "pool exhausted" --> G["use 'frontend-2', 'frontend-3', ..."]
-    D --> H["herdr agent start &lt;name&gt; ...\nherdr pane rename &lt;pane_id&gt; &lt;name&gt;"]
+    D --> H["herdr agent start &lt;name&gt; ...<br/>herdr pane rename &lt;pane_id&gt; &lt;name&gt;"]
     F --> H
     G --> H
 ```
@@ -223,8 +223,8 @@ nor deleted, and the ghost stays in `git worktree list` forever — flagged
 
 ```mermaid
 flowchart LR
-    A["worktree dir exists\n.git/worktrees/&lt;name&gt;/ record"] -->|rm -r the dir| B["DEAD:\ndir gone, record remains\nbranch still 'checked out'"]
-    B -->|git worktree prune| C["record removed\nbranch free again"]
+    A["worktree dir exists<br/>.git/worktrees/&lt;name&gt;/ record"] -->|rm -r the dir| B["DEAD:<br/>dir gone, record remains<br/>branch still 'checked out'"]
+    B -->|git worktree prune| C["record removed<br/>branch free again"]
     A -->|git worktree remove| C
 ```
 
@@ -274,13 +274,13 @@ and receives a follow-up message in place — the channel that would need
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Working: cwt <branch> --role <name>\n(task as spawn-time argv prompt)
+    [*] --> Working: cwt <branch> --role <name><br/>(task as spawn-time argv prompt)
     Working --> Idle: pane reports idle/done
-    Idle --> WaitingOnInput: last output is a question,\napproval request, or trust dialog
-    WaitingOnInput --> Working: human answers\n(this is the only thing that reaches a live pane)
-    Idle --> Closed: last output is NOT a question\n-> herdr-team exit / herdr pane close
+    Idle --> WaitingOnInput: last output is a question,<br/>approval request, or trust dialog
+    WaitingOnInput --> Working: human answers<br/>(this is the only thing that reaches a live pane)
+    Idle --> Closed: last output is NOT a question<br/>-> herdr-team exit / herdr pane close
     Idle --> Respawned: more related work is queued
-    Respawned --> Working: fresh member, same worktree/branch,\ntask as spawn-time argv prompt
+    Respawned --> Working: fresh member, same worktree/branch,<br/>task as spawn-time argv prompt
     Closed --> [*]
 ```
 
