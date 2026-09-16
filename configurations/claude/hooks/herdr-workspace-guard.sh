@@ -4,10 +4,12 @@
 #
 # Two confirmed leak vectors, both DENIED (not just warned) here:
 #
-#   1. SPAWN leak: `herdr agent start` without --workspace/--tab places the new
-#      pane relative to GLOBAL focus, not the pane that launched it. A lead
-#      spawning a member while focus sits in another project drops that member
-#      into the WRONG workspace.
+#   1. SPAWN leak: an unpinned `herdr agent start` places the member relative to
+#      GLOBAL focus, not the pane that launched it. A lead spawning a member
+#      while focus sits in another project drops that member into the WRONG
+#      workspace. (herdr <= 0.7.1 spawned via --workspace/--tab + --cwd/--split;
+#      0.9.0 attaches to an already-created pane via --pane. Both forms are
+#      accepted here, and an unpinned start is denied either way.)
 #   2. TARGETING leak: `herdr agent send|read|get|focus|wait|attach|rename` and
 #      the equivalent `herdr pane …` commands accept ANY "unique agent name" or
 #      pane/tab id as target, and that resolution is GLOBAL — it does not stop
@@ -21,9 +23,14 @@
 # must be pinned to the caller's OWN workspace, which herdr exports into this
 # shell as HERDR_WORKSPACE_ID (HERDR_PANE_ID for the pane). Concretely:
 #
-#   A. `herdr agent start` — requires --workspace "$HERDR_WORKSPACE_ID" (or a
-#      --tab value prefixed "$HERDR_WORKSPACE_ID:"). A --workspace pointed at
-#      ANY other id is now denied too — previously any value passed.
+#   A. `herdr agent start` — requires ONE of three pins, checked in this order:
+#      --workspace "$HERDR_WORKSPACE_ID"; a --tab value prefixed
+#      "$HERDR_WORKSPACE_ID:"; or (herdr >= 0.9.0, where `agent start` no
+#      longer creates anything and only attaches to an existing pane) a --pane
+#      value that resolves to our own workspace. A pane id is itself
+#      workspace-qualified ("w3:p4"), so pinning by --pane is as strong as the
+#      other two: the agent can only ever land in the pane named. A pin
+#      pointed at ANY other workspace is denied, as is no pin at all.
 #   B. `herdr agent send|read|get|focus|wait|attach|rename` and
 #      `herdr pane send-text|send-keys|run|read|close|zoom|rename|get|split|
 #      move|swap|resize|focus` — the target must resolve to the caller's own
@@ -286,8 +293,15 @@ while IFS= read -r raw_clause; do
         "${own_ws}:"*) continue ;;
         *) deny "herdr-workspace-guard: 'herdr agent start' is pinned to --tab ${BASH_REMATCH[1]}, which isn't in your workspace ($own_ws). Re-run with a tab id prefixed with your workspace — \"${own_ws}:...\" or \"\${HERDR_WORKSPACE_ID}:...\" both work — or use scripts/claude-worktree / scripts/herdr-team spawn." ;;
       esac
+    elif [[ $raw_clause =~ --pane[[:space:]=]+([^[:space:]]+) ]]; then
+      # herdr >= 0.9.0: `agent start` attaches to an EXISTING pane and has no
+      # --workspace/--cwd/--split of its own. The pane id carries the workspace
+      # ("w3:p4"), so pinning by pane is a complete pin — but a BARE id or name
+      # still resolves globally, so route it through the same resolver as rule
+      # B (unresolvable → fail closed).
+      check_target "${BASH_REMATCH[1]}" "$raw_clause"
     else
-      deny "herdr-workspace-guard: this 'herdr agent start' has no --workspace/--tab, so the member would land in whichever workspace currently has focus (the cross-workspace leak), not your own ($own_ws). Re-run it pinned to your workspace: add --workspace \"\${HERDR_WORKSPACE_ID}\" — or use scripts/claude-worktree / scripts/herdr-team spawn, which pin it for you."
+      deny "herdr-workspace-guard: this 'herdr agent start' has no --pane/--workspace/--tab, so the member would land in whichever workspace currently has focus (the cross-workspace leak), not your own ($own_ws). On herdr >= 0.9.0, create the pane first (\`herdr pane split --pane \"\${HERDR_PANE_ID}\" --direction right --cwd <path> --no-focus\`, or \`herdr tab create --workspace \"\${HERDR_WORKSPACE_ID}\" --cwd <path>\`) and attach with --pane <that id>; on older herdr, add --workspace \"\${HERDR_WORKSPACE_ID}\". Either way scripts/claude-worktree / scripts/herdr-team spawn pin it for you."
     fi
     continue
   fi

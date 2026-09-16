@@ -154,10 +154,12 @@ lead_ws="${HERDR_WORKSPACE_ID:-}"
 # neighbor` reports focus-movement targets, not spatial adjacency, so it can't
 # be walked.) leader = leftmost pane (min x); right column = panes to its right
 # (x > leader.x); the column's bottom pane = the one with the greatest y.
-# The new member grabs focus only with --focus-member; otherwise we place the
-# member with --no-focus and move focus ourselves afterwards (see below), so a
-# split always happens relative to the pane we deliberately focused first.
-sf="--no-focus"; [ "$focus_mode" = member ] && sf="--focus"
+# Every pane this script creates is created --no-focus; focus is landed once, at
+# the very end, per --focus-member / --no-focus / (default) leader. Under herdr
+# 0.9.0 each split is anchored with an explicit --pane, so placement no longer
+# depends on which pane happens to hold focus at the time — the old
+# focus-then-split-off-focus dance is gone.
+member_pane=""
 # herdr requires a UNIQUE agent name per workspace. Prefer a ROLE-based name
 # (frontend/backend/embedded/documentor/...) over the branch slug so panes read
 # as "what is this member doing" rather than "which branch is it on" — the
@@ -173,31 +175,45 @@ else
   printf 'claude-worktree: no --role given — falling back to branch-slug agent name %s (pass --role <name> for a readable pane label)\n' \
     "$label" >&2
 fi
-# rename_started_pane <herdr-agent-start-output> — herdr agent start prints
-# JSON by default (installed herdr 0.7.1 has no --json flag at all); the
-# spawned pane id lives at .result.agent.pane_id. Relabel the pane to match
-# the agent name so the border reads "frontend"/"frontend-haro" instead of a
-# raw pane id, regardless of which mode (manual/tab/team) spawned it. If the
-# id can't be parsed, warn and skip the rename — the agent name is already
-# set by `agent start`, so a skipped rename is cosmetic only, never fatal.
-rename_started_pane() {
-  local pane_id
-  pane_id="$(printf '%s' "$1" | jq -r '.result.agent.pane_id // .result.pane_id // empty' 2>/dev/null)"
-  if [ -n "$pane_id" ]; then
-    herdr pane rename "$pane_id" "$label" >/dev/null 2>&1
-  else
-    printf 'claude-worktree: could not read pane id from herdr output — skipping pane rename (agent name "%s" still applied)\n' \
-      "$label" >&2
+# herdr 0.9.0 split `agent start` in two: it no longer creates, splits or moves
+# anything, and has no --cwd/--split/--workspace/--tab of its own. It ATTACHES a
+# named agent to an ALREADY-EXISTING shell pane:
+#
+#   0.7.1:  agent start <name> --cwd P --workspace W --split right -- claude
+#   0.9.0:  pane split --pane <anchor> --direction right --cwd P --no-focus
+#           agent start <name> --pane <the new pane id> -- claude
+#
+# That is strictly safer for this script's purpose: a pane id is already
+# workspace-qualified ("w3:p4"), so anchoring the split to the LEAD's own pane
+# pins the member to the lead's workspace by construction — the cross-project
+# leak the old --workspace pin existed to prevent is now structural.
+#
+# attach_member <pane-id> — start claude in an existing pane and label it.
+attach_member() {
+  local pane_id="$1"
+  member_pane="$pane_id"
+  # `agent start` returns only once herdr sees the agent ready; a trust prompt
+  # ("do you trust this folder") or a slow start makes it return agent_not_ready
+  # while the pane is perfectly fine. Warn, never abort — the member is live and
+  # the human just has to answer it.
+  if ! herdr agent start "$label" --pane "$pane_id" -- claude "${extra[@]}" >/dev/null 2>&1; then
+    printf 'claude-worktree: herdr did not report agent "%s" ready in %s — it is usually waiting on the trust prompt. Check with: herdr pane read %s\n' \
+      "$label" "$pane_id" "$pane_id" >&2
   fi
+  # Relabel the pane so the border reads "frontend"/"frontend-haro" rather than
+  # a raw pane id. Cosmetic only — never fatal.
+  herdr pane rename "$pane_id" "$label" >/dev/null 2>&1 || true
   return 0
 }
-# start_member <split-direction> — split claude off the focused pane, PINNED to
-# the lead's workspace so the member can never land in another project's tree.
+# start_member <anchor-pane> <split-direction> — open a pane next to <anchor>
+# in the worktree, then attach the member to it.
 start_member() {
-  local out
-  out="$(herdr agent start "$label" --cwd "$wt_path" \
-    ${lead_ws:+--workspace "$lead_ws"} --split "$1" "$sf" -- claude "${extra[@]}")"
-  rename_started_pane "$out"
+  local anchor="$1" dir="$2" pane_id
+  pane_id="$(herdr pane split --pane "$anchor" --direction "$dir" --cwd "$wt_path" \
+             --no-focus 2>/dev/null | jq -r '.result.pane.pane_id // empty' 2>/dev/null)"
+  [ -n "$pane_id" ] \
+    || die "herdr pane split off $anchor returned no pane id — member not started. The worktree is ready at $wt_path; start it by hand with: cd $wt_path && claude"
+  attach_member "$pane_id"
 }
 
 origin="$lead_pane"                                # the lead pane dispatching this member
@@ -205,21 +221,25 @@ leader=""
 
 case "$mode" in
   manual)
-    # power-user override: plain split off the current pane
-    start_member "$split_dir" ;;
+    # power-user override: plain split off the LEAD's own pane
+    start_member "$lead_pane" "$split_dir" ;;
   tab)
-    # member in its own new tab, labelled with the branch
-    tab_id="$(herdr tab create ${lead_ws:+--workspace "$lead_ws"} --cwd "$wt_path" \
-              --label "$branch" --no-focus 2>/dev/null \
-              | jq -r '.result.tab.tab_id // .result.tab_id // empty' 2>/dev/null)"
-    if [ -n "$tab_id" ]; then
-      out="$(herdr agent start "$label" --cwd "$wt_path" --tab "$tab_id" "$sf" -- claude "${extra[@]}")"
+    # Member in its own new tab, labelled with the branch. `tab create` opens
+    # the tab WITH one shell pane already in it (reported as .result.root_pane),
+    # at the --cwd given, so there is nothing to split — attach straight to it.
+    tab_json="$(herdr tab create ${lead_ws:+--workspace "$lead_ws"} --cwd "$wt_path" \
+                --label "$branch" --no-focus 2>/dev/null || true)"
+    tab_pane="$(printf '%s' "$tab_json" \
+                | jq -r '.result.root_pane.pane_id // empty' 2>/dev/null)"
+    if [ -n "$tab_pane" ]; then
+      attach_member "$tab_pane"
     else
-      # fall back to the lead's workspace if the tab id couldn't be parsed
-      out="$(herdr agent start "$label" --cwd "$wt_path" \
-        ${lead_ws:+--workspace "$lead_ws"} "$sf" -- claude "${extra[@]}")"
-    fi
-    rename_started_pane "$out" ;;
+      # Couldn't read the tab's pane — fall back to the team layout rather than
+      # spawning unpinned, which would land the member wherever focus happens
+      # to be (and would be denied by the workspace guard anyway).
+      printf 'claude-worktree: could not read the new tab pane id — falling back to a split off the lead pane\n' >&2
+      start_member "$lead_pane" right
+    fi ;;
   team|*)
     # team layout: leader = leftmost pane in this tab; members stack down the
     # right column. Read the geometry once, then open the column or stack under
@@ -228,18 +248,16 @@ case "$mode" in
     leader="$(printf '%s' "$layout" \
       | jq -r '.result.layout.panes | sort_by(.rect.x, .rect.y) | .[0].pane_id // empty' 2>/dev/null)"
     if [ -z "$leader" ]; then
-      start_member right                           # can't read layout → best-effort
+      start_member "$lead_pane" right               # can't read layout → best-effort
     else
       lx="$(printf '%s' "$layout" \
         | jq -r '.result.layout.panes | sort_by(.rect.x, .rect.y) | .[0].rect.x // 0' 2>/dev/null)"
       bottom="$(printf '%s' "$layout" | jq -r --argjson lx "${lx:-0}" \
         '.result.layout.panes | map(select(.rect.x > $lx)) | sort_by(.rect.y) | last | .pane_id // empty' 2>/dev/null)"
       if [ -z "$bottom" ]; then
-        herdr agent focus "$leader" >/dev/null     # no right column yet → open it
-        start_member right
+        start_member "$leader" right                # no right column yet → open it
       else
-        herdr agent focus "$bottom" >/dev/null     # stack under the column bottom
-        start_member down
+        start_member "$bottom" down                 # stack under the column bottom
       fi
     fi ;;
 esac
@@ -247,7 +265,13 @@ esac
 # land focus where the user wants it (default: the team leader, so you keep
 # orchestrating from the left rather than being yanked into each new member).
 case "$focus_mode" in
-  member) : ;;                                     # agent start already focused it
+  member)
+    # 0.9.0 creates every pane --no-focus, so --focus-member is landed here.
+    # `agent focus` (not `pane focus`, which moves focus by DIRECTION) takes the
+    # pane id hosting the agent.
+    if [ -n "$member_pane" ]; then
+      herdr agent focus "$member_pane" >/dev/null 2>&1 || true
+    fi ;;
   none)
     if [ -n "$origin" ]; then
       herdr agent focus "$origin" >/dev/null 2>&1 || true

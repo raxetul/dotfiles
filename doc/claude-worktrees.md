@@ -100,13 +100,29 @@ cwt feature-x
   └─ place in the team layout (read `herdr pane layout --pane "$lead_pane"`):
         leader = pane with the smallest x (leftmost) in the LEAD's tab
         right column = panes with x > leader.x ; its bottom = greatest y
-        • no right column yet → focus leader,       agent start … --split right
-        • column exists       → focus column bottom, agent start … --split down
+        • no right column yet → pane split --pane <leader> --direction right
+        • column exists       → pane split --pane <column bottom> --direction down
+        then: agent start <label> --pane <the new pane id> -- claude
         then focus the leader again (default) / the member / the origin
-      (every agent start is pinned with --workspace "$HERDR_WORKSPACE_ID";
+      (every pane is created --no-focus and anchored with an explicit --pane;
        herdr only PLACES the session; --tab routes it to a fresh tab instead,
-       and --split right|down forces a plain split off the current pane)
+       and --split right|down forces a plain split off the LEAD's pane)
 ```
+
+**Two steps since herdr 0.9.0.** `agent start` used to create the pane itself
+(`--cwd` + `--split` + `--workspace`). In 0.9.0 it creates nothing — it attaches
+a named agent to an **existing** shell pane and takes only `--pane`:
+
+| | 0.7.1 | 0.9.0 |
+| --- | --- | --- |
+| create the pane | — (`agent start --split`) | `pane split --pane <anchor> --direction <d> --cwd <path> --no-focus` → `.result.pane.pane_id` |
+| in a new tab | — (`agent start --tab`) | `tab create --workspace <ws> --cwd <path>` → `.result.root_pane.pane_id` (the tab is born with one pane) |
+| attach the agent | `agent start <n> --cwd P --workspace W --split right` | `agent start <n> --pane <id> -- claude` |
+
+Passing a 0.7.1 flag to a 0.9.0 client fails at argument parsing, before the
+socket is touched: `unknown option: --cwd`. That is a *different* failure from
+the stale-server `protocol_mismatch` described in `doc/herdr-upgrade.md` — the
+two look alike from a distance and have unrelated fixes.
 
 **Workspace anchoring (why members stay in their own project).** herdr's
 `--split` and `pane layout --current` resolve against *global focus*, not the
@@ -115,9 +131,16 @@ workspace would split the member into *that* workspace — the "panes of one
 project in another's workspace" leak. The script defeats this by anchoring
 every placement to the lead pane's own identity, which herdr exports into each
 pane's shell as `HERDR_PANE_ID` / `HERDR_WORKSPACE_ID`: layout is read with
-`--pane "$lead_pane"` and each `herdr agent start` is pinned with
-`--workspace "$lead_ws"`. A member therefore can never land outside its lead's
-workspace, regardless of where focus happens to be at spawn time.
+`--pane "$lead_pane"`, each `herdr pane split` is anchored with an explicit
+`--pane`, and `herdr tab create` is pinned with `--workspace "$lead_ws"`. A
+member therefore can never land outside its lead's workspace, regardless of
+where focus happens to be at spawn time.
+
+Under 0.9.0 that anchoring got *stronger* rather than weaker: a pane id is
+itself workspace-qualified (`w3:p4`), so `agent start … --pane w3:p4` can only
+attach inside `w3`. There is no longer an unpinned form of `agent start` that
+resolves against global focus at all — the pane has to exist first, and creating
+it is what carries the workspace.
 
 Placement is read from pane **rectangles**, not `pane neighbor` — that command
 reports focus-movement targets within the split tree, not spatial adjacency, so
@@ -192,7 +215,7 @@ flowchart TD
     C -- no --> E{"'frontend-&lt;mascot&gt;' free?<br/>(try haro, tachikoma, ... in order)"}
     E -- "yes, first free mascot" --> F["use 'frontend-&lt;mascot&gt;'"]
     E -- "pool exhausted" --> G["use 'frontend-2', 'frontend-3', ..."]
-    D --> H["herdr agent start &lt;name&gt; ...<br/>herdr pane rename &lt;pane_id&gt; &lt;name&gt;"]
+    D --> H["herdr pane split / tab create → pane_id<br/>herdr agent start &lt;name&gt; --pane &lt;pane_id&gt;<br/>herdr pane rename &lt;pane_id&gt; &lt;name&gt;"]
     F --> H
     G --> H
 ```
@@ -467,8 +490,11 @@ even a hand-rolled `herdr …` call gets denied, not just calls through
 | `herdr agent send w3:p4 "go"` | ✅ allow — target is in my own workspace |
 | `herdr agent send w1:p1 "go"` | ⛔ deny — target belongs to workspace `w1` |
 | `herdr agent send some-bare-name "go"` | ⛔ deny if that name resolves outside `w3`; ✅ allow if it resolves inside `w3` |
-| `herdr agent start foo --workspace w3 -- claude` | ✅ allow — pinned to my own workspace |
-| `herdr agent start foo -- claude` | ⛔ deny — no `--workspace`/`--tab`, would land wherever focus is |
+| `herdr agent start foo --pane w3:p4 -- claude` | ✅ allow — the 0.9.0 form; a pane id carries its workspace |
+| `herdr agent start foo --pane w1:p1 -- claude` | ⛔ deny — that pane is in workspace `w1` |
+| `herdr agent start foo --pane p4 -- claude` | ⛔ deny — a bare pane id resolves globally; resolved and workspace-checked, unresolvable → deny |
+| `herdr agent start foo --workspace w3 -- claude` | ✅ allow — the pre-0.9.0 form, still accepted |
+| `herdr agent start foo -- claude` | ⛔ deny — no `--pane`/`--workspace`/`--tab`, would land wherever focus is |
 | `herdr agent start foo --workspace w1 -- claude` | ⛔ deny — pinned to a workspace that isn't mine |
 | `herdr pane split --pane w3:p4 --direction right` | ✅ allow — explicit, own pane |
 | `herdr pane split --direction right` (no pane given) | ⛔ deny — resolves against global focus, not necessarily mine |
@@ -486,8 +512,8 @@ the thing that locks up a shell.
 
 ### Accepted `--workspace` / `--pane` / `--tab` forms
 
-`--workspace`/`--tab` values (on `agent start`, `tab create`, `pane move
---new-tab`) and every send/read/focus/… target are **normalized** before
+`--workspace`/`--tab`/`--pane` values (on `agent start`, `tab create`, `pane
+move --new-tab`) and every send/read/focus/… target are **normalized** before
 being compared to the caller's own workspace/pane/tab — one layer of
 surrounding quotes is stripped, then a known `$VAR`/`${VAR}` reference is
 resolved to this shell's own value. A literal id and the env-var form are
@@ -564,45 +590,60 @@ mentions a policed call must allow. Run it after touching the guard.
   live member under that exact name (in *any* workspace) will still be
   rejected by herdr with `agent_name_taken` — pass a different `--role` (or
   none, to fall back to the branch slug) to work around it.
-- The new-tab path assumes `herdr tab create` returns a tab id (JSON by
-  default — see [herdr CLI contract](#herdr-cli-contract) below) under
-  `.result.tab.tab_id` (falls back to herdr's default placement if not).
-  Adjust the one `jq` line in `scripts/claude-worktree` if a herdr update
-  changes that shape.
-- **Pane relabeling assumes `herdr agent start` (JSON by default) returns
-  the spawned pane id** under `.result.agent.pane_id`, and that `herdr pane
-  rename <pane_id> <name>` exists. If a herdr update changes either shape,
-  `rename_started_pane()` in `scripts/claude-worktree` warns and skips the
-  rename rather than failing the spawn — the agent name itself is unaffected
-  either way, only the pane's visual label.
+- The new-tab path assumes `herdr tab create` returns the tab's own first pane
+  (JSON by default — see [herdr CLI contract](#herdr-cli-contract) below) under
+  `.result.root_pane.pane_id`; the split path assumes `herdr pane split`
+  returns `.result.pane.pane_id`. Either coming back empty is reported and, for
+  the tab path, falls back to a split off the lead pane — never to an unpinned
+  spawn. Adjust those two `jq` lines in `scripts/claude-worktree` if a herdr
+  update changes the shapes.
+- **Pane relabeling assumes `herdr pane rename <pane_id> <name>` exists.** The
+  pane id no longer has to be parsed out of `agent start` output — the script
+  creates the pane itself, so it already knows the id. A failed rename is
+  swallowed: the agent name is unaffected, only the pane's visual label.
+- `agent start` returns non-zero when herdr can't confirm the agent is ready
+  within its 30 s startup window. A **trust prompt** ("do you trust this
+  folder", which every fresh worktree path triggers) does exactly that. The
+  script warns and carries on, because the member is live and only needs a
+  human to answer it — treating it as a failure would be wrong.
 
 ## herdr CLI contract
 
-Installed version is **herdr 0.7.1** (`herdr --version`). Every subcommand
+Installed version is **herdr 0.9.0** (`herdr --version`). Every subcommand
 under `herdr agent …` / `herdr tab …` / `herdr pane …` prints **JSON by
 default** — there is no `--json` flag on `agent start`, `tab create`, or any
 of the placement commands `scripts/claude-worktree` / `scripts/herdr-team`
 use. (`herdr agent explain` is the one exception that *does* take an
 optional `--json`.) A prior version of this script passed `--json` to
-`agent start` / `tab create` anyway; 0.7.1 doesn't recognize it, so the
+`agent start` / `tab create` anyway; herdr doesn't recognize it, so the
 command errored and every spawn through `claude-worktree` (and therefore
 `herdr-team spawn`) failed outright.
 
+🔴 **0.9.0 removed `--cwd`, `--split`, `--workspace` and `--tab` from `agent
+start`** — it now attaches to an existing pane and takes `--pane` instead. The
+same class of breakage as the `--json` one above, and the reason the two-step
+spawn exists; see [How it's wired](#how-its-wired). Note this is a *client*
+change: it fails at argument parsing with `unknown option: --cwd`, unlike the
+stale-server `protocol_mismatch` covered in `doc/herdr-upgrade.md`.
+
 **Before adding any herdr flag to a script, verify it exists**: run
 `herdr <command> --help` (or `-h`) and check the printed usage line — never
-assume a flag by analogy with another subcommand. The known, verified
-subcommand/flag set the two scripts rely on:
+assume a flag by analogy with another subcommand. Note the workspace guard
+denies `--help` on a *policed* subcommand (it parses as an unpinned call), so
+for those read `herdr --skill`, which prints the current CLI contract in full.
+The known, verified subcommand/flag set the two scripts rely on:
 
 | Command | Verified flags |
 | --- | --- |
-| `herdr agent start <name>` | `--cwd PATH`, `--workspace ID`, `--tab ID`, `--split right\|down`, `--env KEY=VALUE`, `--focus`\|`--no-focus`, `-- <argv...>` |
+| `herdr agent start <name>` | `--pane ID`, `--kind KIND`, `-- <argv...>` — **no** `--cwd`/`--split`/`--workspace`/`--tab` since 0.9.0 |
+| `herdr agent prompt <target> <text>` | `--wait`, `--timeout MS`, `--until STATE` — sends text **and** Enter as one submission |
 | `herdr agent list` | (none) |
 | `herdr agent get <target>` | (none) |
 | `herdr agent read <target>` | `--source visible\|recent\|recent-unwrapped`, `--lines N`, `--format text\|ansi`, `--ansi` |
 | `herdr agent send <target> <text>` | (none) |
 | `herdr agent rename <target> <name>` | `--clear` |
 | `herdr agent focus <target>` | (none) |
-| `herdr agent wait <target>` | `--status idle\|working\|blocked\|unknown`, `--timeout MS` |
+| `herdr agent wait <target>` | `--until idle\|working\|blocked\|done`, `--timeout MS` (milliseconds). Without `--until` it waits for the first settled `idle`/`done`/`blocked` — 0.7.1's mandatory `--status` is gone |
 | `herdr pane list` | `--workspace <workspace_id>` |
 | `herdr pane get <pane_id>` | (none) |
 | `herdr pane layout` | `--pane ID`\|`--current` |
@@ -611,7 +652,7 @@ subcommand/flag set the two scripts rely on:
 | `herdr pane split` | `<pane_id>`\|`--pane ID`\|`--current`, `--direction right\|down`, `--ratio FLOAT`, `--cwd PATH`, `--env KEY=VALUE`, `--focus`\|`--no-focus` |
 | `herdr pane run <pane_id> <command>` | (none) |
 | `herdr pane send-keys <pane_id> <key...>` | (none) |
-| `herdr tab create` | `--workspace <workspace_id>`, `--cwd PATH`, `--label TEXT`, `--env KEY=VALUE`, `--focus`\|`--no-focus` |
+| `herdr tab create` | `--workspace <workspace_id>`, `--cwd PATH`, `--label TEXT`, `--env KEY=VALUE`, `--focus`\|`--no-focus`. Returns the tab at `.result.tab.tab_id` **and its first pane** at `.result.root_pane.pane_id` |
 
 This table is a convenience cache of what's been checked, not a substitute
 for re-running `--help` after a herdr upgrade — `herdr channel set` can move
