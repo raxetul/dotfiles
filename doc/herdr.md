@@ -11,6 +11,9 @@ herdr places every parallel Claude session (see
 `configurations/herdr/config.toml`, symlinked to `~/.config/herdr/config.toml`
 by `scripts/symlinks.sh`.
 
+This file is about **keybindings**. Upgrading the running herdr server — and why
+a new binary alone does not do it — is [herdr-upgrade.md](herdr-upgrade.md).
+
 ## The problem this config solves
 
 herdr ships with everything behind a tmux-style prefix (`ctrl+b` by default),

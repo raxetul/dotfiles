@@ -57,6 +57,7 @@ graph TD
 | `scripts/run-script-installers` | script lane for `packages/script-install.list` — upstream installer commands, fired only when the probe binary is missing from PATH |
 | `scripts/init-load` | creates the gitignored per-host `.load` shell-init centre (idempotent, never clobbers a hand-edited file) |
 | `scripts/herdr-team` | (inline help via `--help`) — workspace-scoped control of herdr team members; refuses any cross-workspace target |
+| `scripts/herdr-upgrade` | [herdr-upgrade.md](herdr-upgrade.md) — restart running herdr servers onto the installed binary; destructive, confirms first, `--dry-run` honored |
 
 ## Packages
 

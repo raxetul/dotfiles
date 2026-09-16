@@ -1,0 +1,291 @@
+#!/usr/bin/env bash
+# herdr-upgrade — bring RUNNING herdr servers onto the already-installed binary.
+#
+# Scope: the running server and its sessions, nothing else. Installing or
+# upgrading the herdr BINARY is not this script's job — that is the package
+# lane driven by scripts/update-dotfiles (packages/Brewfile on macOS,
+# packages/script-install.list on Linux). This script is what you run
+# afterwards, when `herdr status` reports the server is still on the old code:
+#
+#     client:  version: 0.9.0          <- the binary the package lane installed
+#     server:  version: 0.7.1          <- the process still running the old code
+#     update:  restart_needed: yes     server_binary_stale: yes
+#
+# A herdr server only picks up a new binary by being restarted, so the cycle
+# this script performs, once per running session, is:
+#
+#     +------------------+     stop      +--------+     start     +------------------+
+#     | server (old)     | ------------> | (down) | ------------> | server (new)     |
+#     | panes: ALIVE     | panes die here|        |  same socket  | panes: EMPTY     |
+#     +------------------+               +--------+               +------------------+
+#
+# !! Stopping a session exits every process in its panes. Shells, editors and
+#    agent sessions running inside them are GONE, and the session comes back
+#    empty. That is herdr's behaviour, not something this script can soften.
+#    Nothing is stopped without a confirmation prompt (see --yes).
+#
+# The session hosting THIS terminal is skipped by default — stopping it would
+# kill the script mid-run. Use --include-self from a terminal outside herdr.
+#
+# Usage:
+#   herdr-upgrade [-n|--dry-run] [-y|--yes] [--include-self] [--no-restart]
+#   herdr-upgrade -h|--help
+#
+# Idempotent: when every running server already matches the installed binary it
+# prints "up to date" and exits 0 without touching anything.
+set -euo pipefail
+
+PROG="herdr-upgrade"
+LOG_DIR="${HOME}/.local/state/dotfiles"
+LOG="${LOG_DIR}/herdr-upgrade.log"
+
+DRY_RUN="${DRY_RUN:-0}"
+assume_yes=0
+include_self=0
+restart=1
+
+die()  { printf '%s: %s\n' "$PROG" "$*" >&2; exit 1; }
+warn() { printf '%s: %s\n' "$PROG" "$*" >&2; }
+
+usage() {
+    cat <<'USAGE'
+herdr-upgrade — restart running herdr servers onto the installed binary.
+
+A new herdr binary does not replace a server that is already running; the old
+process keeps serving every pane until it is restarted. This script performs
+that restart for each running session, and brings the session back up.
+
+Usage:
+  herdr-upgrade [options]
+
+Options:
+  -n, --dry-run       Print every action, change nothing. DRY_RUN=1 is equivalent.
+  -y, --yes           Skip the confirmation prompt. Panes still die — see below.
+      --include-self  Also restart the session hosting this terminal. Refused
+                      while actually running inside that session.
+      --no-restart    Stop the stale servers but do not start them again.
+  -h, --help          Show this text.
+
+What it does NOT do:
+  * install or upgrade the herdr binary — that is scripts/update-dotfiles
+    (packages/Brewfile on macOS, packages/script-install.list on Linux)
+  * preserve pane contents. Stopping a session exits every process in its
+    panes; the session comes back EMPTY. Save your work first.
+
+Exit codes:
+  0  nothing to do, or the restart cycle completed
+  1  usage error, or a missing dependency
+  2  declined at the confirmation prompt
+  3  at least one session did not come back
+
+Log: ~/.local/state/dotfiles/herdr-upgrade.log
+Docs: doc/herdr-upgrade.md
+USAGE
+}
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -n|--dry-run)   DRY_RUN=1;      shift ;;
+        -y|--yes)       assume_yes=1;   shift ;;
+        --include-self) include_self=1; shift ;;
+        --no-restart)   restart=0;      shift ;;
+        -h|--help)      usage; exit 0 ;;
+        *)              usage >&2; die "unknown argument: $1" ;;
+    esac
+done
+
+command -v herdr >/dev/null 2>&1 || die "herdr is not on PATH — nothing to restart."
+command -v jq    >/dev/null 2>&1 || die "jq is required (it is in packages/Brewfile and every packages/*.list)."
+
+mkdir -p "$LOG_DIR"
+
+# ----------------------------------------------------------------------
+# Inventory — what the client is, what the servers are
+# ----------------------------------------------------------------------
+
+# `herdr status --json` is deliberately readable across a protocol mismatch:
+# it is the one command that still answers when the client is newer than the
+# server, which is exactly the situation this script exists for.
+status="$(herdr status --json 2>/dev/null || true)"
+[ -n "$status" ] || die "could not read 'herdr status --json'."
+
+client_version="$(printf '%s' "$status" | jq -r '.client.version // "unknown"')"
+client_binary="$(printf '%s'  "$status" | jq -r '.client.binary  // empty')"
+self_session="$(printf '%s'   "$status" | jq -r '.client.session // empty')"
+
+sessions="$(herdr session list --json 2>/dev/null || true)"
+[ -n "$sessions" ] || die "could not read 'herdr session list --json'."
+
+# A second herdr binary earlier in PATH than the managed one is why a restarted
+# server can come straight back on the OLD version. Report it; never remove it —
+# deleting a binary the user installed by hand is not this script's call.
+shadow_found=0
+for candidate in "${HOME}/.local/bin/herdr" /usr/local/bin/herdr /opt/homebrew/bin/herdr; do
+    [ -x "$candidate" ] || continue
+    [ "$candidate" = "$client_binary" ] && continue
+    shadow_version="$("$candidate" --version 2>/dev/null | awk '{print $2}')"
+    [ "${shadow_version:-unknown}" = "$client_version" ] && continue
+    if [ "$shadow_found" -eq 0 ]; then
+        warn "another herdr binary is installed and may win PATH resolution:"
+        shadow_found=1
+    fi
+    printf '  %-36s %s\n' "$candidate" "${shadow_version:-unknown}" >&2
+done
+if [ "$shadow_found" -eq 1 ]; then
+    printf '  %-36s %s  (the one this script uses)\n' "${client_binary:-?}" "$client_version" >&2
+    warn "a restarted server may come back on the older one. Remove it by hand if it is a leftover."
+fi
+
+# Collect the running sessions whose server is stale. Tab-separated so the
+# fields survive names with spaces in the read loop below.
+stale_rows=""
+skipped_self=0
+while IFS=$'\t' read -r name sock; do
+    [ -n "$name" ] || continue
+    server_status="$(HERDR_SOCKET_PATH="$sock" herdr status --json 2>/dev/null || true)"
+    server_version="$(printf '%s' "$server_status" | jq -r '.server.version // "unknown"')"
+    stale_q='(.server.server_binary_stale // .server.restart_needed // false) | tostring'
+    is_stale="$(printf '%s' "$server_status" | jq -r "$stale_q")"
+    [ "$is_stale" = "true" ] || continue
+    if [ "$name" = "$self_session" ] && [ "$include_self" -eq 0 ]; then
+        skipped_self=1
+        printf '  %-20s %-10s -> %-10s  SKIPPED (hosts this terminal)\n' "$name" "$server_version" "$client_version"
+        continue
+    fi
+    stale_rows="${stale_rows}${name}	${sock}	${server_version}
+"
+done <<EOF
+$(printf '%s' "$sessions" | jq -r '.sessions[] | select(.running) | [.name, .socket_path] | @tsv')
+EOF
+
+if [ -z "$stale_rows" ]; then
+    if [ "$skipped_self" -eq 1 ]; then
+        printf '%s: only "%s" is stale, and it hosts this terminal.\n' "$PROG" "$self_session"
+        printf '%s: run this from a terminal outside herdr with --include-self.\n' "$PROG"
+        exit 0
+    fi
+    printf '%s: up to date — every running server is on %s.\n' "$PROG" "$client_version"
+    exit 0
+fi
+
+# --include-self is honoured only from outside the session in question; from
+# inside, the stop would kill this very script between the stop and the start.
+if [ "$include_self" -eq 1 ] && [ -n "${HERDR_ENV:-}" ] && [ -n "$self_session" ]; then
+    case "$stale_rows" in
+        "$self_session"$'\t'*)
+            die "refusing --include-self for \"$self_session\": you are inside it. Run from a plain terminal." ;;
+    esac
+fi
+
+# ----------------------------------------------------------------------
+# Confirm
+# ----------------------------------------------------------------------
+
+printf '\n%s: sessions to restart (client is %s):\n\n' "$PROG" "$client_version"
+printf '  %-20s %-10s    %s\n' "SESSION" "SERVER" "ACTION"
+while IFS=$'\t' read -r name sock server_version; do
+    [ -n "$name" ] || continue
+    if [ "$restart" -eq 1 ]; then
+        printf '  %-20s %-10s -> %s\n' "$name" "$server_version" "$client_version"
+    else
+        printf '  %-20s %-10s -> stopped, not restarted\n' "$name" "$server_version"
+    fi
+done <<EOF
+$stale_rows
+EOF
+
+printf '\n  !! every process in these sessions'\'' panes will be killed.\n'
+printf '     the sessions come back EMPTY. Save your work first.\n\n'
+
+if [ "$DRY_RUN" != "1" ] && [ "$assume_yes" -eq 0 ]; then
+    printf 'Proceed? [y/N] '
+    read -r reply </dev/tty || reply=""
+    case "$reply" in
+        y|Y|yes|YES) ;;
+        *) printf '%s: aborted, nothing changed.\n' "$PROG"; exit 2 ;;
+    esac
+fi
+
+# ----------------------------------------------------------------------
+# Stop / start
+# ----------------------------------------------------------------------
+
+stop_session() {
+    local name="$1" sock="$2" out
+    if [ "$DRY_RUN" = "1" ]; then
+        printf 'DRY-RUN: herdr session stop %s\n' "$name"
+        return 0
+    fi
+    # `herdr session stop` speaks the NEW client protocol at the OLD server and
+    # can be refused by it. herdr's own error names the escape hatch: address
+    # the server directly over its socket, which is version-independent.
+    if out="$(herdr session stop "$name" --json 2>&1)"; then
+        case "$out" in
+            *protocol_mismatch*) : ;;
+            *) return 0 ;;
+        esac
+    fi
+    HERDR_SOCKET_PATH="$sock" herdr server stop
+}
+
+start_session() {
+    local sock="$1"
+    if [ "$DRY_RUN" = "1" ]; then
+        printf 'DRY-RUN: HERDR_SOCKET_PATH=%s herdr server &\n' "$sock"
+        return 0
+    fi
+    # Headless: `herdr server` needs no tty, unlike `herdr session attach`.
+    HERDR_SOCKET_PATH="$sock" nohup herdr server >>"$LOG" 2>&1 &
+    disown 2>/dev/null || true
+    for _ in {1..20}; do
+        [ -S "$sock" ] && return 0
+        sleep 0.5
+    done
+    return 1
+}
+
+failed=0
+while IFS=$'\t' read -r name sock server_version; do
+    [ -n "$name" ] || continue
+    printf '\n==> %s (%s)\n' "$name" "$server_version"
+
+    if ! stop_session "$name" "$sock"; then
+        warn "could not stop \"$name\" — leaving it alone."
+        failed=1
+        continue
+    fi
+    printf '    stopped\n'
+
+    if [ "$restart" -eq 0 ]; then
+        printf '    not restarted (--no-restart)\n'
+        continue
+    fi
+
+    if ! start_session "$sock"; then
+        warn "\"$name\" did not come back within 10s — see $LOG"
+        failed=1
+        continue
+    fi
+
+    if [ "$DRY_RUN" = "1" ]; then
+        printf '    started (dry-run)\n'
+        continue
+    fi
+
+    now="$(HERDR_SOCKET_PATH="$sock" herdr status --json 2>/dev/null | jq -r '.server.version // "unknown"')"
+    if [ "$now" = "$client_version" ]; then
+        printf '    started — server is now %s\n' "$now"
+    else
+        warn "\"$name\" came back on $now, expected $client_version (a shadow binary?)"
+        failed=1
+    fi
+done <<EOF
+$stale_rows
+EOF
+
+printf '\n'
+if [ "$failed" -ne 0 ]; then
+    printf '%s: finished with problems — see above and %s\n' "$PROG" "$LOG"
+    exit 3
+fi
+printf '%s: done.\n' "$PROG"
