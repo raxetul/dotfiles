@@ -34,6 +34,8 @@ run deny  "pane split --current"                 'herdr pane split --current'
 run deny  "pane move --new-workspace"            'herdr pane move wB:p2 --new-workspace'
 run deny  "agent send to foreign pane"           'herdr agent send w9:p1 hello'
 run deny  "cmd-substitution, unpinned"           'out=$(herdr agent start x -- claude)'
+run deny  "0.9.0 agent start --pane foreign"     'herdr agent start x --pane w9:p4 -- claude'
+run deny  "0.9.0 agent start --pane bare id"     'herdr agent start x --pane p4 -- claude'
 
 echo
 echo "── correct usage that MUST allow ─────────────────────────────────"
@@ -42,6 +44,9 @@ run allow "agent start pinned (env var)"         'herdr agent start x --workspac
 run allow "tab create pinned"                    'herdr tab create --workspace wB --label foo'
 run allow "pane split --pane own"                'herdr pane split --pane "${HERDR_PANE_ID}"'
 run allow "no herdr at all"                      'ls -la /tmp'
+run allow "0.9.0 agent start --pane own"         'herdr agent start x --pane wB:p4 -- claude'
+run allow "0.9.0 agent start --pane env var"     'herdr agent start x --pane "${HERDR_PANE_ID}" -- claude'
+run allow "0.9.0 two-step spawn, both pinned"    'p=$(herdr pane split --pane "${HERDR_PANE_ID}" --direction right --cwd /tmp --no-focus); herdr agent start x --pane wB:p4 -- claude --model sonnet'
 
 echo
 echo "── BUG 1: heredoc body must not be policed ───────────────────────"
