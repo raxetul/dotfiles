@@ -409,6 +409,13 @@ if [ "${PROFILE}" != "light" ]; then
 "${DIR}/scripts/agent-skills" init
 "${DIR}/scripts/agent-skills" ensure-remote --interactive
 
+# Vendored skills (third-party copies declared in the repo's vendor.tsv) are
+# pulled here too. This is what makes a light -> full transition complete: the
+# light profile skips this whole block, so a user who later runs a full setup
+# gets the vendored skills on that run rather than silently having a skills tree
+# with the local skills present and the vendored ones missing.
+"${DIR}/scripts/agent-skills" vendor
+
 # ------------------------------------------------------------------
 fi
 

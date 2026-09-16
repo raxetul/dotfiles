@@ -21,6 +21,7 @@
 #   scripts/update-dotfiles --only=symlinks          # symlinks stage only
 #                                                    # (re-link newly added configs)
 #   scripts/update-dotfiles --only=agent-skills-remote  # only the agent-skills private-mirror check
+#   scripts/update-dotfiles --only=agent-skills-vendor  # only re-sync vendored skills from upstream
 #   scripts/update-dotfiles --only=custom-install        # both before.sh + after.sh hooks
 #   scripts/update-dotfiles --only=custom-install-before # only before.sh hooks
 #   scripts/update-dotfiles --only=custom-install-after  # only after.sh hooks
@@ -47,6 +48,7 @@ for arg in "$@"; do
         --only=symlinks)              ONLY="symlinks" ;;
         --symlinks)                   ONLY="symlinks" ;;
         --only=agent-skills-remote)  ONLY="agent-skills-remote" ;;
+        --only=agent-skills-vendor)  ONLY="agent-skills-vendor" ;;
         --only=custom-install)        ONLY="custom-install" ;;
         --only=custom-install-before) ONLY="custom-install-before" ;;
         --only=custom-install-after)  ONLY="custom-install-after" ;;
@@ -55,6 +57,7 @@ for arg in "$@"; do
         --only=*)
             echo "Unknown --only value: ${arg#--only=}" >&2
             echo "Valid: packages, configurations, symlinks, agent-skills-remote," >&2
+            echo "       agent-skills-vendor," >&2
             echo "       custom-install, custom-install-before, custom-install-after," >&2
             echo "       script-install, cache-clean" >&2
             exit 1
@@ -379,6 +382,29 @@ stage_configurations_claude_skills_remote() {
         "${REPO_ROOT}/scripts/agent-skills" ensure-remote
 }
 
+# Vendored skills are third-party copies living inside the agent-skills repo,
+# declared in its vendor.tsv. They are NOT edited locally, so re-syncing them is
+# safe and is the only way they ever pick up an upstream fix — nothing else in
+# this repo would notice that a vendored security skill had gone stale.
+#
+# `vendor` refuses to overwrite a skill with uncommitted changes, so an
+# unattended run cannot destroy work; it reports and moves on. The result is left
+# uncommitted in the agent-skills repo deliberately: the user reviews a
+# third-party diff before it becomes part of their private mirror.
+stage_configurations_claude_skills_vendor() {
+    local skills_dir="${AGENT_SKILLS_DIR:-${HOME}/gel-ort/agent-skills}"
+    if [ ! -d "${skills_dir}/.git" ]; then
+        warn "no agent-skills repo at ${skills_dir}; run ./setup.sh first — skipping vendored-skill sync"
+        return 0
+    fi
+    if [ ! -f "${skills_dir}/vendor.tsv" ]; then
+        note "agent-skills vendor: no vendor.tsv — nothing vendored, skipping"
+        return 0
+    fi
+    note "agent-skills vendor (re-sync third-party skills from upstream)"
+    "${REPO_ROOT}/scripts/agent-skills" vendor || warn "vendored-skill sync reported problems (see above)"
+}
+
 stage_configurations_symlinks() {
     note "symlinks.sh install"
     [ "${DESKTOP}" -eq 1 ] && export DOTFILES_DESKTOP=1
@@ -456,6 +482,7 @@ stage_configurations_atuin_daemon() {
 
 run_configurations() {
     run_stage "agent-skills-remote" stage_configurations_claude_skills_remote
+    run_stage "agent-skills-vendor" stage_configurations_claude_skills_vendor
     run_stage "symlinks"        stage_configurations_symlinks
     run_stage "lefthook"        stage_configurations_lefthook
     run_stage "bat-cache"       stage_configurations_bat_cache
@@ -479,6 +506,9 @@ case "${ONLY}" in
     symlinks)                run_stage "symlinks"      stage_configurations_symlinks ;;
     agent-skills-remote)
         run_stage "agent-skills-remote" stage_configurations_claude_skills_remote
+        ;;
+    agent-skills-vendor)
+        run_stage "agent-skills-vendor" stage_configurations_claude_skills_vendor
         ;;
     custom-install-before)   run_stage "custom-before" stage_packages_custom_before ;;
     custom-install-after)    run_stage "custom-after"  stage_packages_custom_after ;;
