@@ -17,6 +17,8 @@
 #   scripts/agent-skills restore <bundle>     # restore the repo from a bundle
 #   scripts/agent-skills link                 # (re)plant ~/.claude/skills/* symlinks
 #   scripts/agent-skills list                 # list skills currently in the repo
+#   scripts/agent-skills vendor [--check] [--force] [<name>…]
+#                                              # sync vendored skills from vendor.tsv upstreams
 #
 # Env:
 #   AGENT_SKILLS_DIR         the repo itself (default: ${HOME}/gel-ort/agent-skills)
@@ -422,6 +424,142 @@ cmd_list() {
   done
 }
 
+# cmd_vendor [--check] [--force] [<name>…] — sync vendored skills from upstream.
+#
+# Sources are declared in ${AGENT_SKILLS_DIR}/vendor.tsv, one row per skill:
+#     name <TAB> url <TAB> subpath <TAB> ref <TAB> extra
+#
+# A vendored skill is replaced WHOLESALE. That is the contract — it is why the
+# manifest says never to edit one in place, and why anything this setup needs on
+# top belongs in a separate skill that references it. Because a wholesale replace
+# can destroy work silently, this refuses to overwrite a skill carrying
+# uncommitted changes unless --force is given: failing loudly beats losing an
+# edit someone made by mistake.
+#
+# --check reports drift and changes nothing, exiting non-zero when anything is
+# stale, so it is safe unattended or in CI.
+cmd_vendor() {
+  _require_repo
+  local check=0 force=0
+  local wanted=()
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --check) check=1; shift ;;
+      --force) force=1; shift ;;
+      -*)      die "unknown vendor argument: $1" ;;
+      *)       wanted+=("$1"); shift ;;
+    esac
+  done
+
+  local manifest="${AGENT_SKILLS_DIR}/vendor.tsv"
+  if [ ! -f "${manifest}" ]; then
+    say "no vendor.tsv in ${AGENT_SKILLS_DIR} — nothing is vendored"
+    return 0
+  fi
+  command -v git >/dev/null 2>&1 || die "git is required to sync vendored skills"
+
+  local stale=0 synced=0
+  local name url subpath ref extra
+  while IFS=$'\t' read -r name url subpath ref extra; do
+    case "${name}" in ''|'#'*) continue ;; esac
+    if [ -z "${url}" ] || [ -z "${subpath}" ] || [ -z "${ref}" ]; then
+      warn "vendor.tsv: malformed row for '${name}' — skipped"
+      continue
+    fi
+
+    if [ "${#wanted[@]}" -gt 0 ]; then
+      local hit=0 w
+      for w in "${wanted[@]}"; do [ "${w}" = "${name}" ] && hit=1; done
+      [ "${hit}" = 1 ] || continue
+    fi
+
+    local dest="${AGENT_SKILLS_DIR}/${name}"
+
+    # Never clobber uncommitted local edits — see the contract note above.
+    if [ "${force}" = 0 ] && [ -d "${dest}" ] \
+       && [ -n "$(git -C "${AGENT_SKILLS_DIR}" status --porcelain -- "${name}" 2>/dev/null)" ]; then
+      warn "${name}: uncommitted local changes — not overwritten (commit them, or use --force)"
+      stale=$(( stale + 1 ))
+      continue
+    fi
+
+    local tmp
+    tmp="$(mktemp -d)" || die "mktemp failed"
+
+    if ! git clone --quiet --depth 1 --branch "${ref}" "${url}" "${tmp}/src" 2>/dev/null; then
+      # --branch rejects a raw commit SHA; fetch it explicitly instead.
+      if ! { git init --quiet "${tmp}/src" \
+             && git -C "${tmp}/src" remote add origin "${url}" \
+             && git -C "${tmp}/src" fetch --quiet --depth 1 origin "${ref}" \
+             && git -C "${tmp}/src" checkout --quiet FETCH_HEAD; }; then
+        warn "${name}: cannot fetch ${ref} from ${url} — current copy left alone"
+        rm -rf "${tmp}"
+        continue
+      fi
+    fi
+
+    local src="${tmp}/src/${subpath}"
+    [ "${subpath}" = "." ] && src="${tmp}/src"
+    if [ ! -d "${src}" ]; then
+      warn "${name}: '${subpath}' not found in ${url}@${ref} — upstream layout changed?"
+      rm -rf "${tmp}"
+      continue
+    fi
+
+    local upstream_sha
+    upstream_sha="$(git -C "${tmp}/src" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+
+    # Stage the intended result first, then compare, so --check and a real sync
+    # answer the same question and cannot disagree.
+    local staged="${tmp}/staged"
+    mkdir -p "${staged}"
+    cp -R "${src}/." "${staged}/"
+    if [ -n "${extra}" ] && [ "${extra}" != "-" ]; then
+      local f extras
+      IFS=',' read -r -a extras <<< "${extra}"
+      for f in "${extras[@]}"; do
+        [ -f "${tmp}/src/${f}" ] && cp "${tmp}/src/${f}" "${staged}/$(basename "${f}")"
+      done
+    fi
+    # VENDORED.md is ours, not upstream's — carry it across a resync.
+    [ -f "${dest}/VENDORED.md" ] && cp "${dest}/VENDORED.md" "${staged}/VENDORED.md"
+
+    if [ -d "${dest}" ] && diff -rq "${dest}" "${staged}" >/dev/null 2>&1; then
+      say "${name}: up to date (${ref} @ ${upstream_sha})"
+      rm -rf "${tmp}"
+      continue
+    fi
+
+    stale=$(( stale + 1 ))
+    if [ "${check}" = 1 ]; then
+      say "${name}: STALE — upstream ${ref} @ ${upstream_sha} differs from the local copy"
+      diff -rq "${dest}" "${staged}" 2>/dev/null | sed 's/^/    /' | head -20
+      rm -rf "${tmp}"
+      continue
+    fi
+    if _dry; then
+      say "DRY-RUN ${name}: would sync from ${url}@${ref} (${upstream_sha})"
+      rm -rf "${tmp}"
+      continue
+    fi
+
+    rm -rf "${dest}"
+    mkdir -p "${dest}"
+    cp -R "${staged}/." "${dest}/"
+    say "${name}: synced from ${url}@${ref} (${upstream_sha})"
+    synced=$(( synced + 1 ))
+    rm -rf "${tmp}"
+  done < "${manifest}"
+
+  if [ "${check}" = 1 ]; then
+    if [ "${stale}" = 0 ]; then say "all vendored skills up to date"; return 0; fi
+    say "${stale} vendored skill(s) stale"
+    return 1
+  fi
+  say "vendor: ${synced} synced, $(( stale - synced )) skipped"
+  return 0
+}
+
 # === Dispatch ===
 
 case "${1:-}" in
@@ -434,6 +572,7 @@ case "${1:-}" in
   restore)       shift; cmd_restore "$@" ;;
   link)          cmd_link ;;
   list)          cmd_list ;;
+  vendor)        shift; cmd_vendor "$@" ;;
   *)
     usage
     die "unknown subcommand: $1"

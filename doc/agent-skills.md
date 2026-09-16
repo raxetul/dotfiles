@@ -1,7 +1,7 @@
 ---
 status: source-of-truth
 maintainer: raxetul@gmail.com
-claude-rule: "Claude skills live ONLY in ${AGENT_SKILLS_DIR} (default ${HOME}/gel-ort/agent-skills) — a git repo of its own, which MUST be mirrored to a PRIVATE GitHub repo named after the dotfiles owner (<owner>/agent-skills, same host and URL shape as the dotfiles origin). They are never vendored inside configurations/claude/skills/ (or any other path) in this dotfiles repo, and never pushed to a PUBLIC remote. setup.sh asks before creating that mirror; scripts/update-dotfiles creates it without asking when it is still missing; neither ever flips an existing repo's visibility. scripts/symlinks.sh links ~/.claude/skills/<name> from that repo dynamically (every top-level entry, not a fixed list); scripts/agent-skills manages the repo itself (init/ensure-remote/status/commit/bundle/restore/link/list), with git bundle kept as a second, fully local backup layer. New technology variety inside a skill is still expressed as a references/ file, never a new skill. Solana/crypto/hackathon-specific skills stay archived outside both, at ${HOME}/gel-ort/claude-skills-archive/."
+claude-rule: "Claude skills live ONLY in ${AGENT_SKILLS_DIR} (default ${HOME}/gel-ort/agent-skills) — a git repo of its own, which MUST be mirrored to a PRIVATE GitHub repo named after the dotfiles owner (<owner>/agent-skills, same host and URL shape as the dotfiles origin). They are never vendored inside configurations/claude/skills/ (or any other path) in this dotfiles repo, and never pushed to a PUBLIC remote. setup.sh asks before creating that mirror; scripts/update-dotfiles creates it without asking when it is still missing; neither ever flips an existing repo's visibility. scripts/symlinks.sh links ~/.claude/skills/<name> from that repo dynamically (every top-level entry, not a fixed list); scripts/agent-skills manages the repo itself (init/ensure-remote/status/commit/bundle/restore/link/list/vendor, the last syncing third-party skills declared in the repo's vendor.tsv and never edited in place), with git bundle kept as a second, fully local backup layer. New technology variety inside a skill is still expressed as a references/ file, never a new skill. Solana/crypto/hackathon-specific skills stay archived outside both, at ${HOME}/gel-ort/claude-skills-archive/."
 ---
 
 # Claude skills — the global repo and its private mirror
@@ -188,6 +188,70 @@ flowchart LR
 | `setup.sh` Step 4.5 | new host bootstrap | 🔵 yes — asks before creating the repo |
 | `scripts/update-dotfiles` | every update | 🟢 no — may run unattended |
 | `scripts/agent-skills ensure-remote` | manually | `--interactive` opts into the prompt |
+
+## Vendored skills
+
+Some skills are third-party copies rather than ours. They live in the same repo
+as one directory each, and are declared in `vendor.tsv` at its root:
+
+```
+# name	url	subpath	ref	extra
+security-audit	https://github.com/cloudflare/security-audit-skill.git	skills/security-audit	main	LICENSE
+```
+
+| Field | Meaning |
+| --- | --- |
+| `name` | directory under the repo; matches the skill's frontmatter `name` |
+| `url` | upstream git remote |
+| `subpath` | path inside the upstream repo holding the skill (`.` = repo root) |
+| `ref` | branch, tag, or commit. A SHA pins it; a branch tracks it |
+| `extra` | extra upstream files to copy alongside, comma-separated (`-` = none) |
+
+### The contract: never edit a vendored skill
+
+`scripts/agent-skills vendor` replaces the directory **wholesale**. Any local
+edit is lost on the next sync, which is the point — a vendored skill stays
+byte-identical to upstream so it can be re-synced without a merge. Anything this
+setup needs on top goes in a **separate skill that references it**; the
+`embedded-security*` skills are that pattern, built on `security-audit`'s
+conventions without forking it.
+
+Two files survive a resync because they are ours, not upstream's: the
+`VENDORED.md` note recording where the copy came from, and whatever `extra`
+names (typically `LICENSE`, kept for attribution).
+
+### Guard against losing work
+
+A wholesale replace can destroy an edit someone made by mistake, so `vendor`
+**refuses** to overwrite a skill with uncommitted changes in the agent-skills
+repo, reporting it and moving on. `--force` overrides it. That is why an
+unattended `update-dotfiles` run cannot silently discard work.
+
+```sh
+scripts/agent-skills vendor            # sync everything declared
+scripts/agent-skills vendor --check    # report drift, change nothing (exit 1 if stale)
+scripts/agent-skills vendor <name>     # just one
+scripts/agent-skills vendor --force    # overwrite despite local changes
+DRY_RUN=1 scripts/agent-skills vendor  # print intended actions
+```
+
+### Where it runs
+
+| Caller | When | Behaviour |
+| --- | --- | --- |
+| `setup.sh` Step 4.5 | full setup, **skipped on `--light`** | pulls vendored skills; this is what makes a light → full transition complete |
+| `scripts/update-dotfiles` | every update, `--only=agent-skills-vendor` | re-syncs; may run unattended, so the uncommitted-changes guard matters |
+
+A light install links no skills at all, so a user who later runs a full setup
+would otherwise end up with the local skills present and the vendored ones
+missing — the skills tree would look populated while a declared skill was simply
+absent. Step 4.5 pulling them closes that gap on the transition run.
+
+🟡 **The result is left uncommitted in the agent-skills repo on purpose.** A
+vendored skill is third-party code; its diff should be reviewed by a human before
+it becomes part of a private mirror. Auto-committing an upstream change to a
+*security* skill would mean an upstream compromise lands unreviewed. Pin `ref` to
+a commit SHA instead of a branch when that risk matters more than staying current.
 
 ## Bundle backup discipline
 
