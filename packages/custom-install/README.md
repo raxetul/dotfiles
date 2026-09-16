@@ -206,6 +206,7 @@ vs. what actually changed.
 | `lefthook/`  | lefthook | no-op stub  | apt/dnf release-binary fallback → `~/.local/bin`|
 | `opencode/`  | opencode | macOS: tap + trust `anomalyco/tap` | Linux: upstream installer → `~/.opencode/bin` + `.path` segment |
 | `ollama/`    | ollama   | macOS: quit the upstream `.app` server | macOS: `brew services start ollama`; Debian: `ollama` snap |
+| `herdr/`     | herdr    | no-op stub  | warn when the RUNNING server is older than the installed binary |
 
 * **`rustup/after.sh`** — runs `rustup default stable` if no default
   toolchain is configured, then cargo-installs the crates listed in
@@ -222,6 +223,17 @@ vs. what actually changed.
   `~/.atuin/bin`, which is *not* one of `.load`'s bootstrap dirs, so
   the segment is what puts `atuin` on PATH. The other three install
   into `~/.local/bin` (already on PATH) and write no segment.
+* **`herdr/after.sh`** — the one hook that installs nothing. A new
+  herdr binary does not replace the herdr *server* already running,
+  so after an update run the client and the server can sit on
+  different protocol generations and every socket-API command
+  (`herdr agent`/`pane`, and so `scripts/herdr-team` and
+  `scripts/claude-worktree`) fails with `protocol_mismatch`. The hook
+  detects that via `herdr status --json` and prints the fix. It does
+  **not** restart anything: stopping a session exits every process in
+  its panes, which must never be a side effect of an update run. The
+  user runs `herdr-upgrade` when ready — see
+  [`doc/herdr-upgrade.md`](../../doc/herdr-upgrade.md).
 * **`opencode/before.sh`** — macOS only. opencode has no
   homebrew-core formula; `anomalyco/tap` is the only tap that builds
   it, and brew refuses to load any third-party tap's formula until
