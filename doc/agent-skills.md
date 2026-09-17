@@ -1,7 +1,7 @@
 ---
 status: source-of-truth
 maintainer: raxetul@gmail.com
-claude-rule: "Claude skills live ONLY in ${AGENT_SKILLS_DIR} (default ${HOME}/gel-ort/agent-skills) — a git repo of its own, which MUST be mirrored to a PRIVATE GitHub repo named after the dotfiles owner (<owner>/agent-skills, same host and URL shape as the dotfiles origin). They are never vendored inside configurations/claude/skills/ (or any other path) in this dotfiles repo, and never pushed to a PUBLIC remote. setup.sh asks before creating that mirror; scripts/update-dotfiles creates it without asking when it is still missing; neither ever flips an existing repo's visibility. scripts/symlinks.sh links ~/.claude/skills/<name> from that repo dynamically (every top-level entry, not a fixed list); scripts/agent-skills manages the repo itself (init/ensure-remote/status/commit/bundle/restore/link/list/vendor, the last syncing third-party skills declared in the repo's vendor.tsv and never edited in place), with git bundle kept as a second, fully local backup layer. New technology variety inside a skill is still expressed as a references/ file, never a new skill. Solana/crypto/hackathon-specific skills stay archived outside both, at ${HOME}/gel-ort/claude-skills-archive/."
+claude-rule: "Claude skills live ONLY in ${AGENT_SKILLS_DIR} (default ${HOME}/gel-ort/agent-skills) — a git repo of its own, which MUST be mirrored to a PRIVATE GitHub repo named after the dotfiles owner (<owner>/agent-skills, same host and URL shape as the dotfiles origin). They are never vendored inside configurations/claude/skills/ (or any other path) in this dotfiles repo, and never pushed to a PUBLIC remote. setup.sh asks before creating that mirror; scripts/update-dotfiles creates it without asking when it is still missing; neither ever flips an existing repo's visibility. scripts/symlinks.sh links ~/.claude/skills/<name> from that repo dynamically (every directory holding a SKILL.md, not a fixed list); scripts/agent-skills manages the repo itself (init/ensure-remote/status/commit/bundle/restore/link/list/vendor, the last syncing third-party skills declared in the repo's vendor.tsv and never edited in place), with git bundle kept as a second, fully local backup layer. New technology variety inside a skill is still expressed as a references/ file, never a new skill. Solana/crypto/hackathon-specific skills stay archived outside both, at ${HOME}/gel-ort/claude-skills-archive/."
 ---
 
 # Claude skills — the global repo and its private mirror
@@ -197,15 +197,45 @@ as one directory each, and are declared in `vendor.tsv` at its root:
 ```
 # name	url	subpath	ref	extra
 security-audit	https://github.com/cloudflare/security-audit-skill.git	skills/security-audit	main	LICENSE
+herdr	cmd:herdr --skill	SKILL.md	-	-
 ```
 
 | Field | Meaning |
 | --- | --- |
 | `name` | directory under the repo; matches the skill's frontmatter `name` |
-| `url` | upstream git remote |
-| `subpath` | path inside the upstream repo holding the skill (`.` = repo root) |
-| `ref` | branch, tag, or commit. A SHA pins it; a branch tracks it |
+| `url` | upstream git remote, **or** `cmd:<command>` for a generated skill |
+| `subpath` | git: path inside the upstream repo (`.` = repo root). cmd: the file stdout lands in |
+| `ref` | git: branch, tag, or commit. A SHA pins it; a branch tracks it. cmd: unused (`-`) |
 | `extra` | extra upstream files to copy alongside, comma-separated (`-` = none) |
+
+### Two kinds of upstream
+
+```
+ git source                          generated source
+ +---------------------+             +---------------------+
+ | github.com/... @ref |             | installed binary    |
+ +----------+----------+             +----------+----------+
+            | git clone --depth 1               | herdr --skill  (stdout)
+            v                                   v
+     +------+---------------------------------+-+
+     |            ${tmp}/staged                 |   <- one staging dir either way
+     +--------------------+---------------------+
+                          | diff vs. the on-disk copy
+                          v
+             ${AGENT_SKILLS_DIR}/<name>/
+```
+
+A `cmd:` row treats **the installed tool as the upstream**: the skill text is
+that command's stdout, so it refreshes on every upgrade of the tool. That is the
+whole point — a skill pinned to an old CLI is *worse* than no skill, because it
+confidently documents flags the binary no longer has. `herdr` is the first such
+row; the 0.7.1-era notes it replaced described an `agent start` signature that
+herdr 0.9.0 had already dropped.
+
+Because there is no upstream commit to name, `--check` reports a generated
+skill's version as a short `git hash-object` of the text it produced. The
+command is split on whitespace and executed directly (no shell), so it takes
+plain arguments only — no pipes, quotes, or redirection.
 
 ### The contract: never edit a vendored skill
 
