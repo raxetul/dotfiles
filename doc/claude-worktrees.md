@@ -111,18 +111,32 @@ cwt feature-x
 
 **Two steps since herdr 0.9.0.** `agent start` used to create the pane itself
 (`--cwd` + `--split` + `--workspace`). In 0.9.0 it creates nothing — it attaches
-a named agent to an **existing** shell pane and takes only `--pane`:
+a named agent to an **existing** shell pane, selected with `--pane`:
 
 | | 0.7.1 | 0.9.0 |
 | --- | --- | --- |
 | create the pane | — (`agent start --split`) | `pane split --pane <anchor> --direction <d> --cwd <path> --no-focus` → `.result.pane.pane_id` |
 | in a new tab | — (`agent start --tab`) | `tab create --workspace <ws> --cwd <path>` → `.result.root_pane.pane_id` (the tab is born with one pane) |
-| attach the agent | `agent start <n> --cwd P --workspace W --split right` | `agent start <n> --pane <id> -- claude` |
+| attach the agent | `agent start <n> --cwd P --workspace W --split right -- claude <args>` | `agent start <n> --kind claude --pane <id> -- <args>` |
 
 Passing a 0.7.1 flag to a 0.9.0 client fails at argument parsing, before the
 socket is touched: `unknown option: --cwd`. That is a *different* failure from
 the stale-server `protocol_mismatch` described in `doc/herdr-upgrade.md` — the
 two look alike from a distance and have unrelated fixes.
+
+🔴 **Two further 0.9.0 traps on `agent start`, both of which leave the pane
+sitting at a bare shell prompt with no agent in it:**
+
+- `--kind <agent>` is now **required** — without it herdr exits
+  `missing required --kind`.
+- Everything after `--` is the **agent's own argv, not a command line**. herdr
+  supplies the binary itself from `--kind`, so the 0.7.1 habit of writing
+  `-- claude --model sonnet` makes it run `claude claude --model sonnet`.
+
+Neither announces itself if stderr is discarded: the spawn "succeeds", the pane
+exists in the right place with the right cwd, and nothing is running in it.
+`attach_member()` therefore captures herdr's stderr and prints it with the
+warning instead of swallowing it.
 
 **Workspace anchoring (why members stay in their own project).** herdr's
 `--split` and `pane layout --current` resolve against *global focus*, not the
@@ -635,7 +649,7 @@ The known, verified subcommand/flag set the two scripts rely on:
 
 | Command | Verified flags |
 | --- | --- |
-| `herdr agent start <name>` | `--pane ID`, `--kind KIND`, `-- <argv...>` — **no** `--cwd`/`--split`/`--workspace`/`--tab` since 0.9.0 |
+| `herdr agent start <name>` | `--kind KIND` (**required**), `--pane ID`, `-- <agent argv...>` (the agent's own args — herdr adds the binary) — **no** `--cwd`/`--split`/`--workspace`/`--tab` since 0.9.0 |
 | `herdr agent prompt <target> <text>` | `--wait`, `--timeout MS`, `--until STATE` — sends text **and** Enter as one submission |
 | `herdr agent list` | (none) |
 | `herdr agent get <target>` | (none) |
