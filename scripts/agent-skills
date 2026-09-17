@@ -419,7 +419,8 @@ cmd_list() {
   for entry in "${AGENT_SKILLS_DIR}"/*; do
     [ -e "${entry}" ] || continue
     name="$(basename "${entry}")"
-    [ "${name}" = "README.md" ] && continue
+    # Same rule as _skill_links in symlinks.sh: a skill is a dir with SKILL.md.
+    [ -f "${entry}/SKILL.md" ] || continue
     printf '%s\n' "${name}"
   done
 }
@@ -428,6 +429,18 @@ cmd_list() {
 #
 # Sources are declared in ${AGENT_SKILLS_DIR}/vendor.tsv, one row per skill:
 #     name <TAB> url <TAB> subpath <TAB> ref <TAB> extra
+#
+# Two kinds of upstream:
+#   git         url is a git remote; subpath is the dir inside it, ref a
+#               branch/tag/commit.
+#   generated   url is "cmd:<command>"; the skill text is that LOCAL command's
+#               stdout (e.g. "cmd:herdr --skill"), subpath names the file it
+#               lands in (SKILL.md), and ref is unused ("-"). The installed
+#               tool IS the upstream, so the copy refreshes on every upgrade of
+#               it — which is the point: a skill pinned to an old CLI is worse
+#               than no skill, because it confidently documents flags the
+#               binary no longer has. The command is split on whitespace and
+#               run directly (no shell), so it takes plain arguments only.
 #
 # A vendored skill is replaced WHOLESALE. That is the contract — it is why the
 # manifest says never to edit one in place, and why anything this setup needs on
@@ -486,59 +499,94 @@ cmd_vendor() {
     local tmp
     tmp="$(mktemp -d)" || die "mktemp failed"
 
-    if ! git clone --quiet --depth 1 --branch "${ref}" "${url}" "${tmp}/src" 2>/dev/null; then
-      # --branch rejects a raw commit SHA; fetch it explicitly instead.
-      if ! { git init --quiet "${tmp}/src" \
-             && git -C "${tmp}/src" remote add origin "${url}" \
-             && git -C "${tmp}/src" fetch --quiet --depth 1 origin "${ref}" \
-             && git -C "${tmp}/src" checkout --quiet FETCH_HEAD; }; then
-        warn "${name}: cannot fetch ${ref} from ${url} — current copy left alone"
-        rm -rf "${tmp}"
-        continue
-      fi
-    fi
-
-    local src="${tmp}/src/${subpath}"
-    [ "${subpath}" = "." ] && src="${tmp}/src"
-    if [ ! -d "${src}" ]; then
-      warn "${name}: '${subpath}' not found in ${url}@${ref} — upstream layout changed?"
-      rm -rf "${tmp}"
-      continue
-    fi
-
-    local upstream_sha
-    upstream_sha="$(git -C "${tmp}/src" rev-parse --short HEAD 2>/dev/null || echo unknown)"
-
     # Stage the intended result first, then compare, so --check and a real sync
-    # answer the same question and cannot disagree.
-    local staged="${tmp}/staged"
+    # answer the same question and cannot disagree. Both upstream kinds fill
+    # ${staged}; everything after this case is shared.
+    local staged="${tmp}/staged" upstream_sha
     mkdir -p "${staged}"
-    cp -R "${src}/." "${staged}/"
-    if [ -n "${extra}" ] && [ "${extra}" != "-" ]; then
-      local f extras
-      IFS=',' read -r -a extras <<< "${extra}"
-      for f in "${extras[@]}"; do
-        [ -f "${tmp}/src/${f}" ] && cp "${tmp}/src/${f}" "${staged}/$(basename "${f}")"
-      done
-    fi
+
+    case "${url}" in
+      cmd:*)
+        # Generated source — see the header note. stdout is the whole skill.
+        local gen_argv=()
+        IFS=' ' read -r -a gen_argv <<< "${url#cmd:}"
+        if ! command -v "${gen_argv[0]}" >/dev/null 2>&1; then
+          warn "${name}: '${gen_argv[0]}' not on PATH — current copy left alone"
+          rm -rf "${tmp}"
+          continue
+        fi
+        mkdir -p "$(dirname "${staged}/${subpath}")"
+        if ! "${gen_argv[@]}" > "${staged}/${subpath}" 2>/dev/null \
+           || [ ! -s "${staged}/${subpath}" ]; then
+          warn "${name}: '${url#cmd:}' produced no output — current copy left alone"
+          rm -rf "${tmp}"
+          continue
+        fi
+        # No upstream commit to name; hash the generated text instead so
+        # --check can still report drift with something verifiable.
+        upstream_sha="$(git hash-object "${staged}/${subpath}" | cut -c1-7)"
+        ;;
+      *)
+        if ! git clone --quiet --depth 1 --branch "${ref}" "${url}" "${tmp}/src" 2>/dev/null; then
+          # --branch rejects a raw commit SHA; fetch it explicitly instead.
+          if ! { git init --quiet "${tmp}/src" \
+                 && git -C "${tmp}/src" remote add origin "${url}" \
+                 && git -C "${tmp}/src" fetch --quiet --depth 1 origin "${ref}" \
+                 && git -C "${tmp}/src" checkout --quiet FETCH_HEAD; }; then
+            warn "${name}: cannot fetch ${ref} from ${url} — current copy left alone"
+            rm -rf "${tmp}"
+            continue
+          fi
+        fi
+
+        local src="${tmp}/src/${subpath}"
+        [ "${subpath}" = "." ] && src="${tmp}/src"
+        if [ ! -d "${src}" ]; then
+          warn "${name}: '${subpath}' not found in ${url}@${ref} — upstream layout changed?"
+          rm -rf "${tmp}"
+          continue
+        fi
+
+        upstream_sha="$(git -C "${tmp}/src" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+
+        cp -R "${src}/." "${staged}/"
+        if [ -n "${extra}" ] && [ "${extra}" != "-" ]; then
+          local f extras
+          IFS=',' read -r -a extras <<< "${extra}"
+          for f in "${extras[@]}"; do
+            [ -f "${tmp}/src/${f}" ] && cp "${tmp}/src/${f}" "${staged}/$(basename "${f}")"
+          done
+        fi
+        ;;
+    esac
     # VENDORED.md is ours, not upstream's — carry it across a resync.
     [ -f "${dest}/VENDORED.md" ] && cp "${dest}/VENDORED.md" "${staged}/VENDORED.md"
 
+    # One label for either upstream kind, so every message below reads the same.
+    local source_label="${url}@${ref}"
+    case "${url}" in cmd:*) source_label="${url#cmd:}" ;; esac
+
     if [ -d "${dest}" ] && diff -rq "${dest}" "${staged}" >/dev/null 2>&1; then
-      say "${name}: up to date (${ref} @ ${upstream_sha})"
+      say "${name}: up to date (${source_label} @ ${upstream_sha})"
       rm -rf "${tmp}"
       continue
     fi
 
     stale=$(( stale + 1 ))
     if [ "${check}" = 1 ]; then
-      say "${name}: STALE — upstream ${ref} @ ${upstream_sha} differs from the local copy"
-      diff -rq "${dest}" "${staged}" 2>/dev/null | sed 's/^/    /' | head -20
+      say "${name}: STALE — upstream ${source_label} @ ${upstream_sha} differs from the local copy"
+      # `|| true`: diff exits 2 when ${dest} does not exist yet (a newly
+      # declared skill), and `head` can SIGPIPE a long diff. Under
+      # `set -e`/`pipefail` either would abort the whole run mid-manifest, so a
+      # not-yet-vendored skill would silently prevent later rows from being
+      # checked at all. This line is a report, never a verdict — ${stale} above
+      # already decided that.
+      { diff -rq "${dest}" "${staged}" 2>/dev/null | sed 's/^/    /' | head -20; } || true
       rm -rf "${tmp}"
       continue
     fi
     if _dry; then
-      say "DRY-RUN ${name}: would sync from ${url}@${ref} (${upstream_sha})"
+      say "DRY-RUN ${name}: would sync from ${source_label} (${upstream_sha})"
       rm -rf "${tmp}"
       continue
     fi
@@ -546,7 +594,7 @@ cmd_vendor() {
     rm -rf "${dest}"
     mkdir -p "${dest}"
     cp -R "${staged}/." "${dest}/"
-    say "${name}: synced from ${url}@${ref} (${upstream_sha})"
+    say "${name}: synced from ${source_label} (${upstream_sha})"
     synced=$(( synced + 1 ))
     rm -rf "${tmp}"
   done < "${manifest}"
