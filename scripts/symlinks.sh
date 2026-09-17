@@ -14,7 +14,7 @@
 #   AGENT_SKILLS_DIR   the agent-skills repo to link ~/.claude/skills/*
 #                        from (default: ${HOME}/gel-ort/agent-skills). See
 #                        doc/agent-skills.md — never a fixed skill list here,
-#                        every top-level entry in that repo gets linked.
+#                        every directory holding a SKILL.md gets linked.
 #
 # Phase 3 of v3-native: replaces Home Manager's xdg.configFile / home.file
 # layer. Phase 4 wires this into setup.sh.
@@ -124,8 +124,8 @@ LINUX_DESKTOP_LINKS=(
 # Claude skills live outside this repo entirely, in their own git repo mirrored
 # to a private GitHub repo (see doc/agent-skills.md and the hard rule in
 # configurations/claude/CLAUDE.md).
-# Never a fixed array here — every top-level entry the skills repo currently
-# holds gets linked, so dropping a new skill in there needs no edit to this
+# Never a fixed array here — every directory in the skills repo that holds a
+# SKILL.md gets linked, so dropping a new skill in there needs no edit to this
 # script.
 AGENT_SKILLS_DIR="${AGENT_SKILLS_DIR:-${HOME}/gel-ort/agent-skills}"
 
@@ -139,9 +139,10 @@ _os() {
   esac
 }
 
-# Emit "<abs-src-in-agent-skills-repo>::.claude/skills/<name>" for every
-# top-level entry (skill dir or stray *.md like SKILL_ROUTER.md) currently in
-# the skills repo. Absolute src (outside REPO_ROOT) so _resolve_src passes it
+# Emit "<abs-src-in-agent-skills-repo>::.claude/skills/<name>" for every skill
+# directory currently in the skills repo — that is, every dir holding a
+# SKILL.md; repo metadata at the root (README.md, vendor.tsv) is not a skill and
+# is skipped. Absolute src (outside REPO_ROOT) so _resolve_src passes it
 # through unchanged. Silently empty if the repo doesn't exist yet — setup.sh
 # creates it (Step 4.5) before calling this, but `symlinks.sh list` on a bare
 # checkout should not fail.
@@ -151,8 +152,11 @@ _skill_links() {
   for entry in "${AGENT_SKILLS_DIR}"/*; do
     [ -e "${entry}" ] || continue
     name="$(basename "${entry}")"
-    # README.md is the skills repo's own metadata, not a skill — skip it.
-    [ "${name}" = "README.md" ] && continue
+    # A skill IS a directory holding a SKILL.md — test for that rather than
+    # keeping a blocklist of repo metadata. The blocklist named README.md only
+    # and so happily linked ~/.claude/skills/vendor.tsv, a manifest, as a skill;
+    # every future non-skill file at the repo root would have repeated that.
+    [ -f "${entry}/SKILL.md" ] || continue
     printf '%s::.claude/skills/%s\n' "${entry}" "${name}"
   done
 }
