@@ -181,24 +181,33 @@ fi
 #
 #   0.7.1:  agent start <name> --cwd P --workspace W --split right -- claude
 #   0.9.0:  pane split --pane <anchor> --direction right --cwd P --no-focus
-#           agent start <name> --pane <the new pane id> -- claude
+#           agent start <name> --kind claude --pane <the new pane id> -- <args>
 #
 # That is strictly safer for this script's purpose: a pane id is already
 # workspace-qualified ("w3:p4"), so anchoring the split to the LEAD's own pane
 # pins the member to the lead's workspace by construction — the cross-project
 # leak the old --workspace pin existed to prevent is now structural.
 #
+# Two more 0.9.0 details that are easy to get wrong, because failing either one
+# leaves a pane sitting at a plain shell prompt with no agent in it:
+#   * `--kind <agent>` is REQUIRED — herdr exits `missing required --kind`.
+#   * everything after `--` is the AGENT's own argv, NOT a command line: herdr
+#     supplies the `claude` binary itself from --kind. Passing `-- claude …`
+#     the 0.7.1 way makes herdr run `claude claude …`.
+#
 # attach_member <pane-id> — start claude in an existing pane and label it.
 attach_member() {
-  local pane_id="$1"
+  local pane_id="$1" err
   member_pane="$pane_id"
   # `agent start` returns only once herdr sees the agent ready; a trust prompt
-  # ("do you trust this folder") or a slow start makes it return agent_not_ready
-  # while the pane is perfectly fine. Warn, never abort — the member is live and
-  # the human just has to answer it.
-  if ! herdr agent start "$label" --pane "$pane_id" -- claude "${extra[@]}" >/dev/null 2>&1; then
-    printf 'claude-worktree: herdr did not report agent "%s" ready in %s — it is usually waiting on the trust prompt. Check with: herdr pane read %s\n' \
-      "$label" "$pane_id" "$pane_id" >&2
+  # ("do you trust this folder", which every fresh worktree path raises) or a
+  # slow start makes it return agent_not_ready while the pane is perfectly fine.
+  # Warn with herdr's own message — never abort — the member is live and the
+  # human just has to answer it.
+  if ! err="$(herdr agent start "$label" --kind claude --pane "$pane_id" \
+              -- ${extra[@]+"${extra[@]}"} 2>&1 >/dev/null)"; then
+    printf 'claude-worktree: herdr did not report agent "%s" ready in %s%s\n  check it with: herdr pane read %s\n' \
+      "$label" "$pane_id" "${err:+ — $err}" "$pane_id" >&2
   fi
   # Relabel the pane so the border reads "frontend"/"frontend-haro" rather than
   # a raw pane id. Cosmetic only — never fatal.
