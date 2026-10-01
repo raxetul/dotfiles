@@ -226,7 +226,7 @@ transcript stores (117 MB), and 160 MB of plugin cache before anyone looked.
 
 | Artifact | Done when | Action |
 | --- | --- | --- |
-| git worktree | branch merged (`git rev-list --count main..<b>` = 0) **and** no modified tracked files | `git worktree remove` + `git worktree prune`, immediately |
+| git worktree | branch merged (`git rev-list --count main..<b>` = 0) **and** no modified tracked files. Merging goes through `scripts/claude-worktree merge <branch>`; a merge is not done until the worktree folder is gone from disk | `git worktree remove` + `git worktree prune`, immediately |
 | `<repo>.worktrees/` parent | last worktree in it removed | `rmdir` — only when empty, never recursive |
 | dead worktree record | its directory is gone (git flags it `prunable`) | `git worktree prune`, always, no confirmation — the record is pure bookkeeping |
 | `~/.claude/projects/<slug>/` | the path it slugifies no longer exists **and** it has no `memory/` | delete |

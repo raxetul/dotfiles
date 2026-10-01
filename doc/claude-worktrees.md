@@ -84,6 +84,7 @@ leave focus on the pane you launched from.
 | `cwt <branch> -- <args>` | Pass extra args through to `claude` |
 | `cwt list` | List all worktrees (`git worktree list`) |
 | `cwt rm <branch> [--force]` | Remove that worktree (the branch is kept) |
+| `cwt merge <branch>` | From the main checkout on `main`: `--no-ff` merge, then remove the worktree folder, its empty parent dir and the branch — see [Merge](#merge--cwt-merge-branch) |
 
 An existing branch is checked out into the worktree; a new name is created
 with `-b`. Re-running for the same branch reuses the existing worktree
@@ -238,11 +239,42 @@ Omitting `--role` still works — `claude-worktree` falls back to the branch
 slug — but it prints a one-line warning rather than silently reusing the old
 behavior, so a forgotten `--role` is never invisible.
 
+## Merge — `cwt merge <branch>`
+
+A merge is not finished until the worktree folder is gone from disk. `merge`
+does both in one go; run it from the main checkout, which must be on `main`.
+Every step aborts the whole command on failure. Untracked `TASK-*.md` spawn
+briefs don't count as dirt and are deleted with the worktree.
+
+```mermaid
+flowchart TD
+    A([cwt merge branch]) --> B{main checkout<br/>on main?}
+    B -- no --> X1[/refuse: git checkout main/]
+    B -- yes --> C{worktree<br/>exists?}
+    C -- yes --> D{tracked changes or<br/>untracked other than TASK-*.md?}
+    D -- yes --> X2[/refuse: dirty worktree/]
+    D -- no --> E
+    C -- no --> E[git merge --no-ff<br/>-m 'chore: merge branch into main']
+    E --> F{conflict?}
+    F -- yes --> X3[/stop: resolve, then re-run<br/>nothing deleted/]
+    F -- no --> G{worktree<br/>existed?}
+    G -- no --> K
+    G -- yes --> H[delete TASK-*.md]
+    H --> I[git worktree remove, no --force]
+    I --> J[git worktree prune<br/>rmdir parent if empty]
+    J --> K[git branch -d branch]
+    K --> L([print one-line summary])
+```
+
+After resolving a conflict by hand and committing the merge, re-run the same
+command: the merge is then a no-op and the cleanup steps run.
+
 ## Cleanup
 
 ```sh
 cwt rm feature-x          # git worktree remove  (branch kept)
 git branch -d feature-x   # delete the branch too, once merged
+cwt merge feature-x       # or: merge into main AND remove worktree + branch
 ```
 
 When the Claude process in a pane/tab exits, close that pane/tab in herdr
