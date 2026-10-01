@@ -29,6 +29,11 @@
 #                            [-- <extra claude args>]
 #   claude-worktree list
 #   claude-worktree rm <branch> [--force]
+#   claude-worktree merge <branch>      # run from the main checkout, on main
+#
+# merge: --no-ff merges <branch> into main, then removes the worktree folder,
+# the empty parent dir and the (merged) branch. Refuses on a dirty worktree
+# (untracked TASK-*.md briefs are ignored); stops on conflict, deleting nothing.
 #
 # Placement:
 #   (default)       team layout — leader left, members stacked down the right column.
@@ -72,11 +77,11 @@ wt_base="$(dirname "$main_wt")/${repo}.worktrees"
 slug() { printf '%s' "${1//\//-}"; }             # branch -> filesystem-safe dir
 
 # ---------------------------------------------------------------------------
-# subcommands: list / rm
+# subcommands: list / rm / merge
 # ---------------------------------------------------------------------------
 case "${1:-}" in
   ""|-h|--help)
-    sed -n '2,59p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    sed -n '2,64p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
   list)
     git worktree list; exit 0 ;;
   rm)
@@ -86,6 +91,34 @@ case "${1:-}" in
     git worktree remove $force "$wt_path"
     printf 'removed worktree %s (branch "%s" kept; delete it with: git branch -d %s)\n' \
       "$wt_path" "$2" "$2"
+    exit 0 ;;
+  merge)
+    [ $# -eq 2 ] || die "usage: merge <branch>"
+    br="$2"; wt_path="$wt_base/$(slug "$br")"
+    [ "$(git rev-parse --show-toplevel)" = "$main_wt" ] \
+      || die "run merge from the main checkout ($main_wt)"
+    [ "$(git symbolic-ref --short -q HEAD || true)" = "main" ] \
+      || die "main checkout must be on branch main (run: git checkout main)"
+    git show-ref --verify --quiet "refs/heads/$br" || die "no such branch: $br"
+    have_wt=0
+    git worktree list --porcelain | grep -qxF "worktree $wt_path" && have_wt=1
+    if [ "$have_wt" = 1 ]; then
+      dirty="$(git -C "$wt_path" status --porcelain | grep -v -E '^\?\? TASK-[^/]*\.md$' || true)"
+      [ -z "$dirty" ] || die "worktree $wt_path is dirty — commit or remove these first:
+$dirty"
+    fi
+    git merge --no-ff -m "chore: merge $br into main" "$br" \
+      || die "merge conflict — resolve it (or: git merge --abort), then re-run. Nothing was deleted."
+    removed="merged $br"
+    if [ "$have_wt" = 1 ]; then
+      rm -f "$wt_path"/TASK-*.md
+      git worktree remove "$wt_path"
+      git worktree prune
+      removed="$removed; removed worktree $wt_path"
+      if rmdir "$wt_base" 2>/dev/null; then removed="$removed and $wt_base"; fi
+    fi
+    git branch -d "$br"
+    printf '%s; deleted branch %s\n' "$removed" "$br"
     exit 0 ;;
 esac
 
