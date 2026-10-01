@@ -304,6 +304,21 @@ leaving it undocumented — a rough visual doc beats none.
 This governs files written to disk; for chat replies themselves, see
 "Response style — visual first" below.
 
+## File formats — real extensions only
+
+Use only file extensions that a real tool defines and opens. Never
+invent one by chaining extensions (`.bpmn.svg`) or by picking a name
+that looks plausible.
+
+- Prefer an embeddable, editable image format when the tool defines
+  one — e.g. draw.io's `.drawio.svg` / `.drawio.png`.
+- If the tool has no such format, use its native extension (BPMN 2.0 →
+  `.bpmn`) and, when an image is needed in docs, export a plain `.svg`
+  / `.png` next to it. Don't fake a combined format.
+- A file's content must match its extension: draw.io XML is not BPMN,
+  and neither is an SVG.
+- Not sure an extension exists? Say so and check — don't guess.
+
 ## Response style — visual first
 
 I'm a visual thinker in chat too — this governs replies, not on-disk docs:
