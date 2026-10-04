@@ -105,6 +105,10 @@ Markers on the package name:
 | rustup | Rust toolchain installer | brew | apt | arch | dnf |
 | mold | Fast ELF Rust linker | — | apt | arch | dnf |
 | nodejs | Node.js JavaScript runtime (LTS) | brew | apt | arch | dnf |
+| python3 | Python 3 interpreter | brew | apt | arch | dnf |
+| python (command) | Unversioned `python` name | alias | apt | arch | dnf |
+| pip | Python package installer | alias | apt | arch | dnf |
+| py | Python launcher | brew | alias | aur | dnf |
 | llvm | LLVM compiler infrastructure | brew | apt | arch | dnf |
 | clang-format / clang-tidy | C/C++ formatter, linter | brew | apt | arch | dnf |
 

@@ -157,6 +157,10 @@ no longer declared (`vim +PlugInstall +PlugClean!`, TPM
 | rustup | rustup-init | rustup (23.10+) | rustup | rustup | `curl https://sh.rustup.rs -sSf \| sh`. rust-analyzer is no longer a managed package — add it on demand with `rustup component add rust-analyzer`. |
 | mold (Rust linker, Linux only) | — | mold (22.10+ / Debian 12+) | mold | mold (36+) | release tarball from `rui314/mold`; on macOS use system linker (mold links ELF only) |
 | nodejs (LTS, 24.x today) | node | nodejs (NodeSource repo) | nodejs | nodejs | NodeSource / volta / nvm |
+| python3 | python | python3 | python | python3 | — |
+| python (unversioned command) | — | python-is-python3 | python (ships `/usr/bin/python`) | python-unversioned-command | macOS: alias `python=python3` in `configurations/aliases/python.sh` |
+| pip | — | python3-pip (ships `pip` + `pip3`) | python-pip (ships `pip` + `pip3`) | python3-pip (VERIFY: ships `/usr/bin/pip`) | macOS: alias `pip=pip3` in `configurations/aliases/python.sh` |
+| py (Python launcher) | python-launcher | — | — (AUR: `python-launcher`) | python-launcher (F43+) | apt: alias `py=python3` in `configurations/aliases/python.sh`; **AUR**: `python-launcher` |
 | llvm | llvm | llvm | llvm | llvm | — |
 | clang-format / clang-tidy | clang-format | clang-format clang-tidy | clang | clang-tools-extra | — |
 

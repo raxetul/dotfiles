@@ -41,6 +41,8 @@ brew "herdr"               # agent multiplexer; Linux has no native pkg -> packa
 brew "go"
 brew "rustup-init"
 brew "node"
+brew "python"                       # python3/pip3 only; python/pip names via aliases/python.sh
+brew "python-launcher"              # provides `py`
 brew "llvm"
 brew "clang-format"
 # `mold` is omitted on macOS — it links ELF only; Rust on Darwin uses

@@ -7,6 +7,7 @@
 
 # CLI / dev tooling
 lefthook-bin
+python-launcher
 zsh-you-should-use
 
 # Desktop GUI apps (only relevant when --desktop is passed)

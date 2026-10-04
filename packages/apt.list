@@ -43,6 +43,9 @@ gh
 # Language toolchains
 golang-go
 nodejs
+python3
+python-is-python3    # /usr/bin/python
+python3-pip          # /usr/bin/pip + pip3 (`py` has no apt package: alias)
 llvm
 clang-format
 clang-tidy

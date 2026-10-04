@@ -48,6 +48,10 @@ gh
 golang
 rustup
 nodejs
+python3
+python-unversioned-command   # /usr/bin/python
+python3-pip
+python-launcher                 # provides `py` (F43+)
 llvm
 clang-tools-extra
 mold                # Faster Rust ELF linker (Fedora 36+)
