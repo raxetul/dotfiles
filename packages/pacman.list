@@ -44,6 +44,8 @@ github-cli
 go
 rustup
 nodejs
+python               # ships /usr/bin/python and python3
+python-pip           # /usr/bin/pip + pip3
 llvm
 clang
 mold                # Faster Rust ELF linker (extra)
