@@ -7,9 +7,8 @@ claude-rule: "Update this doc whenever the source changes."
 
 ## Purpose
 
-Run every linter this repo cares about: `shellcheck`,
-package-list syntax, `commitlint --from origin/main`. Read-only —
-reports, doesn't fix.
+This command runs every linter that this repo uses: `shellcheck`, the package-list syntax check, and
+`commitlint --from origin/main`. The command is read-only. It reports problems and does not fix them.
 
 ## Arguments
 
@@ -17,23 +16,20 @@ None.
 
 ## Behavior
 
-Runs each step in sequence, records exit codes, does **not** stop
-on first failure — reports all three at the end:
+The command runs each step in sequence and records the exit codes. It does **not** stop at the first failure.
+At the end, it reports all three results:
 
-1. **`shellcheck`** — over `scripts/*.sh` plus `setup.sh`. Skips
-   `configurations/git/template/hooks/*` (those are bare shims).
-2. **`packages/*.list` syntax** — each non-comment line must be a
-   single package name (no shell metacharacters, no spaces; the
-   exceptions are `snap.list`, which allows trailing flags like
-   `--classic`, and `script-install.list`, a two-column
-   `<probe-bin> <installer cmd>` lane whose command column may
-   carry shell metacharacters — skipped by the walk).
-3. **`commitlint --from origin/main`** — validates every commit on
-   the current branch against the Conventional Commits ruleset.
-   Lists offending hashes but does **not** propose rewriting
-   history.
+1. **`shellcheck`** — runs on `scripts/*.sh` and `setup.sh`. It skips `configurations/git/template/hooks/*`,
+   because those files are bare shims.
+2. **`packages/*.list` syntax** — each line that is not a comment must be one package name. The name has no
+   shell metacharacters and no spaces. Two files are exceptions:
+   - `snap.list` allows trailing flags, for example `--classic`.
+   - `script-install.list` has two columns: `<probe-bin> <installer cmd>`. The command column can have shell
+     metacharacters. The check skips this file.
+3. **`commitlint --from origin/main`** — checks each commit on the current branch against the Conventional
+   Commits rules. It lists the hashes that fail. It does **not** suggest a rewrite of the history.
 
-Final report shape:
+The final report has this shape:
 
 ```
 shellcheck           : <ok|fail (N findings)>
@@ -41,19 +37,17 @@ package-list syntax  : <ok|fail (N bad lines)>
 commitlint           : <ok|fail (N commits)>
 ```
 
-If everything is `ok`, congratulates briefly. If anything fails,
-lists concrete next steps (`shellcheck <file>`, "fix line in
-packages/<file>:LINE", "rebase and reword `<hash>`").
+If all results are `ok`, the command gives a short congratulation. If a result is `fail`, the command lists the
+next steps: `shellcheck <file>`, "fix line in packages/<file>:LINE", or "rebase and reword `<hash>`".
 
 ## Hard rules
 
-- Never fixes — only reports.
-- Never rewrites history.
-- Never marks a fail as ok.
+- Do not fix a problem. Only report it.
+- Do not rewrite history.
+- Do not mark a failure as ok.
 
 ## Related
 
 - [configurations/lefthook.yml](../../configurations/lefthook.yml)
-  — same `shellcheck` check at commit time.
-- [packages/](../../packages/) — the install lists being syntax-
-  checked.
+  — the same `shellcheck` check at commit time.
+- [packages/](../../packages/) — the install lists that the command checks for syntax.

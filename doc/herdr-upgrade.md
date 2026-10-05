@@ -6,9 +6,9 @@ claude-rule: "This doc covers the RUNNING herdr server and its sessions only. Bi
 
 # herdr — upgrading the running server
 
-Installing a new herdr binary does not upgrade the herdr server that is already
-running. The two are separate things with separate lifecycles, and this repo
-keeps them in separate places:
+A new herdr binary does not upgrade the herdr server that is already running.
+The binary and the server are two separate things. They have separate
+lifecycles. This repo keeps them in separate places:
 
 | Concern | Owner | Trigger |
 | --- | --- | --- |
@@ -16,14 +16,14 @@ keeps them in separate places:
 | warn that the **server** is now stale | `packages/custom-install/herdr/after.sh` | automatically, at the end of the same `/update` run |
 | restart the **server** + its sessions | `scripts/herdr-upgrade` | by hand, when you are ready to lose your panes |
 
-The split exists because the third step is destructive: stopping a session
-exits every process in its panes. That must never happen as a side effect of an
-update run, so the update path only *tells you*, and you run the restart.
+The third step is destructive. When you stop a session, every process in its
+panes exits. This must never happen as a side effect of an update run. For this
+reason, the update path only *tells you*. You run the restart.
 
 ## The split state
 
-Between the package upgrade and the restart, the machine runs two versions at
-once — the binary you type and the process you are typing into:
+After the package upgrade and before the restart, the machine runs two versions
+at the same time. These are the binary you type and the process you type into:
 
 ```mermaid
 flowchart LR
@@ -37,9 +37,9 @@ flowchart LR
     CLI -. "protocol_mismatch" .-> SRV
 ```
 
-Panes keep working — the server serves them with its own code. What breaks is
-the **socket API**, because the new client speaks a protocol generation the old
-server does not know:
+The panes keep working. The server serves them with its own code. The **socket
+API** breaks. The new client uses a protocol generation that the old server
+does not know:
 
 ```
 $ herdr agent list
@@ -47,12 +47,12 @@ $ herdr agent list
  than server protocol 14; restart the Herdr server before using this command."}}
 ```
 
-That takes `scripts/herdr-team` and `scripts/claude-worktree` down with it, since
-both drive herdr over that API. 🔴 In other words: **you cannot spawn team
-members until the server is restarted.**
+`scripts/herdr-team` and `scripts/claude-worktree` also stop working. Both use
+that API to control herdr. 🔴 **You cannot spawn team members until you restart
+the server.**
 
-`herdr status --json` is the exception — it is readable across the mismatch, and
-is what both the hook and the script use to detect the situation:
+`herdr status --json` is the exception. You can read it across the mismatch.
+The hook and the script both use it to detect this state:
 
 ```json
 {"client":{"version":"0.9.0"},"server":{"version":"0.7.1"},
@@ -75,8 +75,8 @@ flowchart TD
     I --> Z2["done · exit 0"]
 ```
 
-Per session, the cycle is stop-then-start on the **same socket path**, which is
-what makes the session come back under its own name:
+For each session, the script stops the server and then starts it again on the
+**same socket path**. This is why the session comes back under its own name:
 
 ```
 +------------------+     stop      +--------+     start     +------------------+
@@ -85,7 +85,7 @@ what makes the session come back under its own name:
 +------------------+               +--------+               +------------------+
 ```
 
-### Two mechanisms worth not rediscovering
+### Two mechanisms to keep in mind
 
 | Problem | What the script uses | Why not the obvious thing |
 | --- | --- | --- |
@@ -111,31 +111,33 @@ what makes the session come back under its own name:
 
 Log: `~/.local/state/dotfiles/herdr-upgrade.log` (the detached servers' stdout).
 
-## 🔴 Restarting does not restore panes
+## 🔴 A restart does not restore panes
 
 herdr's own wording is `Stopping exits pane processes.` The session comes back
-under its name, **empty**. Shells, editors and agent sessions inside it are
-gone; unsaved work is lost. The script asks before every stop for this reason,
-and `--yes` does not make it any less destructive — it only removes the prompt.
+under its name, **empty**. The shells, editors and agent sessions inside it are
+gone. You lose unsaved work. For this reason, the script asks before every
+stop. The `--yes` flag does not make the restart less destructive. It only
+removes the prompt.
 
-This is also why `--include-self` is refused from inside the session it targets:
-the stop would kill the script between the stop and the start, leaving that
-session down with nothing left running to bring it back.
+`--include-self` is refused from inside the session it targets. The stop would
+kill the script between the stop and the start. Then that session stays down,
+and no process remains to bring it back.
 
 ## 🟡 The shadow-binary trap
 
-A second herdr binary elsewhere on PATH will silently undo the whole exercise —
-the server restarts, and comes straight back on the *old* version. On this
-machine that was a leftover self-install:
+Do not keep a second herdr binary elsewhere on PATH. It silently undoes the
+whole procedure. The server restarts and comes straight back on the *old*
+version. On this machine, a leftover self-install caused this:
 
 | Path | Version | How it got there |
 | --- | --- | --- |
 | `/opt/homebrew/bin/herdr` | 0.9.0 | `packages/Brewfile` — the managed one |
 | `~/.local/bin/herdr` | 0.7.1 | an earlier `herdr update` / `install.sh` run |
 
-`herdr-upgrade` reports any such binary before it touches anything, and verifies
-the version each session actually came back on. It never deletes one: removing a
-binary the user installed by hand is their call, not the script's.
+`herdr-upgrade` reports any such binary before it changes anything. It also
+verifies the version that each session actually came back on. It never deletes
+a binary. The user installed that binary by hand, so the user decides whether
+to remove it.
 
 ## Related
 

@@ -7,12 +7,10 @@ claude-rule: "scripts/leak-guard is documented here and MUST be kept in lockstep
 
 ## Why this exists
 
-`~/.claude/settings.json` is a **symlink into this repo**, and Claude Code writes
-its learned auto-mode state directly into that file. This repo is **public**
-(`gh repo view` → `"visibility":"PUBLIC"`).
+`~/.claude/settings.json` is a **symlink into this repo**. Claude Code writes its learned auto-mode state directly
+into that file. This repo is **public** (`gh repo view` → `"visibility":"PUBLIC"`).
 
-That combination already produced a real leak. One `autoMode` block had
-accumulated:
+This combination already caused a real leak. One `autoMode` block had collected these items:
 
 | Leaked shape | Example class |
 | --- | --- |
@@ -24,13 +22,11 @@ accumulated:
 | Absolute home paths | from two different machines, one of them macOS |
 | Private repo names | `<owner>/<private-project>` |
 
-Deleting the block once does not fix it. **The next session rewrites it.** A
-human reviewer cannot be the gate for a file a program keeps regenerating — so
-the gate is a machine.
+If you delete the block once, the problem remains. **The next session writes it again.** A program keeps
+regenerating this file, so a human reviewer cannot be the gate. The gate is a machine.
 
-> Scope is deliberately narrow: this enforces *"dotfiles stays generic"*. It is
-> not a general-purpose secret scanner, though a few high-confidence credential
-> shapes ride along because they cost nothing to check.
+> The scope is narrow on purpose. The guard enforces *"dotfiles stays generic"*. It is not a general secret
+> scanner. It also checks a few credential shapes that it can find with high confidence, because the check is free.
 
 ## How it runs
 
@@ -59,9 +55,9 @@ flowchart TD
     SEV -->|deny| BLOCK["reported, exit 1<br/>-> commit refused"]
 ```
 
-The `staged` mode reads content from the **index**, not the worktree — a commit
-records what is staged, so scanning files on disk would both miss staged-only
-leaks and block on unstaged edits that are not being committed.
+The `staged` mode reads the content from the **index**, not from the worktree. A commit records the staged content.
+If the guard scanned the files on disk, it would miss leaks that exist only in the index. It would also block on
+unstaged edits that are not in the commit.
 
 ## Commands
 
@@ -95,8 +91,8 @@ leaks and block on unstaged edits that are not being committed.
 
 ## Built-in patterns
 
-Structural and generic only — safe to publish. **Tabs are load-bearing** in the
-record format.
+The built-in patterns are structural and generic. It is safe to publish them. **Tabs are required** in the record
+format.
 
 | Severity | id | Path scope | Catches |
 | --- | --- | --- | --- |
@@ -110,19 +106,17 @@ record format.
 | `warn` | `absolute-home` | all | `/home/<user>/`, `/Users/<user>/` — see hard rule #10 |
 | `warn` | `dotenv-path` | all | `.env` / `.env.<suffix>` references |
 
-`absolute-home` is **warn, not deny** on purpose: `CLAUDE.md`'s own hard rule #10
-has to quote those shapes in order to forbid them, and a rule that cannot be
-committed is worse than useless.
+`absolute-home` is **warn, not deny**, on purpose. Hard rule #10 in `CLAUDE.md` must quote those shapes to forbid
+them. A rule that you cannot commit has no use.
 
 ## Why the interesting patterns are not in the repo
 
-An organisation name, a private repo name and an internal service hostname are
-exactly the strings that must not appear in a public repo. **A committed pattern
-list naming them would *be* the leak it is meant to prevent.**
+An organisation name, a private repo name, and an internal service hostname must not appear in a public repo. **A
+committed pattern list that names them would be the leak that the guard must prevent.**
 
-So they live in `${DOTFILES_DIR}/.leak-guard-patterns`, which is gitignored
-(`.gitignore` names it explicitly). `leak-guard init-private` writes a commented
-template with placeholder examples only.
+These patterns are in `${DOTFILES_DIR}/.leak-guard-patterns`. Git ignores this file, and `.gitignore` names it
+explicitly. The command `leak-guard init-private` writes a template with comments. The template has placeholder
+examples only.
 
 ```mermaid
 flowchart LR
@@ -135,18 +129,16 @@ flowchart LR
     E --> S["scan"]
 ```
 
-Consequence worth stating plainly: **until that file is filled in, no
-employer/private-repo/service patterns are checked at all.** Every scan prints a
-NOTE saying so when the file is missing, rather than implying clean coverage.
+Note this result: **until you fill in that file, the guard does not check any employer, private-repo, or service
+patterns.** If the file is missing, every scan prints a NOTE about it. The guard does not imply clean coverage.
 
 ## Suppressing a legitimate match
 
-Put `leak-guard:allow` anywhere on the line. The normal use is rule or doc text
-that must quote a forbidden shape in order to forbid it.
+Put `leak-guard:allow` anywhere on the line. Use it for rule text or doc text that must quote a forbidden shape to
+forbid it.
 
-The guard's own files (`scripts/leak-guard`, `doc/leak-guard.md`,
-`.leak-guard-patterns`) are exempt unconditionally — they carry every forbidden
-shape by construction.
+The guard always exempts its own files (`scripts/leak-guard`, `doc/leak-guard.md`, `.leak-guard-patterns`). By
+design, these files contain every forbidden shape.
 
 ## Escape hatch
 
@@ -154,9 +146,8 @@ shape by construction.
 LEAK_GUARD=off git commit ...
 ```
 
-Skips scanning **and prints a notice to stderr saying it did**. The notice is
-the point: a silent bypass is how the gate stops being a gate. (`LEFTHOOK=0`
-still bypasses every hook, as it always did.)
+This command skips the scan **and prints a notice to stderr**. The notice is required. A silent bypass removes the
+gate. (`LEFTHOOK=0` still bypasses every hook, as before.)
 
 ## Idempotency
 
@@ -167,12 +158,10 @@ still bypasses every hook, as it always did.)
 | `uninstall` | Reports "nothing to do", changes nothing |
 | `init-private` | Refuses to overwrite without `--force` |
 
-Verified: `install` → `uninstall` returns `configurations/lefthook.yml` to a
-**byte-identical** state.
+Verified: after `install` and then `uninstall`, `configurations/lefthook.yml` is **byte-identical** to the start.
 
-`install` appends, which is only correct while `pre-commit:` is the last
-top-level block in `lefthook.yml`. It checks that and **refuses** rather than
-silently attaching the job to a later hook.
+`install` appends the job. This is correct only when `pre-commit:` is the last top-level block in `lefthook.yml`.
+The command checks this and **refuses** to continue if it is not. It does not attach the job to a later hook.
 
 ## Known limits
 
