@@ -5,16 +5,16 @@ claude-rule: "When you change scripts/dotfiles-state.sh, or add/remove a state_r
 
 # State management — the realized-state ledger
 
-The repo's package lists (`packages/`) and the `COMMON_LINKS` array in
+The package lists in `packages/` and the `COMMON_LINKS` array in
 `scripts/symlinks.sh` describe what *should* exist. They do not record
-what *actually got planted on a given host* — and crucially, not
-**which packages this repo installed versus ones you already had**.
-Without that, an uninstaller can't safely `--purge`: it would risk
-removing tools you installed yourself before adopting these dotfiles.
+what the setup *actually planted on a given host*. They also do not record
+**which packages this repo installed and which packages you already had**.
+Without this record, the uninstaller cannot safely use `--purge`. It could
+remove tools that you installed yourself before you used these dotfiles.
 
-`scripts/dotfiles-state.sh` fills that gap with an append-only ledger of
-the realized footprint. It is **not** a version lockfile — it records
-presence, ownership, and paths, never versions, and never freezes or
+`scripts/dotfiles-state.sh` fills this gap. It keeps an append-only ledger of
+the realized footprint. The ledger is **not** a version lockfile. It records
+presence, ownership, and paths. It never records versions, and it never freezes or
 pins anything.
 
 ## Where it lives
@@ -23,10 +23,10 @@ pins anything.
 ${XDG_STATE_HOME:-$HOME/.local/state}/dotfiles/state.tsv
 ```
 
-Per-user, under `$HOME` — unaffected by whether the repo itself lives at
-`/opt/dotfiles` or a plain dev checkout (CLAUDE.md §15) — alongside the
-existing `custom-install.log` / `update-dotfiles.log`. It is not in the
-repo and not symlinked — it is host state, written at install time.
+The file is per-user and is under `$HOME`. It is the same file if the repo is at
+`/opt/dotfiles` or in a plain dev checkout (CLAUDE.md §15). It is next to the
+`custom-install.log` and `update-dotfiles.log` files. It is not in the
+repo and it is not a symlink. It is host state, and the install step writes it.
 
 ## Record format
 
@@ -36,11 +36,11 @@ One record per line, six TAB-separated fields:
 <iso8601-utc>  <run-id>  <domain>  <action>  <id>  <detail>
 ```
 
-The ledger is **reduced on read**: the last action per `(domain, id)`
-wins, and entries whose final action negates presence
-(`remove`/`unlink`/`purge`/`uninstall`/`delete`/`revert`) are dropped.
-Re-runs are therefore safe — duplicate `create`/`install` records
-collapse — and `prune` rewrites the file to that reduced set.
+The ledger is **reduced on read**. For each `(domain, id)`, the last action
+wins. The reduction drops each entry whose final action negates presence
+(`remove`/`unlink`/`purge`/`uninstall`/`delete`/`revert`).
+It is therefore safe to run the setup again, because duplicate `create`/`install`
+records collapse into one. The `prune` command rewrites the file to the reduced set.
 
 | Domain        | Actions            | `id`              | `detail`                  |
 | ------------- | ------------------ | ----------------- | ------------------------- |
@@ -51,29 +51,29 @@ collapse — and `prune` rewrites the file to that reduced set.
 | `custom-hook` | `run`              | `<pkg>/<hook>`    | `rc=<exit code>`          |
 | `shell`       | `chsh` / `revert`  | new login shell   | `from=<previous shell>`   |
 
-`install` vs `present` is the load-bearing distinction: only `install`
-packages are ours to remove. `present` packages were already on the host
-when setup ran and must be left alone.
+The difference between `install` and `present` is important. Remove only the `install`
+packages, because this repo installed them. The `present` packages were already on the host
+when the setup ran. Do not remove them.
 
 ## Who writes it
 
-A single run id (`DOTFILES_STATE_RUN`) is minted once by `setup.sh` via
-`state_begin_run` and exported, so every record from that invocation —
-including the child scripts it calls — groups under one run.
+`setup.sh` creates one run id (`DOTFILES_STATE_RUN`) with `state_begin_run`
+and exports it. Each record from that run has the same run id.
+This includes the records from the child scripts that `setup.sh` calls.
 
 | Writer                        | Records                                                        |
 | ----------------------------- | -------------------------------------------------------------- |
-| `setup.sh` (package step)     | `package present` / `package install` — classified by a pre-install `pkg_installed` probe (`dpkg -s` / `pacman -Q` / `rpm -q` / `brew list`) |
+| `setup.sh` (package step)     | `package present` / `package install` — the `pkg_installed` probe classifies each package before the install (`dpkg -s` / `pacman -Q` / `rpm -q` / `brew list`) |
 | `setup.sh` (plugin bootstrap) | `plugin clone` (TPM, zsh-you-should-use), `bootstrap fetch` (vim-plug, bash-preexec) |
 | `setup.sh` (shell step)       | `shell chsh` with the prior login shell                        |
-| `scripts/symlinks.sh`         | `symlink create` / `symlink remove` (also derivable from the array — this is the audit/uninstall trail) |
+| `scripts/symlinks.sh`         | `symlink create` / `symlink remove` (you can also derive them from the array; this is the audit and uninstall trail) |
 | `scripts/run-custom-install-hook` | `custom-hook run` per executed before/after hook          |
-| `scripts/run-script-installers` | `package present` / `package install` (`mgr=script`) — script-lane tools from `packages/script-install.list`, probed via `command -v` |
-| `scripts/uninstall.sh`       | `plugin remove` / `bootstrap remove` / `package purge` / `shell revert` — the negation records that drop entries from the realized set |
+| `scripts/run-script-installers` | `package present` / `package install` (`mgr=script`) — tools of the script lane from `packages/script-install.list`; the probe is `command -v` |
+| `scripts/uninstall.sh`       | `plugin remove` / `bootstrap remove` / `package purge` / `shell revert` — the negation records that remove entries from the realized set |
 
-`path` segments are **not** recorded here — they are self-describing via
-their `# >>> <pkg> begin … end` markers (CLAUDE.md §9), so an uninstaller
-strips them by reading `$HOME/.dotfiles/path` directly.
+The ledger does **not** record `path` segments. Each segment describes itself with its
+`# >>> <pkg> begin … end` markers (CLAUDE.md §9). The uninstaller reads
+`$HOME/.dotfiles/path` and strips the segments directly.
 
 ## CLI
 
@@ -86,17 +86,17 @@ scripts/dotfiles-state.sh prune                # compact file to reduced set
 scripts/dotfiles-state.sh path                 # print the ledger path
 ```
 
-`DRY_RUN=1` prints the intended record to stderr and writes nothing.
+When `DRY_RUN=1` is set, the script prints the intended record to stderr. It does not write anything.
 
 ## How `uninstall.sh` consumes it
 
-`scripts/uninstall.sh` reads the reduced ledger to reverse the exact
+`scripts/uninstall.sh` reads the reduced ledger. It then reverses the exact
 realized set:
 
-- **symlinks** — reverse via `scripts/symlinks.sh uninstall` (array-driven;
-  the ledger is the cross-check).
-- **plugins / bootstraps** — remove the recorded checkout/file paths.
-- **`--purge`** — remove only `owned-packages` (never `present` ones),
-  through the matching package manager.
-- **`--shell`** — `chsh` back to the `from=` shell in the `shell` record.
-- **`.path`** — strip each package's bracketed segment.
+- **symlinks** — the script reverses them with `scripts/symlinks.sh uninstall`
+  (the array drives this step; the ledger is the cross-check).
+- **plugins / bootstraps** — the script removes the recorded checkout and file paths.
+- **`--purge`** — the script removes only `owned-packages` (never `present` ones)
+  with the matching package manager.
+- **`--shell`** — the script runs `chsh` to set the shell back to the `from=` shell in the `shell` record.
+- **`.path`** — the script strips the bracketed segment of each package.
