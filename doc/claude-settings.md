@@ -8,12 +8,13 @@ claude-rule: "configurations/claude/settings.json is the tracked, host-agnostic 
 
 ## Why this split exists
 
-`configurations/claude/settings.json` is git-tracked and symlinked to `~/.claude/settings.json`
-(hard rule #1). Claude Code's **auto mode** classifier can write an `autoMode` block into whatever
-settings file is active — and once, it wrote one scoped to a *different* project (
-absolute paths, repo name, project-specific CLI rules) straight into this tracked, host-agnostic
-file. That block doesn't belong in a repo shared across hosts and read by every project — it's
-volatile, machine/project-local state, not a dotfiles config value.
+`configurations/claude/settings.json` is git-tracked. It is symlinked to `~/.claude/settings.json`
+(hard rule #1). The **auto mode** classifier of Claude Code can write an `autoMode` block into the
+active settings file. Once, it wrote a block for a *different* project into this tracked file. The block held
+absolute paths, a repo name, and project-specific CLI rules.
+
+This tracked file is host-agnostic. Other hosts share it and every project reads it. The `autoMode` block does not
+belong in it. The block is volatile state that is local to a machine or project. It is not a dotfiles config value.
 
 ## Which key goes where
 
@@ -23,8 +24,8 @@ volatile, machine/project-local state, not a dotfiles config value.
 | `~/.claude/settings.local.json` | User-local, all projects on this machine | Gitignored | `autoMode` when no single project owns it |
 | `<project>/.claude/settings.local.json` | Project-local | Gitignored (repo `.gitignore` or a global `**/.claude/settings.local.json` pattern) | `autoMode` scoped to that project's environment/soft_deny rules |
 
-Settings load order is user → project → local (later wins), so a project-local
-`settings.local.json` layers cleanly on top of the tracked file without touching it.
+Settings load in this order: user, project, local. A later file wins. A project-local `settings.local.json`
+therefore layers on top of the tracked file and does not change it.
 
 ```mermaid
 flowchart LR
@@ -38,35 +39,32 @@ flowchart LR
 ## Exception to hard rule #12
 
 Hard rule #12 ("Centralized Claude commands and rules are always tracked") governs **commands and
-rules** (`.claude/commands/`, the global `CLAUDE.md`) — content meant to be portable across hosts.
-`autoMode` is neither: it's a live classifier state block scoped to one project's environment, and
-belongs with the other volatile/local overrides in a gitignored `settings.local.json`, not in the
-tracked file rule #12 protects.
+rules** (`.claude/commands/`, the global `CLAUDE.md`). These files must be portable across hosts.
+`autoMode` is not a command or a rule. It is a live classifier state block for the environment of one project.
+Put it with the other volatile or local overrides in a gitignored `settings.local.json`. Do not put it in the
+tracked file that rule #12 protects.
 
 ## `/auto-mode-setup` reproduces this churn — it's not a one-off
 
-This is not a one-time accident: **every** `/auto-mode-setup` run writes a fresh
-`autoMode` block into whatever settings file is currently active for that
-project, scoped to that project's own environment/allow/soft_deny rules. It
-happened once for another project and, on 2026-08-20, again for this repo
-(`raxetul/dotfiles`) — same failure class, different project. Treat it as
-**the command's normal behavior**, not a fluke: after every
-`/auto-mode-setup` run, expect the tracked `configurations/claude/settings.json`
-to need the same cleanup pass again.
+This problem is not a one-time accident. **Every** `/auto-mode-setup` run writes a new `autoMode` block into
+the settings file that is active for that project. The block holds the environment, allow, and soft_deny rules
+of that project. It happened once for another project. On 2026-08-20 it happened again for this repo
+(`raxetul/dotfiles`). The failure class is the same, and the project is different.
+
+This is the **normal behavior of the command**. It is not a fluke. After every `/auto-mode-setup` run, expect
+to clean the tracked `configurations/claude/settings.json` again.
 
 | Step | Action |
 | --- | --- |
-| 1 | `jq -e 'has("autoMode")' configurations/claude/settings.json` — if `true`, the block landed in the tracked file. |
-| 2 | Merge the `autoMode` block into `.claude/settings.local.json` (project-local, gitignored) — preserve any existing keys there (e.g. `permissions.allow`), don't overwrite. |
-| 3 | `git checkout -- configurations/claude/settings.json` to drop the block from the tracked file. |
+| 1 | `jq -e 'has("autoMode")' configurations/claude/settings.json` — if `true`, the block is in the tracked file. |
+| 2 | Merge the block into `.claude/settings.local.json`. Keep its existing keys (`permissions.allow`). |
+| 3 | `git checkout -- configurations/claude/settings.json` to remove the block from the tracked file. |
 | 4 | Re-verify `jq -e 'has("autoMode")' configurations/claude/settings.json` → `false`. |
 
-For this repo specifically, the target is `.claude/settings.local.json` at
-the repo root (not `~/.claude/settings.local.json`) — it's already covered
-by the global gitignore pattern `**/.claude/settings.local.json`
-(`~/.gitignore_global:4`), confirmed with `git check-ignore -v`, and this
-repo's own `.gitignore` carries no matching line of its own (the global
-pattern alone is what protects it).
+For this repo, the target is `.claude/settings.local.json` at the repo root. Do not use
+`~/.claude/settings.local.json`. The global gitignore pattern `**/.claude/settings.local.json`
+(`~/.gitignore_global:4`) already covers the file. `git check-ignore -v` confirms this. The `.gitignore` of this
+repo has no matching line of its own. The global pattern alone protects the file.
 
 ```mermaid
 flowchart LR
@@ -77,17 +75,17 @@ flowchart LR
 
 ## The atomic-save / symlink-break failure mode
 
-Claude Code's settings writer does an atomic save (write temp file, rename over target). When the
-target is a symlink (`~/.claude/settings.json` → repo file), some code paths rename the temp file
-**onto the symlink path**, replacing the symlink itself with a plain file — silently breaking the
-link back to the repo. Recurs on any in-app write to settings (theme change, model switch,
-permission edit), not just the `autoMode` capture. Splitting volatile/write-prone keys into
-`settings.local.json` reduces how often the tracked file gets touched by the app, but does not
-fix the underlying symlink-clobbering behavior — check periodically:
+The settings writer of Claude Code does an atomic save. It writes a temp file and renames it over the target.
+When the target is a symlink (`~/.claude/settings.json` → repo file), some code paths rename the temp file
+**onto the symlink path**. This replaces the symlink with a plain file. The link back to the repo breaks
+without a warning. It happens on any in-app write to settings (theme change, model switch, permission edit).
+It does not happen only for the `autoMode` capture. Volatile and write-prone keys in `settings.local.json`
+reduce how often the app touches the tracked file. They do not fix the symlink-clobbering behavior.
+Check the link from time to time:
 
 ```sh
 readlink ~/.claude/settings.json   # should resolve into the dotfiles repo checkout
 ```
 
-If it no longer resolves into the repo, the symlink was clobbered — re-run
-`scripts/symlinks.sh install` to restore it (after reconciling any content the plain file gained).
+If the path does not resolve into the repo, the symlink was clobbered. Reconcile any content that the plain
+file gained. Then run `scripts/symlinks.sh install` to restore the link.
