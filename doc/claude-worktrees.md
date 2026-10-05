@@ -6,15 +6,13 @@ claude-rule: "The claude-worktree and herdr-team commands are documented here an
 
 # Parallel Claude sessions with git worktrees
 
-Run several Claude Code sessions at once — each on its own branch, in its
-own **worktree** (a second checkout that shares the repo's single `.git`),
-arranged by **herdr** as a **team**: the pane you launch from is the team
-**leader** on the left, and every new session joins as a team **member**
-stacked vertically down the right-hand column. Because each session has its
-own working directory, they never clobber each other's edits.
+You can run several Claude Code sessions at the same time. Each session has its own branch and its own **worktree**.
+A worktree is a second checkout that shares the single `.git` of the repo. **herdr** puts the sessions in a **team**.
+The pane you launch from is the team **leader** on the left. Each new session joins as a team **member**.
+The members are stacked vertically in the right-hand column. Each session has its own working directory.
+Because of this, the sessions do not overwrite the edits of each other.
 
-The tool is `scripts/claude-worktree` (on `PATH` as `claude-worktree`, or
-the alias **`cwt`**).
+The tool is `scripts/claude-worktree`. It is on `PATH` as `claude-worktree`, or as the alias **`cwt`**.
 
 ## Topology
 
@@ -44,30 +42,26 @@ flowchart TD
     W2 --> P2
 ```
 
-- **Team layout** (default): the leader stays on the left; each new member
-  joins the vertical stack down the right column. The **first** member splits
-  the leader to the **right** (opening the column); each **later** member
-  splits **down** off the bottom of that column.
-- **`--tab` → new tab**: the member gets its own tab, created inside the lead's
-  own workspace (the tab is pinned, same as a spawn), instead of joining the
-  column. Two cases make this the **default** rather than a fallback:
-  - the member's deliverable is a **dependency library** consumed by another
-    member's work — a shared SDK, a HAL, an internal npm/cargo package. Those
-    run long and other members block on the artifact, so they do not belong in
-    the column.
-  - the **user asked for a member in a tab**. That is sticky: every later member
-    goes in a tab too, until the user says otherwise.
+- **Team layout** (default): The leader stays on the left. Each new member joins the vertical stack in the right
+  column. The **first** member splits the leader to the **right**. This opens the column. Each **later** member splits
+  **down** from the bottom of that column.
+- **`--tab` → new tab**: The member gets its own tab instead of a place in the column. The script creates the tab
+  inside the workspace of the lead. The tab is pinned, in the same way as a spawn. Two cases make this the **default**
+  and not a fallback:
+  - The deliverable of the member is a **dependency library** that another member uses. Examples are a shared SDK,
+    a HAL, or an internal npm/cargo package. These members run for a long time and other members wait for the
+    artifact. They do not belong in the column.
+  - The **user asked for a member in a tab**. This choice is sticky. Each later member also goes in a tab until the
+    user says otherwise.
 
-  Otherwise reach for it when the column gets cramped or the work is unrelated.
-  The tab is labelled with the **branch** slug; the pane/agent keeps its
-  **role** name.
-- **`--split right|down` → manual override**: a plain split off the *current*
-  pane, bypassing the team layout, for when you want to place by hand.
+  In other cases, use `--tab` when the column is too small or the work is unrelated.
+  The tab label is the **branch** slug. The pane and agent keep their **role** name.
+- **`--split right|down` → manual override**: This option makes a plain split from the *current* pane. It does not
+  use the team layout. Use it when you want to place the pane by hand.
 
-**Focus.** By default the **leader keeps focus** after a member is spawned, so
-you go on orchestrating from the left instead of being yanked into each new
-session. Use `--focus-member` to jump into the new member, or `--no-focus` to
-leave focus on the pane you launched from.
+**Focus.** By default, the **leader keeps focus** after the script spawns a member. You continue to orchestrate from
+the left. Herdr does not move you into each new session. Use `--focus-member` to go to the new member.
+Use `--no-focus` to leave focus on the pane you launched from.
 
 ## Commands
 
@@ -86,9 +80,8 @@ leave focus on the pane you launched from.
 | `cwt rm <branch> [--force]` | Remove that worktree (the branch is kept) |
 | `cwt merge <branch>` | From the main checkout on `main`: `--no-ff` merge, then remove the worktree folder, its empty parent dir and the branch — see [Merge](#merge--cwt-merge-branch) |
 
-An existing branch is checked out into the worktree; a new name is created
-with `-b`. Re-running for the same branch reuses the existing worktree
-(idempotent).
+If the branch exists, the script checks it out into the worktree. If the name is new, the script creates the branch
+with `-b`. If you run the command again for the same branch, the script reuses the existing worktree (idempotent).
 
 ## How it's wired
 
@@ -110,9 +103,9 @@ cwt feature-x
        and --split right|down forces a plain split off the LEAD's pane)
 ```
 
-**Two steps since herdr 0.9.0.** `agent start` used to create the pane itself
-(`--cwd` + `--split` + `--workspace`). In 0.9.0 it creates nothing — it attaches
-a named agent to an **existing** shell pane, selected with `--pane`:
+**Two steps since herdr 0.9.0.** In the past, `agent start` created the pane itself (`--cwd` + `--split` +
+`--workspace`). In 0.9.0 it creates nothing. It attaches a named agent to an **existing** shell pane. You select
+the pane with `--pane`:
 
 | | 0.7.1 | 0.9.0 |
 | --- | --- | --- |
@@ -120,68 +113,54 @@ a named agent to an **existing** shell pane, selected with `--pane`:
 | in a new tab | — (`agent start --tab`) | `tab create --workspace <ws> --cwd <path>` → `.result.root_pane.pane_id` (the tab is born with one pane) |
 | attach the agent | `agent start <n> --cwd P --workspace W --split right -- claude <args>` | `agent start <n> --kind claude --pane <id> -- <args>` |
 
-Passing a 0.7.1 flag to a 0.9.0 client fails at argument parsing, before the
-socket is touched: `unknown option: --cwd`. That is a *different* failure from
-the stale-server `protocol_mismatch` described in `doc/herdr-upgrade.md` — the
-two look alike from a distance and have unrelated fixes.
+If you give a 0.7.1 flag to a 0.9.0 client, the command fails at argument parsing, before it touches the socket.
+The error is `unknown option: --cwd`. This is a *different* failure from the stale-server `protocol_mismatch` in
+`doc/herdr-upgrade.md`. The two errors look similar, but they have different fixes.
 
-🔴 **Two further 0.9.0 traps on `agent start`, both of which leave the pane
-sitting at a bare shell prompt with no agent in it:**
+🔴 **Two more 0.9.0 traps on `agent start`. In both cases the pane stays at a bare shell prompt with no agent in it:**
 
-- `--kind <agent>` is now **required** — without it herdr exits
-  `missing required --kind`.
-- Everything after `--` is the **agent's own argv, not a command line**. herdr
-  supplies the binary itself from `--kind`, so the 0.7.1 habit of writing
-  `-- claude --model sonnet` makes it run `claude claude --model sonnet`.
+- `--kind <agent>` is now **required**. Without it, herdr exits with `missing required --kind`.
+- Everything after `--` is the **argv of the agent, not a command line**. herdr supplies the binary from `--kind`.
+  If you write `-- claude --model sonnet`, as in 0.7.1, herdr runs `claude claude --model sonnet`.
 
-Neither announces itself if stderr is discarded: the spawn "succeeds", the pane
-exists in the right place with the right cwd, and nothing is running in it.
-`attach_member()` therefore captures herdr's stderr and prints it with the
-warning instead of swallowing it.
+Neither error is visible if you discard stderr. The spawn "succeeds". The pane exists in the right place with the
+right cwd, but nothing runs in it. For this reason, `attach_member()` captures the stderr of herdr and prints it with
+the warning. It does not discard it.
 
-**Workspace anchoring (why members stay in their own project).** herdr's
-`--split` and `pane layout --current` resolve against *global focus*, not the
-pane you launched from. Spawning a member while focus sits in another project's
-workspace would split the member into *that* workspace — the "panes of one
-project in another's workspace" leak. The script defeats this by anchoring
-every placement to the lead pane's own identity, which herdr exports into each
-pane's shell as `HERDR_PANE_ID` / `HERDR_WORKSPACE_ID`: layout is read with
-`--pane "$lead_pane"`, each `herdr pane split` is anchored with an explicit
-`--pane`, and `herdr tab create` is pinned with `--workspace "$lead_ws"`. A
-member therefore can never land outside its lead's workspace, regardless of
-where focus happens to be at spawn time.
+**Workspace anchoring (why members stay in their own project).** The `--split` and `pane layout --current` options of
+herdr use *global focus*. They do not use the pane you launched from. Assume that focus is in the workspace of another
+project when you spawn a member. Then herdr splits the member into *that* workspace. This is the "panes of one project
+in another's workspace" leak. The script prevents this. It anchors each placement to the identity of the lead pane.
+herdr exports this identity into the shell of each pane as `HERDR_PANE_ID` / `HERDR_WORKSPACE_ID`. The script reads the
+layout with `--pane "$lead_pane"`. It anchors each `herdr pane split` with an explicit `--pane`. It pins
+`herdr tab create` with `--workspace "$lead_ws"`. A member cannot land outside the workspace of its lead, wherever
+focus is at spawn time.
 
-Under 0.9.0 that anchoring got *stronger* rather than weaker: a pane id is
-itself workspace-qualified (`w3:p4`), so `agent start … --pane w3:p4` can only
-attach inside `w3`. There is no longer an unpinned form of `agent start` that
-resolves against global focus at all — the pane has to exist first, and creating
-it is what carries the workspace.
+In 0.9.0 the anchoring is *stronger*. A pane id includes its workspace (`w3:p4`). Because of this,
+`agent start … --pane w3:p4` can attach only inside `w3`. There is no unpinned form of `agent start` that uses global
+focus. The pane must exist first, and the command that creates it carries the workspace.
 
-Placement is read from pane **rectangles**, not `pane neighbor` — that command
-reports focus-movement targets within the split tree, not spatial adjacency, so
-it can't be walked. Reading `x`/`y` from the layout finds the leftmost (leader)
-and greatest-`y` right-column (column tail) panes deterministically, from
-whichever pane you run `cwt` in. If the layout can't be parsed, it falls back to
-a plain split-right (still workspace-pinned) so a member is still placed.
+The script reads the placement from the pane **rectangles**. It does not use `pane neighbor`. That command reports
+focus-movement targets in the split tree. It does not report spatial adjacency, so you cannot walk it. The script
+reads `x` and `y` from the layout. It finds the leftmost pane (the leader) and the right-column pane with the
+greatest `y` (the column tail). This is deterministic from any pane where you run `cwt`. If the script cannot parse
+the layout, it falls back to a plain split-right (still workspace-pinned). A member is then still placed.
 
-Each member is started under a **unique herdr agent name** — by default its
-**role** (`--role frontend` → agent name `frontend`), falling back to the
-branch slug with a one-line warning if `--role` is omitted — because herdr
-rejects a duplicate name in the workspace. See
-[Member naming](#member-naming--role--mascot) for how the name is picked, and
-`herdr pane rename` re-labels the pane to match so the border reads the same
-name. Claude is still detected as a `claude` agent at runtime via its
-integration hooks regardless of that label.
+The script starts each member under a **unique herdr agent name**. By default the name is the **role**
+(`--role frontend` → agent name `frontend`). If you omit `--role`, the script uses the branch slug and prints a
+one-line warning. A unique name is necessary because herdr rejects a duplicate name in the workspace. See
+[Member naming](#member-naming--role--mascot) for the way the script picks the name. `herdr pane rename` gives the
+pane the same label, so the border shows the same name. At runtime, Claude is still detected as a `claude` agent
+through its integration hooks, regardless of that label.
 
-Worktrees are plain git, so `--no-claude` (or running outside herdr) still
-leaves a usable checkout — the script prints the `cd … && claude` line.
+Worktrees are plain git. If you use `--no-claude` (or run outside herdr), you still get a usable checkout.
+The script prints the `cd … && claude` line.
 
 ## Member naming — role + mascot
 
-A member's herdr agent name (and pane label) is its **logical role**, not the
-branch slug — the slug still keys the worktree *path*
-(`../<repo>.worktrees/<branch>`), it just stopped being the *name*. Free text,
-kebab-case, whatever function fits the task:
+The herdr agent name (and pane label) of a member is its **logical role**. It is not the branch slug. The slug still
+keys the worktree *path* (`../<repo>.worktrees/<branch>`), but it is no longer the *name*. The role is free text in
+kebab-case. Use the function that fits the task:
 
 | Role | Example use |
 | --- | --- |
@@ -195,32 +174,26 @@ kebab-case, whatever function fits the task:
 | `requirements` | requirements authoring |
 | `review` | reviewing someone else's change |
 
-A **second** member doing the same role can't reuse that name (herdr agent
-names are unique **globally**, across every workspace — not just mine), so
-it gets a mascot suffix instead — drawn in order from an anime
-helper-robot/android pool:
+A **second** member with the same role cannot use that name again. herdr agent names are unique **globally**, in every
+workspace and not only in mine. The second member gets a mascot suffix. The script takes the suffix in order from a
+pool of anime helper-robot/android names:
 
 ```
 haro, tachikoma, sumomo, canti, pino, nono, arale, metabee, rokusho,
 doraemon, ropponmatsu, logicoma, chachamaru, dorothy, pinoko, atom
 ```
 
-The pool lives as a single array (`team_mascots`) in `scripts/herdr-team` —
-edit it there to add or reorder mascots. Once the pool is exhausted, naming
-falls back to a numeric suffix (`<role>-2`, `<role>-3`, …). The existing
-first member of a role is **never** retroactively renamed when a second one
-arrives.
+The pool is one array (`team_mascots`) in `scripts/herdr-team`. To add or reorder mascots, edit it there. When the
+pool is empty, the naming falls back to a numeric suffix (`<role>-2`, `<role>-3`, …). The script **never** renames
+the existing first member of a role when a second one arrives.
 
-Allocation is decided in exactly **one** place — `herdr-team name <role>` —
-and it scans **all** workspaces, not just `${HERDR_WORKSPACE_ID}`: herdr
-agent names are globally unique, so a name already taken in some other
-lead's workspace is just as taken as one used in mine, and a spawn ignoring
-that fails with `agent_name_taken` (hit for real: `documentor` was already
-live in workspace `w9`). This is the one place naming scope differs from
-[Team scoping](#team-scoping--cwd-is-never-identity), where every other
-`herdr-team` subcommand stays filtered to my own workspace. `claude-worktree
---role <name>` calls it rather than re-deriving the logic itself, so the two
-scripts can never disagree on the next free name:
+One place decides the allocation: `herdr-team name <role>`. It scans **all** workspaces, not only
+`${HERDR_WORKSPACE_ID}`. herdr agent names are globally unique. A name that another lead uses in its workspace is as
+taken as a name in mine. If a spawn ignores this, it fails with `agent_name_taken`. This happened for real:
+`documentor` was already live in workspace `w9`. This is the one place where the naming scope is different from
+[Team scoping](#team-scoping--cwd-is-never-identity). There, each other `herdr-team` subcommand stays filtered to my
+own workspace. `claude-worktree --role <name>` calls `herdr-team name`. It does not derive the logic again. Because of
+this, the two scripts always agree on the next free name:
 
 ```mermaid
 flowchart TD
@@ -235,16 +208,14 @@ flowchart TD
     G --> H
 ```
 
-Omitting `--role` still works — `claude-worktree` falls back to the branch
-slug — but it prints a one-line warning rather than silently reusing the old
-behavior, so a forgotten `--role` is never invisible.
+If you omit `--role`, the command still works. `claude-worktree` falls back to the branch slug. It prints a one-line
+warning and does not silently use the old behavior. A forgotten `--role` is always visible.
 
 ## Merge — `cwt merge <branch>`
 
-A merge is not finished until the worktree folder is gone from disk. `merge`
-does both in one go; run it from the main checkout, which must be on `main`.
-Every step aborts the whole command on failure. Untracked `TASK-*.md` spawn
-briefs don't count as dirt and are deleted with the worktree.
+A merge is not finished until the worktree folder is gone from disk. `merge` does both in one command. Run it from the
+main checkout. The main checkout must be on `main`. If a step fails, the whole command aborts. Untracked `TASK-*.md`
+spawn briefs do not count as dirt. The command deletes them with the worktree.
 
 ```mermaid
 flowchart TD
@@ -266,8 +237,8 @@ flowchart TD
     K --> L([print one-line summary])
 ```
 
-After resolving a conflict by hand and committing the merge, re-run the same
-command: the merge is then a no-op and the cleanup steps run.
+If a conflict stops the merge, resolve it by hand and commit the merge. Then run the same command again. The merge is
+now a no-op, and the cleanup steps run.
 
 ## Cleanup
 
@@ -277,18 +248,15 @@ git branch -d feature-x   # delete the branch too, once merged
 cwt merge feature-x       # or: merge into main AND remove worktree + branch
 ```
 
-When the Claude process in a pane/tab exits, close that pane/tab in herdr
-as usual. `cwt rm` only removes the worktree checkout, never the branch or
-its commits.
+When the Claude process in a pane/tab exits, close that pane/tab in herdr as usual. `cwt rm` removes only the worktree
+checkout. It never removes the branch or its commits.
 
 ### Dead worktree records — `/worktree-autoprune`
 
-Deleting a worktree directory by hand (`rm -r`, a wiped `*.worktrees/`, a
-disk cleanup) leaves git's admin record behind under
-`.git/worktrees/<name>/`. The record is not cosmetic: it keeps the branch
-marked *checked out elsewhere*, so the branch can neither be checked out
-nor deleted, and the ghost stays in `git worktree list` forever — flagged
-`prunable`.
+Assume you delete a worktree directory by hand (`rm -r`, a wiped `*.worktrees/`, a disk cleanup). Git keeps its admin
+record under `.git/worktrees/<name>/`. This record is not cosmetic. It keeps the branch marked *checked out
+elsewhere*. You can then neither check out nor delete the branch. The ghost stays in `git worktree list` for ever, and
+git flags it `prunable`.
 
 ```mermaid
 flowchart LR
@@ -297,19 +265,17 @@ flowchart LR
     A -->|git worktree remove| C
 ```
 
-`configurations/claude/hooks/git-worktree-autoprune.sh` does that prune
-automatically. It is wired **per project**, not globally — the script is a
-shared machine resource (symlinked to `${HOME}/.claude/hooks/` by
-`scripts/symlinks.sh`), but a project opts in by running
-`/worktree-autoprune`, which merges two hook entries into that project's own
-`./.claude/settings.json`:
+`configurations/claude/hooks/git-worktree-autoprune.sh` does this prune automatically. You wire it **per project**.
+It is not global. The script is a shared machine resource. `scripts/symlinks.sh` symlinks it to
+`${HOME}/.claude/hooks/`. A project opts in when you run `/worktree-autoprune`. That command merges two hook entries
+into the `./.claude/settings.json` of that project:
 
 | Hook event | When it fires |
 | --- | --- |
 | `SessionStart` | every time a Claude session opens in that project |
 | `WorktreeRemove` | the moment a worktree is removed |
 
-What it will and will not touch:
+The next table shows what the hook touches and what it does not touch:
 
 | Situation | Action |
 | --- | --- |
@@ -319,27 +285,24 @@ What it will and will not touch:
 | A branch, a commit, a stash | 🔴 never touched |
 | `<repo>.worktrees/` parent left empty afterwards | 🟢 `rmdir` (only if empty) |
 
-That last distinction is the whole safety argument: **a worktree holding
-uncommitted work is by definition not dead** — its directory is right there —
-so the prune cannot reach it. The only thing removed is bookkeeping for a
-directory that no longer exists.
+The last row is the safety argument. **A worktree with uncommitted work is not dead**, because its directory is still
+there. The prune cannot reach it. The hook removes only the bookkeeping for a directory that no longer exists.
 
-`DRY_RUN=1` makes the hook report instead of act, and it always exits `0` so
-a cleanup step can never block a session from starting:
+`DRY_RUN=1` makes the hook report and not act. The hook always exits `0`. A cleanup step then cannot stop a session
+from starting:
 
 ```sh
 echo "{\"cwd\":\"$PWD\"}" | DRY_RUN=1 bash "${HOME}/.claude/hooks/git-worktree-autoprune.sh"
 ```
 
-Note the hook reads `git worktree prune --dry-run --verbose` off **stderr** —
-git writes the verbose listing there, not to stdout.
+The hook reads `git worktree prune --dry-run --verbose` from **stderr**. Git writes the verbose list there, not to
+stdout.
 
 ## Member lifecycle
 
-A member's pane only ever ends its life two ways: closed, or respawned for
-the next task. There is no third path where a finished member sits idle
-and receives a follow-up message in place — the channel that would need
-(`agent send` / `pane send-keys` reaching the running TUI) doesn't work.
+The pane of a member ends in only two ways. Either you close it, or you respawn it for the next task. A finished member
+cannot stay idle and receive a follow-up message in place. The channel for this does not work. These commands do not
+reach the running TUI: `agent send` and `pane send-keys`.
 
 ```mermaid
 stateDiagram-v2
@@ -353,7 +316,7 @@ stateDiagram-v2
     Closed --> [*]
 ```
 
-Why respawn instead of handing the idle pane its next task in place:
+The next table shows why you respawn and do not give the idle pane its next task in place:
 
 | Channel | Reaches a running/idle member? | Note |
 | --- | --- | --- |
@@ -361,35 +324,29 @@ Why respawn instead of handing the idle pane its next task in place:
 | `herdr pane send-keys` (Enter, ctrl+u, escape, backspace, ctrl+c) | ❌ | accepted by herdr, no effect on the TUI — verified 2026-08-04, Claude Code v2.1.220 + herdr; likely a kitty keyboard protocol encoding mismatch |
 | close + spawn fresh, task as spawn-time argv prompt | ✅ | only reliable channel for continuation |
 
-Two corollaries this puts on the lead:
+This gives the lead two rules:
 
-- **Close on sight.** A member reporting idle/done with a non-question last
-  output is closed immediately (`herdr-team exit <target>`) — never left
-  parked waiting for a task that can't reach it anyway.
-- **Trust dialogs are the one real exception.** A pane stuck on "do you
-  trust this folder" is *not* idle-to-close — it's blocked on input, and
-  since that input can't be sent programmatically either, a human has to
-  click it. Check `hasTrustDialogAccepted` for the target cwd in
-  `~/.claude.json` before spawning to avoid the lock in the first place.
+- **Close on sight.** If a member reports idle/done and its last output is not a question, close it at once
+  (`herdr-team exit <target>`). Do not leave it parked. A task cannot reach it.
+- **Trust dialogs are the one real exception.** A pane that waits at "do you trust this folder" is *not* idle and
+  you must not close it. It is blocked on input. You cannot send that input by program, so a human must click it.
+  To prevent the lock, check `hasTrustDialogAccepted` for the target cwd in `~/.claude.json` before you spawn.
 
 ## Lead exit tears the team down first
 
-A lead's members are ordinary Claude sessions in their own panes. herdr has **no
-parent/child link between panes** — the team exists only as geometry (leader
-left, members right). So when the lead's session ended, its pane closed and the
-members were simply left behind: live Claude processes with nobody orchestrating
-them, holding workspace layout.
+The members of a lead are ordinary Claude sessions in their own panes. herdr has **no parent/child link between
+panes**. The team exists only as geometry (leader left, members right). In the past, when the session of the lead
+ended, its pane closed and the members stayed. They were live Claude processes that nobody orchestrated, and they
+held workspace layout.
 
-`configurations/claude/hooks/herdr-team-teardown.sh` closes them first. It is a
-Claude Code **`SessionEnd`** hook, wired in `configurations/claude/settings.json`
-and symlinked to `~/.claude/hooks/` by `scripts/symlinks.sh`.
+`configurations/claude/hooks/herdr-team-teardown.sh` closes the members first. It is a Claude Code **`SessionEnd`**
+hook. It is wired in `configurations/claude/settings.json`. `scripts/symlinks.sh` symlinks it to `~/.claude/hooks/`.
 
 ### The lead check is the whole design
 
-The hook fires in **every** Claude session, members included. The expensive
-failure mode is not "forgot to close a member" — it is a *member* concluding it
-is the lead and closing its lead plus its siblings. Two **independent** signals
-must therefore both agree:
+The hook fires in **every** Claude session, members included. The costly failure is not "a member stays open". The
+costly failure is that a *member* decides it is the lead. It then closes its lead and its siblings. For this reason,
+two **independent** signals must both agree:
 
 ```mermaid
 flowchart TD
@@ -410,14 +367,12 @@ flowchart TD
 | `.name` in `herdr agent list` | `null` | `<role>` | only `agent start <label>` sets a name |
 | Pane geometry | leftmost (min `rect.x`) | `x > leader.x` | how `claude-worktree` finds the leader |
 
-Either signal failing means **do nothing**. The hook fails safe toward leaving
-panes open, never toward closing someone else's. The redundancy is real, not
-decorative: with signal 1 disabled, a member exiting is still stopped by
-signal 2.
+If either signal fails, the hook does **nothing**. The hook fails safe. It leaves panes open and never closes the
+pane of someone else. The redundancy is real. If you disable signal 1, signal 2 still stops a member that exits.
 
 ### What counts as a member
 
-Agents in **my** workspace, with a pane id other than mine, **that have a name**.
+A member is an agent in **my** workspace, with a pane id that is not mine, **and with a name**.
 
 | Pane | Torn down? | Why |
 | --- | --- | --- |
@@ -428,7 +383,7 @@ Agents in **my** workspace, with a pane id other than mine, **that have a name**
 
 ### SessionEnd reasons
 
-Claude Code's enum is `clear | resume | logout | prompt_input_exit | other`.
+The enum of Claude Code is `clear | resume | logout | prompt_input_exit | other`.
 
 | Reason | Process going away? | Teardown |
 | --- | --- | --- |
@@ -447,28 +402,24 @@ Claude Code's enum is `clear | resume | logout | prompt_input_exit | other`.
 | `HERDR_TEAM_TEARDOWN=off` | do nothing |
 | `DRY_RUN=1` | log the decisions, close nothing |
 
-Every run appends to `${XDG_STATE_HOME:-~/.local/state}/dotfiles/herdr-team-teardown.log`,
-including the skips and their reasons. The hook **always exits 0** — a cleanup
-step must never be the reason a session cannot quit.
+Each run appends to `${XDG_STATE_HOME:-~/.local/state}/dotfiles/herdr-team-teardown.log`. This includes the skips and
+their reasons. The hook **always exits 0**. A cleanup step must never be the reason that a session cannot quit.
 
 ### Tests
 
-`configurations/claude/hooks/tests/herdr-team-teardown.test.sh` stubs `herdr`
-(fixture `agent list` / `pane layout`, recorded `pane close`) and asserts 13
-cases: the lead tears down on each exiting reason, `idle` mode spares a working
-member, and **nothing** is closed for `clear`/`resume`, for a member exiting,
-for a non-leftmost unnamed pane, for another workspace's member, for an unnamed
-sibling, or outside herdr.
+`configurations/claude/hooks/tests/herdr-team-teardown.test.sh` stubs `herdr` (fixture `agent list` / `pane layout`,
+recorded `pane close`). It asserts 13 cases. The lead tears down on each exit reason. The `idle` mode spares a working
+member. The hook closes **nothing** in these cases: `clear`/`resume`, a member that exits, a non-leftmost unnamed pane,
+a member of another workspace, an unnamed sibling, or a session outside herdr.
 
 ## Team scoping — cwd is never identity
 
-Two independent leads can have the **exact same project** checked out in
-**two different herdr workspaces** at once — this has happened for real: two
-separate workspaces both had the same project directory open simultaneously.
-They are two unrelated leads, never teammates, even though the directory
-matches. So "same project" / "same cwd" is never how membership is decided.
+Two independent leads can have the **exact same project** checked out in **two different herdr workspaces** at the
+same time. This has happened for real: two separate workspaces had the same project directory open together. They are
+two unrelated leads. They are never teammates, even when the directory is the same. For this reason, "same project" or
+"same cwd" never decides membership.
 
-What actually defines a team:
+This is what defines a team:
 
 ```mermaid
 flowchart TD
@@ -494,14 +445,11 @@ flowchart TD
     class LB,MB otherteam
 ```
 
-- A **lead's identity** is the triple `(HERDR_WORKSPACE_ID, HERDR_PANE_ID,
-  Claude session id)`.
-- A **team** = one herdr workspace + the panes that lead itself spawned
-  inside it. Nothing outside that workspace is a teammate, no matter what
-  directory it has open.
-- **`scripts/herdr-team`** is the only sanctioned way to list/target
-  members — every subcommand filters `herdr agent list` down to
-  `workspace_id == $HERDR_WORKSPACE_ID` and refuses to act on anything else:
+- The **identity of a lead** is the triple `(HERDR_WORKSPACE_ID, HERDR_PANE_ID, Claude session id)`.
+- A **team** is one herdr workspace plus the panes that the lead itself spawned in it. Nothing outside that workspace
+  is a teammate, whatever directory it has open.
+- **`scripts/herdr-team`** is the only approved way to list or target members. Each subcommand filters
+  `herdr agent list` down to `workspace_id == $HERDR_WORKSPACE_ID`. It refuses to act on anything else:
 
   | Command | Does |
   | --- | --- |
@@ -513,23 +461,19 @@ flowchart TD
   | `herdr-team name <role>` | Prints the next free agent name for `<role>`, scanning **all** workspaces (agent names are global) — see [Member naming](#member-naming--role--mascot). |
   | `herdr-team exit <target>` | Resolves `<target>` to a pane and closes it — only if it's mine. |
 
-  `<target>` can be a workspace-prefixed id (`w3:p4`) or a bare agent name;
-  bare names are resolved and workspace-checked before anything runs.
+  `<target>` can be a workspace-prefixed id (`w3:p4`) or a bare agent name. The script resolves a bare name and checks
+  its workspace before it runs anything.
 
-  Because `herdr-team spawn` is a straight delegation to
-  `scripts/claude-worktree` rather than its own implementation, the two
-  scripts share every spawn-path bug and every fix — see the `--json`-flag
-  fix and the `herdr-workspace-guard.sh` normalization fixes below, both of
-  which applied to `claude-worktree` and therefore to `herdr-team spawn` in
-  the same change.
+  `herdr-team spawn` delegates directly to `scripts/claude-worktree`. It has no implementation of its own. For this
+  reason, the two scripts have the same spawn-path bugs and the same fixes. The `--json`-flag fix and the
+  `herdr-workspace-guard.sh` normalization fixes below applied to `claude-worktree`. They also applied to
+  `herdr-team spawn` in the same change.
 
 ## Enforcement — herdr-workspace-guard.sh
 
-The `herdr-workspace-guard.sh` PreToolUse hook (see
-`configurations/claude/hooks/herdr-workspace-guard.sh`, wired in
-`configurations/claude/settings.json`) makes the rule above unbypassable —
-even a hand-rolled `herdr …` call gets denied, not just calls through
-`herdr-team`:
+The `herdr-workspace-guard.sh` PreToolUse hook makes the rule above impossible to bypass. See
+`configurations/claude/hooks/herdr-workspace-guard.sh`. It is wired in `configurations/claude/settings.json`. The hook
+denies even a hand-written `herdr …` call, not only the calls through `herdr-team`:
 
 | Command (run from workspace `w3`) | Result |
 | --- | --- |
@@ -552,18 +496,15 @@ even a hand-rolled `herdr …` call gets denied, not just calls through
 | `git commit -m "feat: herdr agent start docs"` | ✅ allowed — not a real invocation, just text |
 | `... -- claude "please run herdr agent start"` | ✅ allowed — that's the member's prompt, not a command |
 
-Outside a herdr-managed pane (no `HERDR_ENV`), or without `herdr`/`jq` on
-`PATH`, the hook exits immediately and polices nothing — it must never be
-the thing that locks up a shell.
+Outside a herdr-managed pane (no `HERDR_ENV`), or without `herdr`/`jq` on `PATH`, the hook exits at once. It polices
+nothing. The hook must never lock up a shell.
 
 ### Accepted `--workspace` / `--pane` / `--tab` forms
 
-`--workspace`/`--tab`/`--pane` values (on `agent start`, `tab create`, `pane
-move --new-tab`) and every send/read/focus/… target are **normalized** before
-being compared to the caller's own workspace/pane/tab — one layer of
-surrounding quotes is stripped, then a known `$VAR`/`${VAR}` reference is
-resolved to this shell's own value. A literal id and the env-var form are
-therefore equally valid:
+The hook **normalizes** these values before it compares them to the own workspace, pane, or tab of the caller. The
+values are the `--workspace`/`--tab`/`--pane` values (on `agent start`, `tab create`, `pane move --new-tab`) and each
+send/read/focus/… target. First, the hook strips one layer of surrounding quotes. Then it resolves a known
+`$VAR`/`${VAR}` reference to the value in this shell. A literal id and the env-var form are both valid:
 
 | Form | Example | Accepted? |
 | --- | --- | --- |
@@ -574,110 +515,92 @@ therefore equally valid:
 | Embedded in a compound target | `herdr agent send "${HERDR_WORKSPACE_ID}:p1" hi` | ✅ (resolves to `w3:p1`) |
 | Any other/unknown `$VAR` | `--workspace $SOME_OTHER_VAR` | ⛔ deny — left unresolved, can't match anything real (fail-closed, never upgraded to allow) |
 
-`HERDR_WORKSPACE_ID`, `HERDR_PANE_ID`, and `HERDR_TAB_ID` are the only
-references resolved; the same normalization runs for every `--workspace`/
-`--tab`/target argument the guard checks, not just `agent start`.
+The hook resolves only `HERDR_WORKSPACE_ID`, `HERDR_PANE_ID`, and `HERDR_TAB_ID`. The same normalization runs for each
+`--workspace`/`--tab`/target argument that the guard checks. It does not run only for `agent start`.
 
 ### Command-position scope
 
-A `herdr …` invocation is only recognized where it could actually run as a
-command — never inside narrative text — which is: the start of the string;
-right after a shell separator (`;` `&` `|` `&&` `||`); right after a
-subshell/command-substitution opener (`(` or a backtick — this also covers
-`$(`, and therefore `VAR="$(herdr …)"` assignments, since the position right
-after that `(` is where `herdr` starts); right after a command-group opener
-`{ ` (note the required trailing space, so this can never be confused with
-`${HERDR_WORKSPACE_ID}`-style parameter expansion, which has no space after
-its `{`); or right after the keyword `then`/`do`/`else`. Everything after
-the member's own ` -- ` prompt-tail separator is stripped before any of this
-scanning happens, so a prompt that itself mentions `herdr agent start` is
-never mistaken for a real invocation.
+The hook recognizes a `herdr …` invocation only where it can run as a command. It never recognizes one inside
+narrative text. These are the positions:
+
+- the start of the string
+- right after a shell separator (`;` `&` `|` `&&` `||`)
+- right after a subshell or command-substitution opener (`(` or a backtick). This includes `$(`, and so also
+  `VAR="$(herdr …)"` assignments, because `herdr` starts right after that `(`.
+- right after a command-group opener `{ `. The trailing space is required. Because of it, the opener cannot be
+  confused with a parameter expansion such as `${HERDR_WORKSPACE_ID}`, which has no space after its `{`.
+- right after the keyword `then`, `do`, or `else`
+
+Before the hook scans, it strips everything after the ` -- ` prompt-tail separator of the member. A prompt that
+mentions `herdr agent start` is then never mistaken for a real invocation.
 
 ### Preprocessing — two things the raw command string gets wrong
 
-The command text is normalized twice before any of the above runs. Both steps
-exist because the guard was found **failing closed**, which is the worse
-failure: a guard that denies correct usage teaches you to route around it.
+The hook normalizes the command text two times before the checks above run. Both steps exist because the guard
+was found **failing closed**. This is the worse failure. A guard that denies correct usage teaches you to avoid it.
 
 | Step | Fixes |
 | --- | --- |
-| **Here-document bodies are dropped** (the opening line is kept — a real command can share it) | A heredoc carries data, not shell. Documentation, a commit message, or a script that merely *mentions* a policed call was being denied. Markdown backticks made this acute: `` ` `` is one of the clause separators, so a backticked `herdr tab create` in prose landed at a command position and matched. |
-| **Backslash-newline continuations are joined** | The clause loop reads **one line at a time**, so a command split across lines had its verb and its flags in different clauses. A correctly pinned `agent start … \` + `--workspace "${HERDR_WORKSPACE_ID}"` was denied for "no `--workspace`" — the clause holding the verb genuinely had none. |
+| **Here-document bodies are dropped** (the opening line is kept — a real command can share it) | A heredoc carries data, not shell. The guard denied documentation, a commit message, or a script that only *mentioned* a policed call. Markdown backticks made this worse: `` ` `` is one of the clause separators, so a backticked `herdr tab create` in prose landed at a command position and matched. |
+| **Backslash-newline continuations are joined** | The clause loop reads **one line at a time**. A command split across lines had its verb and its flags in different clauses. The guard denied a correctly pinned `agent start … \` + `--workspace "${HERDR_WORKSPACE_ID}"` for "no `--workspace`". The clause with the verb did not have one. |
 
-Joining uses `awk`, not `sed -e ':a' -e '/\\$/{N;…;ta}'`: BSD sed (macOS)
-rejects a brace block inside a single `-e` and aborts under `set -e`, which
-silently disables the whole guard. If preprocessing ever yields empty text the
-raw command is scanned instead, so a hiccup can never blank the input and
-allow everything.
+The join uses `awk`, not `sed -e ':a' -e '/\\$/{N;…;ta}'`. BSD sed (macOS) rejects a brace block in a single `-e`. It
+aborts under `set -e`, and this silently disables the whole guard. If the preprocessing gives empty text, the guard
+scans the raw command. A failure then cannot blank the input and allow everything.
 
-**Regression suite:** `configurations/claude/hooks/tests/herdr-workspace-guard.test.sh`
-— 22 cases covering both halves: real leaks must still deny, and text that only
-mentions a policed call must allow. Run it after touching the guard.
+**Regression suite:** `configurations/claude/hooks/tests/herdr-workspace-guard.test.sh` has 22 cases. They cover both
+halves. Real leaks must still deny. Text that only mentions a policed call must allow. Run the suite after you change
+the guard.
 
 ## Notes / assumptions
 
-- **herdr must be running** for automatic placement; otherwise the worktree
-  is still created and the launch command is printed.
-- **The team lives in one tab.** Leader + members share the current tab; the
-  members are the right-hand column. Use `--tab` to break a session out into
-  its own tab when the column gets crowded.
-- Team placement parses `herdr pane layout --pane "$lead_pane"` at
-  `.result.layout.panes[].{pane_id,rect}` to find the leader (min `x`) and the
-  right column's bottom (max `y` among `x > leader.x`). If a herdr update changes
-  that shape, adjust the two `jq` filters in the `team` branch of
-  `scripts/claude-worktree`; on any parse failure the script falls back to a
-  plain split-right so a member is still placed.
-- **Agent names must be unique globally, across every workspace** — the
-  script names each member after its `--role` (falling back to the branch
-  slug if `--role` is omitted), with `herdr-team name <role>` resolving
-  collisions via the mascot pool per
-  [Member naming](#member-naming--role--mascot), scanning all workspaces
-  rather than just mine. Re-running `cwt` for a branch that already has a
-  live member under that exact name (in *any* workspace) will still be
-  rejected by herdr with `agent_name_taken` — pass a different `--role` (or
-  none, to fall back to the branch slug) to work around it.
-- The new-tab path assumes `herdr tab create` returns the tab's own first pane
-  (JSON by default — see [herdr CLI contract](#herdr-cli-contract) below) under
-  `.result.root_pane.pane_id`; the split path assumes `herdr pane split`
-  returns `.result.pane.pane_id`. Either coming back empty is reported and, for
-  the tab path, falls back to a split off the lead pane — never to an unpinned
-  spawn. Adjust those two `jq` lines in `scripts/claude-worktree` if a herdr
-  update changes the shapes.
-- **Pane relabeling assumes `herdr pane rename <pane_id> <name>` exists.** The
-  pane id no longer has to be parsed out of `agent start` output — the script
-  creates the pane itself, so it already knows the id. A failed rename is
-  swallowed: the agent name is unaffected, only the pane's visual label.
-- `agent start` returns non-zero when herdr can't confirm the agent is ready
-  within its 30 s startup window. A **trust prompt** ("do you trust this
-  folder", which every fresh worktree path triggers) does exactly that. The
-  script warns and carries on, because the member is live and only needs a
-  human to answer it — treating it as a failure would be wrong.
+- **herdr must run** for automatic placement. If it does not run, the script still creates the worktree and prints the
+  launch command.
+- **The team lives in one tab.** The leader and the members share the current tab. The members are the right-hand
+  column. Use `--tab` to move a session to its own tab when the column is too full.
+- Team placement parses `herdr pane layout --pane "$lead_pane"` at `.result.layout.panes[].{pane_id,rect}`. It finds
+  the leader (min `x`) and the bottom of the right column (max `y` among `x > leader.x`). If a herdr update changes
+  that shape, adjust the two `jq` filters in the `team` branch of `scripts/claude-worktree`. If the parse fails, the
+  script falls back to a plain split-right, so a member is still placed.
+- **Agent names must be unique globally, in every workspace.** The script names each member after its `--role`. If
+  you omit `--role`, it uses the branch slug. `herdr-team name <role>` resolves name collisions with the mascot pool,
+  as in [Member naming](#member-naming--role--mascot). It scans all workspaces and not only mine. Assume that you run
+  `cwt` again for a branch that already has a live member with that exact name (in *any* workspace). herdr still
+  rejects it with `agent_name_taken`. To work around this, pass a different `--role`, or none to fall back to the
+  branch slug.
+- The new-tab path assumes that `herdr tab create` returns the first pane of the tab (JSON by default — see
+  [herdr CLI contract](#herdr-cli-contract) below) under `.result.root_pane.pane_id`. The split path assumes that
+  `herdr pane split` returns `.result.pane.pane_id`. If either value is empty, the script reports it. For the tab path,
+  the script then falls back to a split off the lead pane. It never falls back to an unpinned spawn. If a herdr update
+  changes the shapes, adjust those two `jq` lines in `scripts/claude-worktree`.
+- **Pane relabeling assumes that `herdr pane rename <pane_id> <name>` exists.** The script does not have to parse the
+  pane id out of the `agent start` output. The script creates the pane itself, so it already knows the id. If the
+  rename fails, the script ignores the error. The agent name is not changed. Only the visual label of the pane is
+  affected.
+- `agent start` returns non-zero when herdr cannot confirm within its 30 s startup window that the agent is ready.
+  A **trust prompt** ("do you trust this folder", which each fresh worktree path causes) does exactly that. The script
+  warns and continues. The member is live and needs only a human to answer the prompt. It is wrong to treat this as
+  a failure.
 
 ## herdr CLI contract
 
-Installed version is **herdr 0.9.0** (`herdr --version`). Every subcommand
-under `herdr agent …` / `herdr tab …` / `herdr pane …` prints **JSON by
-default** — there is no `--json` flag on `agent start`, `tab create`, or any
-of the placement commands `scripts/claude-worktree` / `scripts/herdr-team`
-use. (`herdr agent explain` is the one exception that *does* take an
-optional `--json`.) A prior version of this script passed `--json` to
-`agent start` / `tab create` anyway; herdr doesn't recognize it, so the
-command errored and every spawn through `claude-worktree` (and therefore
-`herdr-team spawn`) failed outright.
+The installed version is **herdr 0.9.0** (`herdr --version`). Each subcommand under `herdr agent …` /
+`herdr tab …` / `herdr pane …` prints **JSON by default**. There is no `--json` flag on `agent start`, `tab create`,
+or any of the placement commands that `scripts/claude-worktree` / `scripts/herdr-team` use. (`herdr agent explain` is
+the one exception. It *does* take an optional `--json`.) An earlier version of this script passed `--json` to
+`agent start` / `tab create`. herdr does not recognize it, so the command failed. Each spawn through `claude-worktree`
+(and so `herdr-team spawn`) failed completely.
 
-🔴 **0.9.0 removed `--cwd`, `--split`, `--workspace` and `--tab` from `agent
-start`** — it now attaches to an existing pane and takes `--pane` instead. The
-same class of breakage as the `--json` one above, and the reason the two-step
-spawn exists; see [How it's wired](#how-its-wired). Note this is a *client*
-change: it fails at argument parsing with `unknown option: --cwd`, unlike the
-stale-server `protocol_mismatch` covered in `doc/herdr-upgrade.md`.
+🔴 **0.9.0 removed `--cwd`, `--split`, `--workspace` and `--tab` from `agent start`.** It now attaches to an existing
+pane and takes `--pane` instead. This is the same class of breakage as the `--json` one above. It is the reason for the
+two-step spawn. See [How it's wired](#how-its-wired). This is a *client* change. It fails at argument parsing with
+`unknown option: --cwd`. This is different from the stale-server `protocol_mismatch` in `doc/herdr-upgrade.md`.
 
-**Before adding any herdr flag to a script, verify it exists**: run
-`herdr <command> --help` (or `-h`) and check the printed usage line — never
-assume a flag by analogy with another subcommand. Note the workspace guard
-denies `--help` on a *policed* subcommand (it parses as an unpinned call), so
-for those read `herdr --skill`, which prints the current CLI contract in full.
-The known, verified subcommand/flag set the two scripts rely on:
+**Before you add a herdr flag to a script, verify that it exists.** Run `herdr <command> --help` (or `-h`) and check
+the printed usage line. Do not assume a flag by analogy with another subcommand. The workspace guard denies `--help`
+on a *policed* subcommand, because it parses as an unpinned call. For those subcommands, read `herdr --skill`. It
+prints the current CLI contract in full. This is the known, verified set of subcommands and flags that the two scripts
+use:
 
 | Command | Verified flags |
 | --- | --- |
@@ -700,6 +623,5 @@ The known, verified subcommand/flag set the two scripts rely on:
 | `herdr pane send-keys <pane_id> <key...>` | (none) |
 | `herdr tab create` | `--workspace <workspace_id>`, `--cwd PATH`, `--label TEXT`, `--env KEY=VALUE`, `--focus`\|`--no-focus`. Returns the tab at `.result.tab.tab_id` **and its first pane** at `.result.root_pane.pane_id` |
 
-This table is a convenience cache of what's been checked, not a substitute
-for re-running `--help` after a herdr upgrade — `herdr channel set` can move
-to a newer minor version whose flags have shifted.
+This table is a convenience cache of what the team checked. It does not replace `--help`. Run `--help` again after a
+herdr upgrade. `herdr channel set` can move to a newer minor version with different flags.
