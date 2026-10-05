@@ -6,16 +6,16 @@ claude-rule: "Every package added to packages/Brewfile or packages/*.list MUST g
 
 # Packages — install summary
 
-At-a-glance view of **every package this repo installs** and the
-**install lane** used on each OS family. This is the summary; the
-per-manager package names, version gates, and fallback details live in
+This doc shows **each package that this repo installs** and the
+**install lane** for each OS family. It is the summary. For the
+package names of each manager, the version gates, and the fallback details, see
 [`packages-native.md`](packages-native.md).
 
-- **Rows** — one package.
+- **Rows** — one package for each row.
 - **Description** — ≤ 5 words.
 - **OS columns** — macOS, Debian/Ubuntu, Arch, Fedora.
-- **Cells** — the *lane* that installs it there (not the package name;
-  see [`packages-native.md`](packages-native.md) for exact names).
+- **Cells** — the *lane* that installs the package on that OS (not the package name).
+  For the exact names, see [`packages-native.md`](packages-native.md).
 
 ## Legend
 
@@ -42,9 +42,9 @@ per-manager package names, version gates, and fallback details live in
 Markers on the package name:
 
 - `†` — Linux: installed only with the **desktop** profile
-  (`setup.sh --desktop`); macOS: the cask installs unconditionally.
-- `‡` — **opt-in**, commented out by default (uncomment the variant you
-  want; see the list's own Containers section).
+  (`setup.sh --desktop`). macOS: the cask always installs.
+- `‡` — **opt-in**. It is commented out by default. To use it, uncomment the variant you
+  want. See the Containers section of the list.
 
 ## Shell + prompt
 
@@ -210,7 +210,7 @@ Markers on the package name:
 
 ## Keeping this in lockstep
 
-Per [`CLAUDE.md`](../CLAUDE.md) §4, any package added to
-`packages/Brewfile` or a `packages/*.list` must add a row **both here and
-in [`packages-native.md`](packages-native.md)** in the same change. The
-`post-tool-use.sh` hook flags a list edit that didn't touch both docs.
+[`CLAUDE.md`](../CLAUDE.md) §4 applies to each package that you add to
+`packages/Brewfile` or a `packages/*.list`. Add a row **to this doc and to
+[`packages-native.md`](packages-native.md)** in the same change. The
+`post-tool-use.sh` hook shows a warning when a list edit did not change both docs.

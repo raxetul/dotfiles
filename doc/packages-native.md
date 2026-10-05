@@ -7,8 +7,8 @@ claude-rule: "Every package added to packages/Brewfile or packages/*.list MUST g
 
 # Packages — native install reference
 
-Single lookup table for every package this repo installs, per OS.
-Lives next to the `.list` files it documents.
+This doc is the single lookup table for each package that this repo installs, for each OS.
+It is next to the `.list` files that it documents.
 
 ## File layout (the install lists this doc indexes)
 
@@ -27,42 +27,41 @@ packages/
 └── custom-install/        # Per-package before.sh/after.sh hooks (rustup, …)
 ```
 
-`packages/` sits at the repo root next to `configurations/`. The
-separation is intentional: `configurations/` holds app config files
-the user edits live; `packages/` holds the inventory of what's
-installed.
+`packages/` is at the repo root next to `configurations/`. The
+separation is on purpose. `configurations/` holds the app config files
+that the user edits live. `packages/` holds the inventory of what the
+setup installs.
 
-setup.sh runs in six package-related steps:
+setup.sh does six package-related steps:
 
 1. `custom-install/*/before.sh` — register third-party repos, accept
-   upstream keys, pre-create config dirs.
-2. native install — distro-detected `*.list` pair (`*-desktop.list`
-   only with `--desktop`) or `brew bundle` on macOS. Inline `# …`
-   comments are stripped first; on apt, packages with no install
+   upstream keys, and create config dirs.
+2. native install — the `*.list` pair that matches the detected distro (`*-desktop.list`
+   only with `--desktop`), or `brew bundle` on macOS. The script strips inline `# …`
+   comments first. On apt, some packages have no install
    candidate on the running release (version-gated entries like `mold`
-   on pre-12 Debian or pre-22.04 Ubuntu) are pruned with a logged skip,
-   so one missing name can't abort the whole batch.
-3. fallbacks — `aur.list` on Arch, `snap.list` elsewhere.
+   on Debian before 12 or Ubuntu before 22.04). The script removes these packages and logs a skip,
+   so one missing name does not stop the whole batch.
+3. fallbacks — `aur.list` on Arch, `snap.list` on the other distros.
 4. `custom-install/*/after.sh` — provision toolchains
-   (`rustup default stable`), install release-binary fallbacks where
-   the native repo lacks the tool (starship/atuin/claude/lefthook),
-   and own each tool's PATH via a `.path` segment.
-5. `script-install.list` — tools shipped only as an upstream
-   `curl … | sh` installer, absent from every package manager. Runs
-   after the lanes above; `scripts/run-script-installers` probes
-   `command -v <bin>` and runs each installer only where the tool is
+   (`rustup default stable`), install release-binary fallbacks when
+   the native repo does not have the tool (starship/atuin/claude/lefthook),
+   and set the PATH of each tool with a `.path` segment.
+5. `script-install.list` — tools that only an upstream
+   `curl … | sh` installer ships, and that no package manager has. This step runs
+   after the lanes above. `scripts/run-script-installers` probes
+   `command -v <bin>` and runs each installer only when the tool is
    still missing (see the section below).
 6. plugin bootstrap (vim-plug, TPM, zsh plugins, bash-preexec) +
-   symlinks (orthogonal to packages).
+   symlinks (these are independent of the packages).
 
-See [`packages/custom-install/README.md`](../packages/custom-install/README.md)
-for the hook contract.
+For the hook contract, see [`packages/custom-install/README.md`](../packages/custom-install/README.md).
 
 ## Install policy (locked)
 
 1. **Native pkg manager first.** macOS → `brew`. Linux → `apt` /
    `pacman` / `dnf` (driven by distro detection in `setup.sh`).
-2. **Fallback by distro family** (only if the native repo lacks the
+2. **Fallback by distro family** (use it only if the native repo does not have the
    package):
 
    | Distro family | Primary | Fallback 1 | Fallback 2 |
@@ -73,20 +72,20 @@ for the hook contract.
    | openSUSE | zypper | Snap | OBS / release `.rpm` |
    | macOS | brew formula | brew cask | upstream `.dmg` |
 
-   AUR is **Arch-only** — `makepkg`/`yay`/`paru` output `.pkg.tar.zst`
+   AUR is **Arch-only**. `makepkg`/`yay`/`paru` make `.pkg.tar.zst`
    files that only `pacman` can install. Flatpak is intentionally
    out of scope.
 
-3. **User-scoped footprint.** The only system-wide writes are the
-   package manager doing its job. Everything the repo plants lives
+3. **User-scoped footprint.** The only system-wide writes are the writes that the
+   package manager does for its normal work. Everything the repo plants is
    under `$HOME` (symlinks, scripts, plugin checkouts).
 
 ## How to read the tables
 
-- `—` = not in this manager's default repos; check the *Fallback* column.
-- `(name)` = installed binary has a different name than upstream
-  (script aliases it; see notes column).
-- *Fallback* lines only matter when the column for your distro is `—`.
+- `—` = not in the default repos of this manager. Read the *Fallback* column.
+- `(name)` = the installed binary has a name that is different from the upstream name
+  (the script makes an alias for it; see the notes column).
+- Use the *Fallback* lines only when the column for your distro is `—`.
 
 ---
 
@@ -127,12 +126,11 @@ for the hook contract.
 | vim-plug | — | — | — | — | bootstrap script `curl -fLo ~/.vim/autoload/plug.vim --create-dirs https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim` |
 | TPM (tmux plugin manager) | — | — | — | — | `git clone https://github.com/tmux-plugins/tpm ~/.config/tmux/plugins/tpm` |
 
-Vim plugins themselves are declared via `Plug` directives in
-`configurations/vim/vimrc`, and tmux plugins via `@plugin` lines in
-`configurations/tmux/tmux.conf`. These configs are the declarative
-source of truth: `scripts/update-dotfiles` reconciles each manager on
-every run — installing the declared plugins **and** pruning checkouts
-no longer declared (`vim +PlugInstall +PlugClean!`, TPM
+The `Plug` directives in `configurations/vim/vimrc` declare the vim plugins.
+The `@plugin` lines in `configurations/tmux/tmux.conf` declare the tmux plugins.
+These configs are the declarative source of truth. On each run,
+`scripts/update-dotfiles` reconciles each manager. It installs the declared plugins **and** removes the checkouts
+that the config no longer declares (`vim +PlugInstall +PlugClean!`, TPM
 `install_plugins` + `clean_plugins`). See CLAUDE.md §13.
 
 ## Git + dev tooling
@@ -177,10 +175,10 @@ no longer declared (`vim +PlugInstall +PlugClean!`, TPM
 ## Containers / virtualization
 
 Docker on Linux is **commented out by default** in `apt.list`,
-`pacman.list`, `dnf.list` — rooted vs rootless vs Docker-Desktop vs
-podman is a per-user choice, and mixing sources causes dpkg / rpm
-file-conflict errors. Each list's "Containers" section shows the
-candidate package sets; uncomment the one matching your install.
+`pacman.list`, and `dnf.list`. Each user chooses between rooted, rootless, Docker-Desktop, and
+podman. If you mix sources, dpkg and rpm report
+file-conflict errors. The "Containers" section of each list shows the
+candidate package sets. Uncomment the set that matches your install.
 
 | Package | brew | apt (rooted, distro) | apt (rooted, Docker repo) | apt (rootless) | pacman | dnf (rooted, Fedora) | dnf (rooted, Docker repo) | dnf (rootless) |
 |---|---|---|---|---|---|---|---|---|
@@ -249,14 +247,14 @@ candidate package sets; uncomment the one matching your install.
 
 ## Linux desktop — Tauri / GTK build dependencies
 
-(Only installed when profile = desktop.) These are the libraries needed to
+(The setup installs these only when profile = desktop.) These are the libraries that you need to
 **build** a Tauri v2 (WebKitGTK-backed) desktop app on Linux. The apt row is
-Tauri's official Debian prerequisite set verbatim. `curl` + `wget` are already
-in the baseline lists, so they are not repeated in the `*-desktop.list` files.
+the official Debian prerequisite set of Tauri, word for word. `curl` and `wget` are already
+in the baseline lists, so the `*-desktop.list` files do not repeat them.
 
-On **macOS**, Tauri does not use any of these — it renders through the system
-WebKit (WKWebView) and only needs the Xcode Command Line Tools (`xcode-select
---install`), which are not a Homebrew formula. Hence the `brew` column is `n/a`
+On **macOS**, Tauri does not use any of these libraries. It renders through the system
+WebKit (WKWebView) and needs only the Xcode Command Line Tools (`xcode-select
+--install`). These tools are not a Homebrew formula. The `brew` column is therefore `n/a`
 for the GTK-specific rows.
 
 | Package (purpose) | apt | pacman | dnf | brew |
@@ -269,16 +267,16 @@ for the GTK-specific rows.
 | Ayatana AppIndicator dev (tray) | libayatana-appindicator3-dev | libayatana-appindicator ⚠️ | libayatana-appindicator-gtk3-devel ⚠️ | n/a |
 | librsvg dev (SVG icons) | librsvg2-dev | librsvg | librsvg2-devel | n/a |
 
-⚠️ **VERIFY the AppIndicator package name** on Arch/Fedora — Tauri's docs have
-shipped both the ayatana fork (`libayatana-appindicator*`) and the older
-`libappindicator-gtk3*`. The apt name is confirmed against the user's install
-command; the pacman/dnf equivalents are best-effort and should be checked
-against your distro's current repos before relying on them.
+⚠️ **VERIFY the AppIndicator package name** on Arch/Fedora. The Tauri docs
+have shown both the ayatana fork (`libayatana-appindicator*`) and the older
+`libappindicator-gtk3*`. The apt name is confirmed against the install
+command of the user. The pacman and dnf equivalents are best-effort names.
+Check them against the current repos of your distro before you use them.
 
 ## macOS GUI bridge (`packages/Brewfile`)
 
-These ship only as Cocoa bundles — Homebrew casks are the only sane
-install path. The Brewfile is replayed by `setup.sh` on every run.
+These apps ship only as Cocoa bundles. Homebrew casks are the only practical
+install path. `setup.sh` runs the Brewfile again on each run.
 
 | Cask | Purpose |
 |---|---|
@@ -303,20 +301,20 @@ Formulas (non-cask, CLI-only on mac):
 
 ## Script-installed tools (`packages/script-install.list`)
 
-Last-resort lane for tools distributed **only** as an upstream shell
-installer (`curl … | sh`), with no package in brew/apt/pacman/dnf/snap/
-aur. `scripts/run-script-installers` runs each entry's installer **only**
-where the native lanes didn't already provide the binary: it probes
-`command -v <bin>` first and skips anything already on PATH. So a
+This is the last-resort lane for tools that only an upstream shell
+installer (`curl … | sh`) distributes, and that have no package in brew/apt/pacman/dnf/snap/
+aur. `scripts/run-script-installers` runs the installer of an entry **only**
+when the native lanes did not already provide the binary. It first probes
+`command -v <bin>` and skips each tool that is already on PATH. A
 **supported OS whose package manager ships the tool uses that package**,
-not the remote script — e.g. macOS installs `herdr` from the Brewfile and
-this lane is a no-op there; only Linux (no native pkg) runs the installer.
+not the remote script. For example, macOS installs `herdr` from the Brewfile and
+this lane does nothing there. Only Linux (no native pkg) runs the installer.
 
-This lane executes remote code as your user. Every entry is pinned and
-reviewed in the list; prefer installers that land in `~/.local/bin`
-(already on PATH, user-scoped, easy to remove). Runs streamed to
-`~/.local/state/dotfiles/script-install.log`; each install is recorded in
-the state ledger as `mgr=script`.
+This lane runs remote code as your user. The list pins and
+reviews each entry. Use installers that put the tool in `~/.local/bin`
+(already on PATH, user-scoped, easy to remove). The script writes the output of each run to
+`~/.local/state/dotfiles/script-install.log` and to the terminal. The state ledger records each install
+as `mgr=script`.
 
 | Tool | Probe binary | brew | apt / pacman / dnf | Script installer |
 |---|---|---|---|---|
@@ -326,19 +324,19 @@ the state ledger as `mgr=script`.
 
 ## Updating this document
 
-**Hard rule** (see [`CLAUDE.md`](../CLAUDE.md) §7): adding a package
-to `packages/Brewfile` or any `packages/*.list`
+**Hard rule** (see [`CLAUDE.md`](../CLAUDE.md) §7): when you add a package
+to `packages/Brewfile` or any `packages/*.list`, you
 **must** add a row in the matching section above in the same commit.
-For each new row, fill all four manager columns (or `—` + a *Fallback*
-note). The `post-tool-use.sh` hook flags edits to those files that
-didn't also touch this doc.
+Fill all four manager columns of each new row (or write `—` and add a *Fallback*
+note). The `post-tool-use.sh` hook shows a warning when an edit to those files
+did not also change this doc.
 
-When you can't find a native package for a Linux distro:
+If you cannot find a native package for a Linux distro, do these steps:
 
-1. Check AUR first (Arch only) — `https://aur.archlinux.org/packages?K=<name>`.
-2. Check Snap — `snap find <name>`.
-3. Check upstream releases — most projects ship a `.deb` + `.rpm` + tarball.
-4. Last resort: language-specific installer (`cargo install`,
-   `go install`, `pipx install`) — note in the *Fallback* column.
+1. Check AUR first (Arch only): `https://aur.archlinux.org/packages?K=<name>`.
+2. Check Snap: `snap find <name>`.
+3. Check the upstream releases. Most projects ship a `.deb`, a `.rpm`, and a tarball.
+4. As a last resort, use a language-specific installer (`cargo install`,
+   `go install`, `pipx install`). Write a note in the *Fallback* column.
 
-Never use Flatpak — out of scope by policy.
+Do not use Flatpak. The policy puts it out of scope.
