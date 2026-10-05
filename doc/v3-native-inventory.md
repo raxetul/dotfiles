@@ -4,25 +4,25 @@ branch: main
 maintainer: raxetul@gmail.com
 claude-rule: "Phase-1 inventory for the Nix-removal refactor. Update entries as packages get verified on each distro."
 progress: |
-  Phases 1-3 done (inventory, native package lists, symlink loop in
-  scripts/symlinks.sh). Phase 5 deletions done: flake.nix, flake.lock,
-  home/, .claude/skills/nix-module-author/, .claude/commands/new-module.md,
-  doc/flake.md, doc/home-default.md, doc/modules-*.md, doc/packages-*.md
-  are all gone; no .nix files remain in the tree.
-  Plugin wiring that Home Manager used to generate is now native:
-  tmux via TPM (yank, catppuccin + theme) and
-  vim via vim-plug (~24 plugins) — see configurations/tmux/tmux.conf
+  Phases 1-3 are done (inventory, native package lists, symlink loop in
+  scripts/symlinks.sh). The Phase 5 deletions are done. These files are
+  all gone: flake.nix, flake.lock, home/, .claude/skills/nix-module-author/,
+  .claude/commands/new-module.md, doc/flake.md, doc/home-default.md,
+  doc/modules-*.md, doc/packages-*.md. No .nix files remain in the tree.
+  The plugin wiring that Home Manager generated is now native:
+  tmux uses TPM (yank, catppuccin + theme) and
+  vim uses vim-plug (~24 plugins). See configurations/tmux/tmux.conf
   and configurations/vim/vimrc.
-  Phase 4 done: scripts/dotfiles-state.sh records the realized
-  footprint (see doc/state-management.md), and scripts/uninstall.sh
-  reverses it in one pass — symlinks, ledger-recorded plugins and
-  bootstraps, .path segments, with optional ledger-driven --purge
-  (install-only, never present) and --shell revert.
+  Phase 4 is done. scripts/dotfiles-state.sh records the realized
+  footprint (see doc/state-management.md). scripts/uninstall.sh
+  reverses it in one pass: symlinks, plugins and bootstraps that the
+  ledger records, and .path segments. It has an optional --purge that the ledger
+  controls (install-only, never present) and an optional --shell revert.
 ---
 
 # v3-native — Phase 1 Inventory
 
-Catalog of every Nix-managed surface in the current repo, with the
+This is a catalog of each Nix-managed surface in the current repo. It gives the
 native equivalent for each supported package manager.
 
 ## Design constraints (locked)
@@ -31,27 +31,27 @@ native equivalent for each supported package manager.
    `pacman` (Arch), `dnf`/`rpm` (Fedora/RHEL/openSUSE).
 2. **Fallback only if absent from native** — AUR (Arch), Snap (cross-distro).
    Flatpak intentionally not in scope.
-3. **User-scoped footprint** — the only system-wide writes are the package
-   manager itself doing its job (sudo apt install …). Everything the
-   repo plants lives under `$HOME`:
+3. **User-scoped footprint** — the only system-wide writes are the writes that the package
+   manager does for its normal work (sudo apt install …). Everything the
+   repo plants is under `$HOME`:
    - dotfiles checkout: `~/gel-ort/dotfiles/`
    - symlinks: `~/.config/<app>/…`
    - shell rcs: `~/.zshrc`, `~/.bashrc`, `~/.vimrc`
    - scripts: `~/.scripts/` on PATH
    - third-party assets (tpm, zsh plugins, vim plugins): `~/.config/...`
      or `~/.local/share/...`
-4. **Easy uninstall** — `scripts/uninstall.sh` removes every user-scope
-   artifact in one pass; `--purge` removes only the ledger's
-   `install` records (never `present` ones) via the matching package
+4. **Easy uninstall** — `scripts/uninstall.sh` removes each user-scope
+   artifact in one pass. `--purge` removes only the `install` records
+   of the ledger (never `present` ones) with the matching package
    manager.
 
 ---
 
 ## Package mapping
 
-Legend: `—` = not in this manager's primary repo; `(name)` = installs
-with a different binary name than upstream (caller must alias / rename
-PATH).
+Legend: `—` = not in the primary repo of this manager. `(name)` = the package installs
+with a binary name that is different from the upstream name (the caller must alias or rename
+it in PATH).
 
 ### Cross-platform CLI (was `home/modules/packages/common.nix`)
 
@@ -86,7 +86,7 @@ PATH).
 | jetbrains-mono Nerd Font | font-jetbrains-mono-nerd-font | — | ttf-jetbrains-mono-nerd | — | AUR `nerd-fonts-jetbrains-mono`, or release zip → `~/.local/share/fonts/`, then `fc-cache -fv` |
 
 ### Linux baseline (was `home/modules/packages/linux.nix`)
-Currently empty — module body has no `home.packages`. Nothing to map.
+This module is empty. The module body has no `home.packages`. There is nothing to map.
 
 ### Linux server (was `home/modules/packages/linux-server.nix`)
 
@@ -137,7 +137,7 @@ flameshot, qt-creator, kdiff3, veracrypt, **pinentry-mac** (referenced by
 
 ## Module catalog — config + binaries
 
-Each row: what Nix did, what survives, what we have to rebuild in v3.
+Each row shows what Nix did, what stays, and what we must rebuild in v3.
 
 | Module | Binary needed | Config file (lives in repo) | What HM was doing extra |
 |---|---|---|---|
@@ -158,21 +158,21 @@ Each row: what Nix did, what survives, what we have to rebuild in v3.
 
 ### Notes per module
 
-- **vim plugins**: Nix's `pkgs.vimPlugins.*` set was 17 plugins. v3 uses
-  vim-plug (single `.vim` file in `~/.vim/autoload/plug.vim`). Bootstrap
+- **vim plugins**: The `pkgs.vimPlugins.*` set of Nix had 17 plugins. v3 uses
+  vim-plug (one `.vim` file in `~/.vim/autoload/plug.vim`). This is the bootstrap
   command in setup.sh:
   ```sh
   curl -fLo ~/.vim/autoload/plug.vim --create-dirs \
     https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
   ```
   Then `vim +PlugInstall +qa`.
-- **tmux plugins**: TPM is the standard. Bootstrap:
+- **tmux plugins**: TPM is the standard. This is the bootstrap:
   ```sh
   git clone https://github.com/tmux-plugins/tpm ~/.config/tmux/plugins/tpm
   ```
   `tmux.conf` already has `run '~/.config/tmux/plugins/tpm/tpm'` (verify).
-- **zsh plugins**: prefer distro packages where possible. Each distro
-  ships them in a slightly different path — handle in zshrc with
+- **zsh plugins**: Use distro packages when possible. Each distro
+  puts them in a different path. In zshrc, use
   `[ -f … ] && source …` guards for all the common paths.
 
 ---
@@ -185,15 +185,15 @@ Each row: what Nix did, what survives, what we have to rebuild in v3.
 | `darwin.ghosttyMacosNotice` | macOS only | `setup.sh` step on macOS: print same warning if `~/Library/Application Support/com.mitchellh.ghostty/config` exists as non-symlink |
 | `darwin.brewBundle` | macOS only | `setup.sh` already does `brew bundle --file=…/Brewfile` — promote from "Step 2b" to a proper step in v3 |
 
-No `services.*` / `launchd.*` / `systemd.user.*` blocks anywhere — no
+The repo has no `services.*` / `launchd.*` / `systemd.user.*` blocks. There are no
 unit files to migrate.
 
 ---
 
 ## Symlinks (what HM's `xdg.configFile` / `home.file` was creating)
 
-All of these become plain `ln -sf $REPO/configurations/<src> ~/<dst>`
-calls in setup.sh. Source paths are byte-identical to today.
+Each of these becomes a plain `ln -sf $REPO/configurations/<src> ~/<dst>`
+call in setup.sh. The source paths are byte-identical to the paths today.
 
 | Repo source | Symlink target |
 |---|---|
@@ -215,17 +215,17 @@ calls in setup.sh. Source paths are byte-identical to today.
 | `configurations/waybar/style.css` (linux desktop) | `~/.config/waybar/style.css` |
 | `scripts/<each-file>` | `~/.scripts/<each-file>` (with +x) |
 
-Additional files we have to **create** (currently HM-generated, no
-source file in repo):
+We must **create** these additional files. HM generates them now, and
+the repo has no source file for them:
 
-- `configurations/zsh/.zshrc` — assemble from current HM `programs.zsh`
-  attrs (initContent, sessionVariables, shellAliases) + plugin source
-  lines + tool init evals (`atuin`, `starship`, `zoxide`, `fzf`).
+- `configurations/zsh/.zshrc` — build it from the current HM `programs.zsh`
+  attrs (initContent, sessionVariables, shellAliases), the plugin source
+  lines, and the tool init evals (`atuin`, `starship`, `zoxide`, `fzf`).
 - `configurations/bash/.bashrc` — minimal, sources aliases.
 - `configurations/zsh/exports.sh` — `EDITOR`, `EZA_COLORS`, etc.
 - `configurations/gpg/gpg.conf` — extracted from `programs.gpg` inline.
 - `configurations/gpg/gpg-agent.conf.darwin` and `.linux` — extracted
-  from `home/modules/gpg.nix` inline.
+  from the inline content of `home/modules/gpg.nix`.
 
 ---
 
@@ -286,8 +286,8 @@ doc/packages-*.md        # 4 files (will be replaced by 1 doc/packages-native.md
 
 `scripts/uninstall.sh` reads the realized-state
 ledger (`scripts/dotfiles-state.sh`, see
-[state-management.md](state-management.md)) rather than re-deriving the
-footprint, so `--purge` only removes packages we actually installed:
+[state-management.md](state-management.md)). It does not derive the
+footprint again. `--purge` therefore removes only the packages that we installed:
 
 ```sh
 # 1. Remove symlinks the repo planted (scripts/symlinks.sh uninstall;
@@ -306,5 +306,5 @@ Worst-case "delete everything this repo planted":
 ./scripts/uninstall.sh --purge --shell && rm -rf ~/gel-ort/dotfiles
 ```
 
-No `/etc/`, `/usr/local/`, `/opt/` writes outside what the native pkg
-manager itself does.
+The repo does not write to `/etc/`, `/usr/local/`, or `/opt/`, except for the writes that the native pkg
+manager does.
