@@ -242,6 +242,9 @@ upstream, so a re-sync needs no merge. Put anything else that this setup needs i
 that references the vendored one**. The `embedded-security*` skills use this pattern. They build on
 the conventions of `security-audit` and do not fork it.
 
+Each own skill ends with a `## Writing style` section. It applies the ASD-STE100 style rule. A vendored skill
+does not get this section, because `vendor` overwrites the skill and removes the section.
+
 Two files survive a re-sync, because they are ours and not upstream's. One is the `VENDORED.md` note
 that records the source of the copy. The other is each file that `extra` names (usually `LICENSE`,
 kept for attribution).

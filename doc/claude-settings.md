@@ -89,3 +89,10 @@ readlink ~/.claude/settings.json   # should resolve into the dotfiles repo check
 
 If the path does not resolve into the repo, the symlink was clobbered. Reconcile any content that the plain
 file gained. Then run `scripts/symlinks.sh install` to restore the link.
+
+## Writing style
+
+The global `configurations/claude/CLAUDE.md` has an "ASD-STE100 style" block in its "Writing" section. The block
+tells the agent to write answers and on-disk docs in Simplified Technical English. Each command file in
+`configurations/claude/commands/` and `.claude/commands/` ends with a `## Writing style` section for the same rule.
+The rule covers style only. It never claims STE compliance. Do not write STE rules into the `CLAUDE.md` of a project.
