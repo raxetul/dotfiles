@@ -86,3 +86,9 @@ from this repo by `scripts/symlinks.sh`; this command only **activates** it here
    once (or a restart) before it fires this session.
 
 Never commit automatically. Leave the changes staged for the user to review.
+
+## Writing style
+
+Write this command's replies and any docs it writes in ASD-STE100 style, per the global
+`CLAUDE.md` "Writing" section. Style only: no STE rules or compliance claims go into the
+project's files.

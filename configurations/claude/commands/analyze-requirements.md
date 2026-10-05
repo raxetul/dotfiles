@@ -116,3 +116,9 @@ tables with weak findings.
 
 Do not offer to apply the fixes unless asked; if the user then wants them,
 `/next-phase-requirements` is the command that writes requirements.
+
+## Writing style
+
+Write this command's replies and any docs it writes in ASD-STE100 style, per the global
+`CLAUDE.md` "Writing" section. Style only: no STE rules or compliance claims go into the
+project's files.

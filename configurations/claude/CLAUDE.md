@@ -349,6 +349,17 @@ The failure this fixes: producing a long, well-formatted reply that repeats
 itself and buries the answer. Length and structure read as thoroughness while
 actually making the answer harder to find.
 
+**ASD-STE100 style.** Write answers and on-disk docs in the style of ASD-STE100
+(Simplified Technical English). Style only — never claim STE compliance or certification,
+and never write STE rules into a project's own `CLAUDE.md`.
+
+- Procedure sentences ≤ 20 words, descriptive sentences ≤ 25 words.
+- One instruction per sentence; procedures use the imperative ("Run …", "Do not …").
+- Active voice. Keep articles ("the", "a"). No `-ing` words as nouns.
+- One word = one meaning, used the same way everywhere. Common words; technical names as-is.
+- Paragraphs ≤ 6 sentences. Warnings: the instruction first, then the reason.
+- Code, commands, paths, glyphs and table data are never rewritten for style.
+
 ## Pre-action brief — how I present work before doing it
 
 Before any **side-effecting** work I present a brief in this exact shape, then

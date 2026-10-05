@@ -62,3 +62,9 @@ Rules:
 Nothing beyond the two tables and the summary line. If both the phase source and
 the awaiting section are missing, say the project has no progress tracking and
 name the paths you tried — don't infer progress from git history.
+
+## Writing style
+
+Write this command's replies and any docs it writes in ASD-STE100 style, per the global
+`CLAUDE.md` "Writing" section. Style only: no STE rules or compliance claims go into the
+project's files.

@@ -17,3 +17,9 @@ Implement a phase of the project, **gated on full requirements coverage across t
 8. When all of the phase's requirements pass their tests **and the documentation is in sync**, mark the phase `- [x]` in `PHASES.md`.
 
 Report which requirements you covered (by ID), the tests proving each, and the documentation sections you updated.
+
+## Writing style
+
+Write this command's replies and any docs it writes in ASD-STE100 style, per the global
+`CLAUDE.md` "Writing" section. Style only: no STE rules or compliance claims go into the
+project's files.

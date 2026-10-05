@@ -109,3 +109,9 @@ whatever TDD workflow the project already uses, not this command.
 - If the project type makes a rung-2 match genuinely hard (embedded HIL, manual
   QA steps), say so rather than guessing; report those requirements as
   `unverifiable by static inspection` with the reason.
+
+## Writing style
+
+Write this command's replies and any docs it writes in ASD-STE100 style, per the global
+`CLAUDE.md` "Writing" section. Style only: no STE rules or compliance claims go into the
+project's files.

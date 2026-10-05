@@ -55,3 +55,9 @@ Hard rules:
 - Never commit files that look like secrets (`.env`, `*.pem`,
   `credentials*`, `*.key`, `id_rsa*`). If one is staged, refuse and
   warn.
+
+## Writing style
+
+Write this command's replies and any docs it writes in ASD-STE100 style, per the global
+`CLAUDE.md` "Writing" section. Style only: no STE rules or compliance claims go into the
+project's files.
