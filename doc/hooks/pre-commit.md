@@ -7,11 +7,9 @@ claude-rule: "Update this doc whenever the source changes."
 
 ## Purpose
 
-Thin shim around `lefthook run pre-commit`. Used by `/commit` to
-sanity-check the staged tree before the agent invokes
-`git commit`. lefthook's commit-msg hook would catch the same
-issues, but only after the commit machinery has already engaged —
-running it ahead-of-time lets the agent revise without churn.
+This hook is a thin shim around `lefthook run pre-commit`. `/commit` uses it to check the staged tree before the
+agent runs `git commit`. The commit-msg hook of lefthook finds the same problems. But it runs only after the
+commit machinery has started. When this shim runs first, the agent can change the commit with less rework.
 
 ## Flags
 
@@ -19,26 +17,25 @@ None. The script reads no arguments.
 
 ## Behavior
 
-1. Checks `lefthook` is on PATH. If missing, exits with code 2
-   (advisory — not a hard failure; the agent decides).
-2. Resolves repo root via `git rev-parse --show-toplevel`.
-3. `cd` into the repo root and `exec lefthook run pre-commit`.
+1. The hook checks that `lefthook` is on PATH. If it is missing, the hook exits with code 2. This is advisory,
+   not a hard failure. The agent decides what to do.
+2. The hook finds the repo root with `git rev-parse --show-toplevel`.
+3. The hook does `cd` to the repo root and runs `exec lefthook run pre-commit`.
 
 Exit codes:
 
 - `0` — lefthook accepted the staged tree.
-- `1` — lefthook rejected (formatting / shellcheck / etc.).
-- `2` — lefthook not installed.
+- `1` — lefthook rejected the staged tree (formatting, shellcheck, and so on).
+- `2` — lefthook is not installed.
 
 ## Hard rules
 
-- Never bypasses lefthook (`LEFTHOOK=0`).
-- Doesn't run `lefthook install`. That's the responsibility of
-  `setup.sh` (Phase 14) and `scripts/update-dotfiles` (Phase 11).
+- Do not bypass lefthook (`LEFTHOOK=0`).
+- Do not run `lefthook install`. `setup.sh` (Phase 14) and `scripts/update-dotfiles` (Phase 11) do this task.
 
 ## Related
 
 - [configurations/lefthook.yml](../../configurations/lefthook.yml)
-  — pre-commit pipeline (`shellcheck`).
+  — the pre-commit pipeline (`shellcheck`).
 - [.claude/commands/commit.md](../../.claude/commands/commit.md)
-  — `/commit` invokes this shim.
+  — `/commit` runs this shim.
