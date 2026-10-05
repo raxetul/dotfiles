@@ -271,3 +271,9 @@ described, and keep `.mmd` ↔ inline copies identical. Then report:
 - any `_TBD_` placeholders left for me to fill and assumptions flagged,
 - a suggested Conventional Commit (e.g. `docs: add project documentation`) —
   but **do not commit automatically**.
+
+## Writing style
+
+Write this command's replies and any docs it writes in ASD-STE100 style, per the global
+`CLAUDE.md` "Writing" section. Style only: no STE rules or compliance claims go into the
+project's files.

@@ -62,3 +62,9 @@ Procedure:
 
 5. **Report** which file was created/edited. Suggest committing it using
    the project's own commit convention — do not commit automatically.
+
+## Writing style
+
+Write this command's replies and any docs it writes in ASD-STE100 style, per the global
+`CLAUDE.md` "Writing" section. Style only: no STE rules or compliance claims go into the
+project's files.

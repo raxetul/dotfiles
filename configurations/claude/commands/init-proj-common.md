@@ -181,3 +181,9 @@ Procedure:
 8. **Report** every file created/edited and CLI step run, and suggest
    committing with the project's own Conventional Commit convention —
    do not commit automatically.
+
+## Writing style
+
+Write this command's replies and any docs it writes in ASD-STE100 style, per the global
+`CLAUDE.md` "Writing" section. Style only: no STE rules or compliance claims go into the
+project's files.

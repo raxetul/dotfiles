@@ -71,3 +71,9 @@ Procedure:
 4. **Report.** Summarize: what was committed/pushed (commit hash), what
    migration candidates were found, and what the user chose to migrate or
    defer. Leave anything not confirmed untouched.
+
+## Writing style
+
+Write this command's replies and any docs it writes in ASD-STE100 style, per the global
+`CLAUDE.md` "Writing" section. Style only: no STE rules or compliance claims go into the
+project's files.
