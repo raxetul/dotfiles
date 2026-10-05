@@ -7,20 +7,20 @@ claude-rule: "herdr's keybindings are documented here and MUST be kept in lockst
 # herdr — workspace manager keybindings
 
 herdr places every parallel Claude session (see
-[claude-worktrees.md](claude-worktrees.md)). Its config lives at
-`configurations/herdr/config.toml`, symlinked to `~/.config/herdr/config.toml`
-by `scripts/symlinks.sh`.
+[claude-worktrees.md](claude-worktrees.md)). Its config is in
+`configurations/herdr/config.toml`. `scripts/symlinks.sh` symlinks it to
+`~/.config/herdr/config.toml`.
 
-This file is about **keybindings**. Upgrading the running herdr server — and why
-a new binary alone does not do it — is [herdr-upgrade.md](herdr-upgrade.md).
+This file is about **keybindings**. To upgrade the running herdr server, read
+[herdr-upgrade.md](herdr-upgrade.md). A new binary alone does not upgrade the
+server. That file explains why.
 
 ## The problem this config solves
 
-herdr ships with everything behind a tmux-style prefix (`ctrl+b` by default),
-so moving between panes, tabs and workspaces costs two keystrokes each. tmux —
-the other multiplexer on this machine — was already configured the opposite
-way, with bare `ctrl+h/j/k/l` for panes. That asymmetry is what made navigation
-feel awkward.
+By default, herdr puts every command behind a tmux-style prefix (`ctrl+b`). To
+move between panes, tabs and workspaces, you must press two keys each time.
+tmux is the other multiplexer on this machine. It uses the opposite setup: bare
+`ctrl+h/j/k/l` move between panes. This difference made navigation difficult.
 
 ```
 ┌─ keystroke ─┐
@@ -29,8 +29,9 @@ feel awkward.
 └─────────────┘                                          (shell / vim / Claude)
 ```
 
-That order is why a herdr binding always wins over an application binding — and
-why binding a key herdr does not need is what lets the application keep it.
+herdr checks its own bindings first. For this reason, a herdr binding always
+wins over an application binding. If herdr does not bind a key, the application
+keeps it.
 
 ## The layer model
 
@@ -39,7 +40,7 @@ why binding a key herdr does not need is what lets the application keep it.
 | inner — tmux (inside a pane) | `ctrl` | `ctrl+h/j/k/l` → panes, vim-aware |
 | outer — herdr (around the pane) | `ctrl+alt` | panes, tabs, workspaces |
 
-One mental model: add `alt` to go one layer out.
+Use one rule: add `alt` to go one layer out.
 
 ## Bindings
 
@@ -51,32 +52,32 @@ One mental model: add `alt` to go one layer out.
 | `next_workspace` / `previous_workspace` | `ctrl+alt+.` / `ctrl+alt+,` | 🟡 untested |
 | `switch_tab` (indexed) | `ctrl+alt+1..9` | 🟡 untested |
 
-> 🔴 **The `ctrl+alt` layer is not reaching herdr.** `herdr server
-> reload-config` reports `status: applied` with zero diagnostics, so herdr
-> accepts the bindings — the keys are simply not being delivered to it. Root
-> cause still open; see "Diagnosing an undelivered chord" below. An earlier
-> revision of this table recorded `ctrl+alt+g` as confirmed working; that was
-> wrong and is corrected here.
+> 🔴 **The `ctrl+alt` layer does not reach herdr.** `herdr server
+> reload-config` reports `status: applied` with zero diagnostics. This shows
+> that herdr accepts the bindings. The keys do not arrive at herdr. The root
+> cause is still open. See "Diagnosing an undelivered chord" below. An earlier
+> revision of this table said that `ctrl+alt+g` worked. That was wrong. This
+> revision corrects it.
 
-`next_workspace` / `previous_workspace` are unbound in herdr's defaults; the
-rest are moved off the prefix.
+herdr does not bind `next_workspace` / `previous_workspace` by default. The
+other actions move off the prefix.
 
-Everything not listed keeps its default prefix binding — `prefix+c` new tab,
-`prefix+v` / `prefix+minus` splits, `prefix+z` zoom, `prefix+r` resize mode, and
-so on. See `herdr --default-config`.
+All other actions keep their default prefix binding. Examples: `prefix+c` for a
+new tab, `prefix+v` / `prefix+minus` for splits, `prefix+z` for zoom, and
+`prefix+r` for resize mode. To see the full list, run `herdr --default-config`.
 
-## Two findings worth not rediscovering
+## Two findings to keep in mind
 
-**There is no sticky/repeat prefix mode.** Verified by grepping the whole of
-`herdr --default-config` for `sticky` / `repeat` / `remain` — zero hits. herdr's
-prefix is single-shot. The substitute is the direct bindings above: skip the
-prefix entirely rather than making it stick.
+**herdr has no sticky/repeat prefix mode.** The whole of `herdr --default-config`
+was searched for `sticky` / `repeat` / `remain`. There were zero hits. The
+herdr prefix is single-shot. The substitute is the direct bindings above. They
+skip the prefix, so the prefix does not need to stay active.
 
-**`ctrl+alt+space` is unusable on macOS.** It is the system default for *Select
-next input source*, so the OS swallows it before Ghostty or herdr ever sees it.
-That is why `goto` is `ctrl+alt+g`. Every other candidate key
-(`h/j/k/l/n/p/g/,/./1-9`) was checked against the enabled macOS `ctrl+option`
-hotkeys — no further collisions.
+**`ctrl+alt+space` does not work on macOS.** It is the system default for
+*Select next input source*. The OS takes it before Ghostty or herdr can see it.
+For this reason, `goto` is `ctrl+alt+g`. The other candidate keys
+(`h/j/k/l/n/p/g/,/./1-9`) were compared with the enabled macOS `ctrl+option`
+hotkeys. There are no more collisions.
 
 ## Modes herdr does have
 
@@ -87,16 +88,16 @@ hotkeys — no further collisions.
 | navigate | `ctrl+alt+g` | sidebar selection UI with a cursor; `h/j/k/l` move panes, arrows move workspaces; `esc` exits |
 | resize | `prefix+r` | |
 
-Navigate mode is a **selection overlay**, not an invisible vim-style normal
-mode. Its movement keys are configurable via `navigate_pane_*` /
-`navigate_workspace_*`; they are independent of `focus_pane_*`.
+Navigate mode is a **selection overlay**. It is not an invisible vim-style
+normal mode. You can configure its movement keys with `navigate_pane_*` and
+`navigate_workspace_*`. They are independent of `focus_pane_*`.
 
 ## 🔴 Do not bind bare `tab` / `shift+tab`
 
-They are tempting for tab switching and they are a trap: a direct herdr binding
-is consumed before the pane sees it, which would kill shell completion, vim, and
-Claude Code's own `shift+tab` (permission-mode cycling) in **every** pane. Use
-the `ctrl+alt` layer instead.
+These keys look good for tab switching, but they cause problems. herdr takes a
+direct binding before the pane sees it. Then shell completion and vim stop
+working in **every** pane. Claude Code's own `shift+tab` (permission-mode
+cycling) also stops working. Use the `ctrl+alt` layer instead.
 
 ## Applying and reverting
 
@@ -105,12 +106,13 @@ herdr server reload-config   # apply without restarting the session
 herdr config reset-keys      # escape hatch: back up config.toml, drop custom keys
 ```
 
-Alt-modified chords are terminal-dependent — herdr's own docs flag them.
+The terminal decides how it handles alt-modified chords. herdr's own docs give
+this warning.
 
 ## Diagnosing an undelivered chord
 
-When a binding does not fire, first establish **which** of the three layers is
-losing it, in this order — each step rules out one:
+When a binding does not fire, find which of the three layers loses it. Do the
+checks in this order. Each check rules out one cause:
 
 | # | Check | Rules out |
 | --- | --- | --- |
@@ -120,19 +122,19 @@ losing it, in this order — each step rules out one:
 
 ### Letters vs arrows — why the encoding matters
 
-A modified **letter** reaches the terminal as an ESC-prefixed byte
-(`ctrl+alt+g` → `ESC` `0x07`), and whether that ESC is produced at all depends
-on `macos-option-as-alt`, which is set to `left` here — the **right** Option key
-never produces Alt. A modified **arrow** is a CSI sequence carrying the modifier
-as a numeric parameter (`ctrl+alt+left` → `ESC [ 1 ; 7 D`) and does not depend on
-that setting.
+The terminal sends a modified **letter** as an ESC-prefixed byte (`ctrl+alt+g`
+→ `ESC` `0x07`). The terminal makes that ESC only if `macos-option-as-alt`
+allows it. This setting is `left` here. The **right** Option key never produces
+Alt. The terminal sends a modified **arrow** as a CSI sequence. The modifier is
+a numeric parameter in that sequence (`ctrl+alt+left` → `ESC [ 1 ; 7 D`). This
+does not depend on that setting.
 
-That is why the pane-focus bindings moved from `h/j/k/l` to the arrow keys after
-the letter layer proved undeliverable. `goto`, the tab and the workspace
-bindings are still on `ctrl+alt+<letter>` and therefore still suspect — if the
-arrows work and the letters do not, the encoding difference is confirmed as the
-cause and the rest should move to function keys.
+For this reason, the pane-focus bindings moved from `h/j/k/l` to the arrow
+keys. The letter layer did not work. `goto`, the tab bindings and the workspace
+bindings are still on `ctrl+alt+<letter>`. They are still suspect. Suppose the
+arrows work and the letters do not. Then the encoding difference is the
+confirmed cause. In that case, move the rest to function keys.
 
-Fallback, per herdr's own guidance on the most reliable direct bindings:
-function keys (`f1`–`f8`), or `ctrl+<letter>` chords that tmux does not already
-claim.
+herdr's own guidance names the most reliable direct bindings. Use them as a
+fallback: function keys (`f1`–`f8`), or `ctrl+<letter>` chords that tmux does
+not already use.
