@@ -6,24 +6,21 @@ claude-rule: "This doc MUST be kept in lockstep with scripts/dc-image-update —
 
 # dc-image-update — docker compose image pull/recreate helper
 
-An interactive zsh script that recursively scans a directory for docker
-compose files, lists every service image, lets you mark each image for
-`pull` or `pull + recreate`, remembers your marks between runs, and — on
-apply — pulls the marked images and recreates only the **running**
-containers whose image digest actually changed.
+`dc-image-update` is an interactive zsh script. It scans a directory for docker compose files and lists every
+service image. You mark each image for `pull` or `pull + recreate`. The script remembers your marks between runs.
+When you apply, it pulls the marked images. Then it recreates only the **running** containers whose image digest
+changed.
 
-No file extension on purpose: this repo's shellcheck pre-commit glob is
-`{scripts/*.sh,setup.sh}` and shellcheck does not understand zsh (SC1071),
-so a `.sh` name would fail commit. `scripts/` is linked wholesale onto
-`~/.scripts` (`scripts::.scripts` in `scripts/symlinks.sh`), so once the
-file is executable it's on `PATH` with no further wiring — same pattern
-as `init-load`, `herdr-team`, `claude-worktree`.
+The script has no file extension on purpose. The shellcheck pre-commit glob in this repo is
+`{scripts/*.sh,setup.sh}`, and shellcheck does not understand zsh (SC1071). A `.sh` name would fail the commit.
+`scripts/` is linked as one directory onto `~/.scripts` (`scripts::.scripts` in `scripts/symlinks.sh`). When the
+file is executable, it is on `PATH` and needs no other setup. `init-load`, `herdr-team`, and `claude-worktree` use
+the same pattern.
 
-**Dependency note:** `docker` is required but **not installed by this
-repo** — see [packages-native.md](packages-native.md) for why it's
-commented out in `packages/apt.list` (rooted vs. rootless vs. Docker
-Desktop is a per-user choice). `jq` ships in every package list already.
-Missing either exits 3 before anything else runs.
+**Dependency note:** `docker` is required, but this repo does **not** install it. See
+[packages-native.md](packages-native.md) for the reason it is commented out in `packages/apt.list`. Rooted docker,
+rootless docker, and Docker Desktop are a choice for each user. `jq` is already in every package list. If either
+tool is missing, the script exits with code 3 before it does anything else.
 
 ## Flow
 
@@ -56,20 +53,20 @@ flowchart TD
 
 ## Scan pruning
 
-Every **dot-directory** is pruned — except the scan root itself (so
-`dc-image-update ~/.config` still scans `~/.config`, it just won't descend
-into dot-directories *underneath* it). This is a blanket rule rather than a
-name list: it already covers `.git`, `.venv`, `.cache`, and also stale or
-backup trees like `.old/` or `.b-hidden/` that would otherwise surface
-ghost images from compose files nobody runs anymore. On top of that, a
-short name-based list prunes common non-hidden junk directories that are
-never worth descending into: `node_modules`, `target`, `vendor`, `dist`,
-`build`.
+The scan prunes every **dot-directory**, except the scan root itself. For example, `dc-image-update ~/.config`
+still scans `~/.config`. It does not enter dot-directories *below* it.
+
+This is one general rule, not a list of names. It covers `.git`, `.venv`, and `.cache`. It also covers old or backup
+trees such as `.old/` or `.b-hidden/`. Those trees can show ghost images from compose files that nobody runs
+now.
+
+A short list of names also prunes common directories that are not hidden and are never worth scanning:
+`node_modules`, `target`, `vendor`, `dist`, `build`.
 
 ## Marks
 
-Assigned **per image**, never per compose service — the same image can
-back several services across several compose files, and gets one mark.
+You assign a mark to each **image**, not to each compose service. One image can be used by several services in
+several compose files. It has one mark.
 
 | Mark  | Meaning                                                                                |
 | ----- | --------------------------------------------------------------------------------------- |
@@ -77,10 +74,9 @@ back several services across several compose files, and gets one mark.
 | `[R]` | pull, then recreate every **running** container using that image, but only if the pull actually changed the digest |
 | `[ ]` | do nothing                                                                               |
 
-Recreate scope is deliberately the **running containers** (found via
-`docker ps` + `com.docker.compose.*` labels), not "every service listed
-in the compose file" — a compose file can define services that are not
-currently up, and those are left alone.
+The recreate scope is the **running containers** on purpose. The script finds them with `docker ps` and the
+`com.docker.compose.*` labels. It does not use every service in the compose file. A compose file can define
+services that are not up. The script does not change those services.
 
 ## Menu keys
 
@@ -110,14 +106,12 @@ strings), atomically (temp file + `mv`):
 }
 ```
 
-- A previously-tracked image whose compose file disappears keeps its
-  entry (not shown in the menu, not deleted) — so the mark comes back
-  automatically if the compose file reappears. The scan summary reports
-  how many are currently "absent".
-- An image seen for the first time gets `""` and is flagged `← new` in
-  the menu (until the marks are saved).
-- A `version` other than `1` triggers a warning and a best-effort
-  migration of marks — nothing is dropped silently.
+- If the compose file of a tracked image disappears, the image keeps its entry. The menu does not show the entry,
+  and the script does not delete it. The mark returns when the compose file returns. The scan summary shows how
+  many entries are "absent".
+- A new image gets the mark `""`. The menu shows `← new` until you save the marks.
+- If `version` is not `1`, the script shows a warning. It then migrates the marks as well as it can. It does not
+  drop any mark silently.
 
 ## Flags
 
@@ -132,17 +126,14 @@ dc-image-update [DIR] [--dry-run] [--yes|-y] [--help]
 | `--yes` / `-y`    | skip the menu, apply whatever marks are already on disk (cron/automation)           |
 | `--help` / `-h`   | usage + this reference                                                             |
 
-**Non-interactive stdin:** when stdin is not a TTY and `--yes` was not
-passed, the menu still reads commands from stdin line by line (this is
-exactly how the fixture tests below drive it — e.g. piping
-`r1`, `p2`, then an empty line for Enter). Two edge cases are resolved
-deliberately:
-- the very **first** read hits EOF with nothing piped in at all (e.g.
-  stdin redirected from `/dev/null`, as a timer unit would) → behaves
-  as if `--yes` had been passed;
-- EOF happens **after** at least one command was read → whatever marks
-  were set so far are saved and the script exits, as if `s` had been
-  typed, rather than silently discarding them.
+**Non-interactive stdin:** if stdin is not a TTY and you did not pass `--yes`, the menu reads commands from stdin,
+one line at a time. The fixture tests below use this method. For example, they pipe `r1`, `p2`, and then an empty
+line for Enter. The script handles two edge cases on purpose:
+
+- The **first** read gets EOF and nothing was piped in. This happens when stdin comes from `/dev/null`, as with a
+  timer unit. The script acts as if you passed `--yes`.
+- EOF occurs **after** the script read at least one command. The script saves the marks set so far and exits, as if
+  you typed `s`. It does not discard the marks silently.
 
 ## Exit codes
 
@@ -155,22 +146,17 @@ deliberately:
 
 ## Shell-strictness note
 
-zsh's closest analogue to bash's `set -euo pipefail` is
-`setopt err_exit no_unset pipe_fail`, but this script only sets
-`emulate -L zsh; setopt pipe_fail`, deliberately skipping `err_exit` /
-`err_return` and `no_unset`:
+The zsh option set closest to bash `set -euo pipefail` is `setopt err_exit no_unset pipe_fail`. This script sets
+only `emulate -L zsh; setopt pipe_fail`. It does not set `err_exit`, `err_return`, or `no_unset`, and this is on
+purpose:
 
-- a failed `docker pull` for one image must **not** abort the run —
-  every other marked image still has to be tried, with the failure
-  surfaced in the results table and a non-zero exit at the end. errexit
-  semantics (abort on first non-zero) fight that requirement directly,
-  so every risky command is checked explicitly instead.
-- `no_unset` turns a bare `$1` in a function called with fewer arguments
-  into a hard error, which collides with the small-helper-function style
-  used throughout (`"${1:-}"` is used wherever a default makes sense).
+- A failed `docker pull` for one image must **not** stop the run. The script must try every other marked image. It
+  shows the failure in the results table and exits with a non-zero code at the end. The errexit rule stops at the
+  first non-zero status, so it conflicts with this requirement. The script checks every risky command explicitly.
+- `no_unset` makes a bare `$1` an error when a function gets fewer arguments. This conflicts with the small helper
+  functions in the script. The script uses `"${1:-}"` where a default is correct.
 
 ## Requirements
 
-This repository has no requirements-tracking file (no `docs/requirements/`
-or similar) at the time of writing, so there is nothing to update in
-lockstep here — noted per the "keep requirements & docs in sync" rule.
+This repository has no requirements file (no `docs/requirements/` or similar) at the time of writing. There is
+nothing to update in lockstep. This note follows the "keep requirements & docs in sync" rule.

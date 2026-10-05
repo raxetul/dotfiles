@@ -6,20 +6,18 @@ claude-rule: "Keep this file in sync whenever configurations/atuin/config.toml c
 
 # atuin — encrypted, fuzzy shell history
 
-Replaces the old zsh-histdb + `HISTORY_IGNORE` regex setup. Runs
-local-only (`auto_sync = false`) — nothing leaves the machine.
+atuin replaces the old zsh-histdb and `HISTORY_IGNORE` regex setup. It runs only on the local machine
+(`auto_sync = false`). No data leaves the machine.
 
 ## Policy: no surface may HIDE history
 
-Three different UI surfaces read the same local history DB
-(`~/.local/share/atuin/history.db`). All three are **global**: a command typed
-in one tab is visible from every other tab/session/host, on every surface.
+Three UI surfaces read the same local history DB (`~/.local/share/atuin/history.db`). All three are **global**. A
+command that you type in one tab is visible from every other tab, session, and host, on every surface.
 
-The ↑ key was narrowed to `session-preload` for two weeks and reverted — see
-"Why ↑ is back on `global`" below for the measurement that ended it. Narrowing a
-surface is not forbidden outright, but it has to survive this test: **how much
-does it hide on a real, long-lived, many-pane session?** Reason about it with
-that shape in mind, not a fresh single shell.
+The ↑ key used `session-preload` for two weeks, and then the setting was reverted. See "Why ↑ is back on `global`"
+below for the measurement that ended it. You can narrow a surface, but the change must pass this test: **how much
+history does it hide in a real session that is long-lived and has many panes?** Test with that kind of session.
+Do not test with a new single shell.
 
 ```mermaid
 flowchart LR
@@ -47,10 +45,9 @@ flowchart LR
 WHERE session = '<this session>' OR timestamp < <this session's start time>
 ```
 
-which puts this terminal's own commands at the top by recency, at the price of
-hiding what other sessions ran after this one started. That price was estimated
-at ~30% when the mode was adopted. Measured again on 2026-09-06, on a shell that
-had been open since 2026-09-03:
+This query shows the commands of this terminal first, newest first. It hides what other sessions ran after this
+session started. When the team adopted the mode, the estimate of the hidden part was ~30%. A new measurement on
+2026-09-06 used a shell that was open since 2026-09-03:
 
 | Since this session started | Commands |
 | --- | --- |
@@ -58,50 +55,45 @@ had been open since 2026-09-03:
 | This session's own | **7** |
 | Hidden from ↑ | **858 across 12 sessions (99%)** |
 
-The mode assumes most of your typing happens inside the session you are sitting
-in. With herdr keeping a dozen long-lived panes — each its own atuin session —
-that assumption is simply false, and the cost grows with both session age and
-pane count. A ↑ key that hides 99% of recent history is not a preference, it is
-a broken key, so it went back to `global`.
+The mode assumes that you type most commands in the session where you work. herdr keeps a dozen long-lived panes,
+and each pane is its own atuin session. For this setup the assumption is false. The hidden part grows with the
+session age and with the pane count. A ↑ key that hides 99% of recent history is a broken key, not a preference.
+The setting went back to `global`.
 
-`session-preload` stays in `search.filters`, reachable from the Ctrl+R cycle
-key. That is the right home for it: opt in for one search when you know you want
-just this pane, instead of narrowing every ↑ press by default.
+`session-preload` stays in `search.filters`. You can reach it with the Ctrl+R cycle key. Use it for one search when
+you want only the commands of this pane. Do not use it as the default for every ↑ press.
 
-**Plain `session` remains forbidden**, for the same reason and more so — it also
-drops the `OR timestamp <` clause, hiding everything older as well.
+**Do not use plain `session`.** It has the same problem, and it is worse. It also drops the `OR timestamp <` clause,
+so it hides all older history too.
 
 ## TUI height: inline vs alternate screen
 
-Measured (query-layer innocent: atuin p50=20ms/max=110ms, starship 30ms, no
-sqlite lock): the ↑-key delay traced to `inline_height_shell_up_key_binding`
-defaulting to `0` (full alternate-screen TUI), while Ctrl+R's
-`inline_height` already defaulted to `40` (inline). The alternate-screen
-handoff is what's visible as lag under ghostty+herdr. Both are now pinned
-to the same inline value so ↑ and Ctrl+R behave identically:
+The measurements show that the query layer is not the cause: atuin p50=20ms, max=110ms; starship 30ms; no sqlite
+lock. The delay of the ↑ key came from `inline_height_shell_up_key_binding`. Its default is `0`, which is the full
+alternate-screen TUI. The default of `inline_height` for Ctrl+R is already `40`, which is inline. The switch to the
+alternate screen shows as lag in ghostty and herdr. Both keys now use the same inline value. The ↑ key and Ctrl+R
+now behave the same way:
 
 | Key | Value | Surface |
 | --- | --- | --- |
 | `inline_height` | `40` | Ctrl+R |
 | `inline_height_shell_up_key_binding` | `40` | ↑ key |
 
-Two extra keys close off the ways search scope could otherwise narrow:
+Two more keys prevent other ways to narrow the search scope:
 
 | Key | Value | Why |
 | --- | --- | --- |
 | `workspaces` | `false` | Disables workspace-scoped filtering (limiting to the current git repo tree) entirely. |
 | `[search].filters` | `["global"]` | Only `"global"` is enabled as a cycle-able filter mode, so no keybinding (e.g. the ctrl-r cycle key) can switch search into `session`, `directory`, `host`, `workspace`, or `session-preload` scoping. |
 
-`YOU SHOULD VERIFY` — the filter-mode value list (`global`, `host`,
-`session`, `session-preload`, `directory`, `workspace`) and the
-`[search].filters` key come from `atuin default-config` on atuin
-18.18.1; a future atuin release could add or rename modes.
+`YOU SHOULD VERIFY` — The list of filter-mode values (`global`, `host`, `session`, `session-preload`, `directory`,
+`workspace`) and the `[search].filters` key come from `atuin default-config` on atuin 18.18.1. A future atuin
+release can add or rename modes.
 
 ## Recording-time filter (separate from search scope)
 
-`history_filter` is evaluated when a command is **saved**, not when
-it's searched — it never makes search session-scoped, it just keeps
-noise/secrets out of the DB in the first place:
+atuin evaluates `history_filter` when it **saves** a command, not when you search. The filter never limits a
+search to one session. It keeps noise and secrets out of the DB:
 
 ```mermaid
 flowchart LR
@@ -110,45 +102,37 @@ flowchart LR
     F -->|no| DB["(history.db)"]
 ```
 
-Current patterns (leading-token guards for common secret shapes, plus
-the two noisiest commands so they don't drown out signal): `^aws `,
+The current patterns guard the first word of common secret shapes. They also match the two noisiest commands, so
+that these commands do not hide useful entries: `^aws `,
 `^secret`, `^password`, `^token`, `^api[-_]?key`,
 `^export .*(SECRET|TOKEN|API|KEY|PASSWORD|PASS)=`, `^pass `, `^cat `,
 `^ls$`, `^ls .*`.
 
 ## Grey autosuggestion: atuin-only, no strategy fallback
 
-`atuin init zsh` sets `ZSH_AUTOSUGGEST_STRATEGY` by *prepending* its own
-`atuin` strategy in front of whatever was already set — if
-zsh-autosuggestions' default (`history`) was already in place, the result
-is `(atuin history)`. `scripts/init-load` overrides this explicitly right
-after `eval "$(atuin init zsh)"`:
+`atuin init zsh` sets `ZSH_AUTOSUGGEST_STRATEGY`. It *adds* its own `atuin` strategy before the existing value. If
+the zsh-autosuggestions default (`history`) is already set, the result is `(atuin history)`. `scripts/init-load`
+overrides this value directly after `eval "$(atuin init zsh)"`:
 
 ```sh
 ZSH_AUTOSUGGEST_STRATEGY=(atuin)
 ```
 
-Trade-off (deliberate): if atuin is ever unavailable, the grey suggestion
-simply doesn't appear — no silent fallback to plain `history`-based
-suggestions, which would read `~/.zsh_history` outside atuin's filtering.
+Trade-off (on purpose): if atuin is not available, the grey suggestion does not appear. There is no silent
+fallback to the plain `history` strategy. That strategy reads `~/.zsh_history` and skips the atuin filter.
 
 ## `HISTORY_IGNORE` (zsh): recall-time mirror of `history_filter`
 
-`history_filter` (above) only stops atuin from *recording* a command.
-`~/.zsh_history` still records independently (`setopt` history options
-aren't touched by atuin), so `scripts/init-load` sets zsh's own
-`HISTORY_IGNORE` to a glob translation of the same rules, applied to
-`↑`/`history` on that file too. zsh's `HISTORY_IGNORE` takes **one**
-pattern, so every rule folds into a single `(a|b|c)` alternation.
+`history_filter` (above) stops only atuin from *recording* a command. `~/.zsh_history` records commands on its own,
+because atuin does not change the `setopt` history options. For this reason, `scripts/init-load` sets the zsh
+variable `HISTORY_IGNORE` to a glob version of the same rules. It applies to `↑` and `history` on that file also.
+zsh `HISTORY_IGNORE` takes **one** pattern. The script joins all rules into one `(a|b|c)` alternation.
 
-**Deliberately NOT `setopt EXTENDED_GLOB`**: it turns `^` into a glob
-operator, which breaks unquoted everyday commands like `git show HEAD^`
-/ `git diff HEAD^^` (they fail with "no matches found" — measured, not
-assumed: `zsh -f -c 'setopt extended_glob; eval "print -r -- HEAD^"'`
-reproduces it). `(a|b|c)` alternation works without EXTENDED_GLOB, so
-the one rule that used to need `#` (zero-or-more repetition, for
-`api[-_]#key*`) is spelled instead as an explicit alternation —
-`(apikey*|api-key*|api_key*)` — with no repetition operator at all.
+**Do not use `setopt EXTENDED_GLOB`.** It makes `^` a glob operator. Then common commands without quotes, such as
+`git show HEAD^` and `git diff HEAD^^`, fail with "no matches found". This is a measured result, not an
+assumption. This command shows it: `zsh -f -c 'setopt extended_glob; eval "print -r -- HEAD^"'`. The `(a|b|c)`
+alternation works without EXTENDED_GLOB. One rule needed `#` (zero or more repeats, for `api[-_]#key*`). The
+script now writes that rule as an explicit alternation, `(apikey*|api-key*|api_key*)`. It has no repeat operator.
 
 | `history_filter` regex | `HISTORY_IGNORE` glob | Why the difference |
 | --- | --- | --- |
@@ -171,6 +155,5 @@ enabled = true
 autostart = true
 ```
 
-The daemon speeds up sync/search but doesn't change scope — the
-`filter_mode`/`workspaces`/`[search].filters` keys above are what
-govern that.
+The daemon makes sync and search faster. It does not change the scope. The keys `filter_mode`, `workspaces`, and
+`[search].filters` above set the scope.
