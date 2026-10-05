@@ -1,10 +1,8 @@
 # dotfiles
 
-Portable user environment for macOS and Linux. Native package
-managers do the install (brew on macOS; apt / pacman / dnf on Linux),
-a runtime-editable `configurations/` layer holds every config file,
-and `scripts/symlinks.sh` wires the two together. Catppuccin Mocha
-across the terminal stack.
+Portable user environment for macOS and Linux. Native package managers install the packages (brew on macOS; apt,
+pacman, or dnf on Linux). A `configurations/` layer that you can edit at runtime holds every config file.
+`scripts/symlinks.sh` connects the two. The terminal stack uses Catppuccin Mocha.
 
 ## Quick start
 
@@ -14,23 +12,19 @@ across the terminal stack.
 ./setup.sh --update    # upgrade already-installed packages
 ```
 
-What it does:
+The script does these steps:
 
-1. On macOS, installs Homebrew if missing.
-2. Installs packages from `packages/Brewfile` (macOS) or
-   `packages/<pkgmgr>.list` plus optional `-desktop.list` (Linux).
-3. Layers Linux fallbacks: AUR (Arch family) or Snap
-   (Debian/Fedora).
-4. Bootstraps user-scope plugin managers: vim-plug, TPM,
-   zsh-you-should-use.
-5. Plants symlinks from `configurations/` into `$HOME` via
-   `scripts/symlinks.sh`.
-6. Switches the login shell to zsh.
-7. Installs lefthook git hooks for this repo.
+1. On macOS, install Homebrew if it is missing.
+2. Install the packages from `packages/Brewfile` (macOS) or from `packages/<pkgmgr>.list` and the optional
+   `-desktop.list` (Linux).
+3. Add the Linux fallbacks: AUR (Arch family) or Snap (Debian/Fedora).
+4. Bootstrap the plugin managers for the user: vim-plug, TPM, zsh-you-should-use.
+5. Plant symlinks from `configurations/` into `$HOME` with `scripts/symlinks.sh`.
+6. Switch the login shell to zsh.
+7. Install the lefthook git hooks for this repo.
 
-Re-running is safe — every step is idempotent. Use
-`scripts/update-dotfiles` to refresh packages + configurations on an
-already-set-up host.
+You can run the script again safely. Every step is idempotent. To refresh the packages and configurations on a host
+that is already set up, run `scripts/update-dotfiles`.
 
 ## Layout
 
@@ -56,34 +50,30 @@ already-set-up host.
 
 Full index at [doc/README.md](doc/README.md). Highlights:
 
-- [doc/packages-native.md](doc/packages-native.md) — every package
-  this repo installs, per OS, with fallback notes.
-- [doc/theming.md](doc/theming.md) — Catppuccin Mocha palette +
-  per-app mapping.
+- [doc/packages-native.md](doc/packages-native.md) — every package that this repo installs, for each OS, with
+  fallback notes.
+- [doc/theming.md](doc/theming.md) — the Catppuccin Mocha palette and the mapping for each app.
 
 ## How the profile flag works
 
 `setup.sh --desktop` exports `DOTFILES_DESKTOP=1`:
 
-- On Linux: the matching `<pkgmgr>-desktop.list` is installed
-  alongside the baseline, and Wayland-stack symlinks (waybar,
-  dunst) are planted.
-- On macOS: the flag is accepted but irrelevant — `Brewfile`
-  already carries every GUI cask.
+- On Linux: the script installs the matching `<pkgmgr>-desktop.list` with the baseline. It also plants the symlinks
+  for the Wayland stack (waybar, dunst).
+- On macOS: the script accepts the flag, but the flag has no effect. `Brewfile` already has every GUI cask.
 
 ## Daemons & root-required setup on Linux
 
-The package managers install **binaries** for `docker`, `libvirt`,
-`qemu`, etc., but their **daemons** and group memberships still
-need root:
+The package managers install the **binaries** for `docker`, `libvirt`, `qemu`, and other tools. The **daemons**
+and the group memberships still need root:
 
 ```sh
 sudo systemctl enable --now docker libvirtd
 sudo usermod -aG docker,kvm,libvirt "$USER"
 ```
 
-Sway/Wayland sessions also need a working seat/login stack
-(`greetd` / `gdm` / …) — that lives outside the user profile.
+Sway and Wayland sessions also need a working seat and login stack (`greetd`, `gdm`, and others). That stack is
+outside the user profile.
 
 ## Re-applying after editing `configurations/`
 
@@ -91,10 +81,9 @@ Sway/Wayland sessions also need a working seat/login stack
 ./setup.sh             # or --desktop on Linux
 ```
 
-Edits in `configurations/` take effect immediately — the live tree
-points at the repo via `scripts/symlinks.sh`, so no re-run is
-needed unless you've changed which files exist. Re-run `setup.sh`
-when you add a new mapping or want to bring a fresh host up to date.
+Edits in `configurations/` take effect immediately. The live tree points at the repo through
+`scripts/symlinks.sh`. You do not need to run the script again, unless you change which files exist. Run `setup.sh`
+again when you add a new mapping. Run it also when you want to update a new host.
 
 ## Uninstall
 
@@ -108,14 +97,12 @@ when you add a new mapping or want to bring a fresh host up to date.
 ./scripts/uninstall.sh --shell    # also revert the login shell
 ```
 
-Directories left empty by the removals are pruned (`rmdir` only —
-a directory still holding your files survives untouched). `--purge`
-is ledger-driven (`scripts/dotfiles-state.sh`): it removes only
-packages recorded as *installed by this repo*, never ones already
-`present` on the host — via the native package manager, or, for
-script-installed tools, the binary under `~/.local/bin`. See
-[doc/state-management.md](doc/state-management.md). AUR / Snap
-fallbacks aren't ledger-tracked; they're flagged for manual removal.
+The script prunes the directories that the removals leave empty (`rmdir` only). A directory that still has your
+files stays unchanged. The ledger (`scripts/dotfiles-state.sh`) controls `--purge`. It removes only the packages
+that the ledger records as *installed by this repo*. It does not remove packages that were already `present` on the
+host. It uses the native package manager. For tools that a script installed, it removes the binary under
+`~/.local/bin`. See [doc/state-management.md](doc/state-management.md). The ledger does not track AUR and Snap
+fallbacks. The script flags them for manual removal.
 
 ## Adding packages
 
@@ -126,17 +113,16 @@ fallbacks aren't ledger-tracked; they're flagged for manual removal.
 - Linux package absent from native repos → `packages/aur.list`
   (Arch) or `packages/snap.list` (Debian/Fedora).
 
-Every package added to any of these files needs a matching row in
-[`doc/packages-native.md`](doc/packages-native.md) — see CLAUDE.md §4.
+Each package that you add to any of these files needs a matching row in
+[`doc/packages-native.md`](doc/packages-native.md). See CLAUDE.md §4.
 
 ## GPG signing
 
-Optional and opt-in. Run once per host:
+This step is optional. Run it one time for each host:
 
 ```sh
 ~/.scripts/gpg-setup.sh
 ```
 
-The wizard generates an ed25519 + cv25519 keypair tied to your git
-email, writes `~/.config/git/signing.gitconfig`, and prints the
-public key to paste into GitHub.
+The wizard generates an ed25519 and cv25519 keypair for your git email. It writes `~/.config/git/signing.gitconfig`.
+It prints the public key. Paste the public key into GitHub.

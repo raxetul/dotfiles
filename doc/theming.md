@@ -6,16 +6,14 @@ claude-rule: "Keep this file in sync whenever a theme file under configurations/
 
 # Theming — Catppuccin Mocha across the terminal stack
 
-Most of the terminal stack runs on a single palette so context-switching
-between apps doesn't trigger a visual jolt. This page documents the
-palette, where each color lives, which module consumes it, and the two
-apps that deliberately opt out (see "Intentional exceptions" below).
+Most of the terminal stack uses one palette. When you change between apps, the colors stay the same. This page
+shows the palette, where each color is set, and which module uses it. It also lists the two apps that do not use
+the palette on purpose (see "Intentional exceptions" below).
 
 ## Palette
 
-Reference: <https://github.com/catppuccin/palette>. Only Mocha is used —
-the other three flavours (frappe, latte, macchiato) were trimmed in
-Phase 4.
+Reference: <https://github.com/catppuccin/palette>. The repo uses only Mocha. Phase 4 removed the other three
+flavours (frappe, latte, macchiato).
 
 | Role        | Hex       | Used as |
 | ----------- | --------- | ------- |
@@ -55,7 +53,7 @@ Phase 4.
 
 ## Intentional exceptions
 
-Two apps deliberately sit outside the Catppuccin Mocha palette above:
+Two apps do not use the Catppuccin Mocha palette above, on purpose:
 
 | App | Flavour/theme | Why |
 | --- | --- | --- |
@@ -64,14 +62,12 @@ Two apps deliberately sit outside the Catppuccin Mocha palette above:
 
 ## Claude Code — One Dark theme
 
-Claude Code's `theme` setting accepts a built-in enum value or a string
-matching `^custom:.*`, which resolves to a JSON file at
-`~/.claude/themes/<slug>.json`. This repo ships that file at
-`configurations/themes/claude/one-dark.json`, symlinked in by
-`scripts/symlinks.sh` (`COMMON_LINKS`), and `configurations/claude/settings.json`
-selects it via `"theme": "custom:one-dark"`.
+The Claude Code `theme` setting accepts a built-in enum value or a string that matches `^custom:.*`. A custom
+string points to a JSON file at `~/.claude/themes/<slug>.json`. This repo has that file at
+`configurations/themes/claude/one-dark.json`. `scripts/symlinks.sh` (`COMMON_LINKS`) links it into place.
+`configurations/claude/settings.json` selects it with `"theme": "custom:one-dark"`.
 
-**Schema** (confirmed against the official docs, not guessed — see
+**Schema** (checked against the official docs, not guessed — see
 <https://code.claude.com/docs/en/terminal-config#create-a-custom-theme>):
 
 | Field | Type | Meaning |
@@ -80,46 +76,37 @@ selects it via `"theme": "custom:one-dark"`.
 | `base` | string | Built-in preset to inherit from: `dark`, `light`, `dark-daltonized`, `light-daltonized`, `dark-ansi`, `light-ansi` |
 | `overrides` | object | Sparse map of token name → color. Tokens not listed fall through to `base` |
 
-Color values accept `#rrggbb`, `#rgb`, `rgb(r,g,b)`, `ansi256(n)`, or
-`ansi:<name>`.
+A color value can be `#rrggbb`, `#rgb`, `rgb(r,g,b)`, `ansi256(n)`, or `ansi:<name>`.
 
-**🟡 Important limitation — code-block syntax highlighting is *not* one of
-the overridable tokens.** The `overrides` schema only covers UI chrome:
-brand accent, status colors (`success`/`error`/`warning`), mode-indicator
-borders, diff backgrounds, and a handful of fullscreen/usage-meter/subagent
-colors — there is no `keyword`/`string`/`number`/`function`/`type`/`operator`
-token. Fenced code blocks in Claude's replies are colored by a fixed
-highlight.js-scope → ANSI-SGR mapping baked into the Claude Code binary
-(confirmed via `strings` on the installed binary at
-`~/.local/share/claude/versions/2.1.252`, which contains the literal hljs
-scope names `keyword`, `built_in`, `literal`, `title.function`,
-`title.class`, `attr`, `operator`, `punctuation`, etc. right next to the
-`diffAdded`/`diffRemoved` token names). That ANSI-SGR output is rendered
-using **the terminal's own 16-color ANSI palette**, not a Claude-side
-color — so the actual lever for code-block colors is the terminal
-emulator (here, herdr), not this theme file.
+**🟡 Important limitation — you cannot override the code-block syntax highlighting with a token.** The `overrides`
+schema covers only the UI chrome. It covers the brand accent, the status colors (`success`/`error`/`warning`), the
+mode-indicator borders, the diff backgrounds, and a few fullscreen, usage-meter, and subagent colors. There is no
+`keyword`, `string`, `number`, `function`, `type`, or `operator` token.
 
-herdr already ships a built-in `one-dark` theme (`theme.name = "one-dark"`
-in `configurations/herdr/config.toml`, confirmed via `strings` on the
-herdr binary, which lists it alongside other known full ANSI-palette
-color schemes such as `catppuccin`, `dracula`, `nord`, `gruvbox`). If that
-theme redefines the ANSI palette to Atom One Dark values, code blocks
-already render in One Dark through the terminal, independent of any
-Claude Code setting. **This repo could not independently verify herdr's
-exact ANSI hex values** (herdr ships as a compiled binary with no
-inspectable theme JSON) — if code-block colors still look wrong after
-this change, check herdr's palette next, not Claude Code's.
+The Claude Code binary has a fixed map from highlight.js scopes to ANSI-SGR codes. This map colors the fenced code
+blocks in Claude replies. The check used `strings` on the installed binary at
+`~/.local/share/claude/versions/2.1.252`. It contains the literal hljs scope names `keyword`, `built_in`,
+`literal`, `title.function`, `title.class`, `attr`, `operator`, `punctuation`, and others. They are next to the
+`diffAdded` and `diffRemoved` token names. The terminal draws this ANSI-SGR output with **its own 16-color ANSI
+palette**. Claude does not set the color. To change the code-block colors, change the terminal emulator (here,
+herdr). Do not change this theme file.
 
-What this theme file *does* reliably control: Claude Code's own accent
-color, success/error/warning text, mode-indicator borders (plan mode,
-auto-accept, bash mode), and diff line backgrounds/word-highlights —
-recolored to Atom One Dark so Claude's own chrome matches the pane
-around it.
+herdr has a built-in `one-dark` theme (`theme.name = "one-dark"` in `configurations/herdr/config.toml`). The check
+used `strings` on the herdr binary. The binary lists this theme with other full ANSI-palette color schemes, such as
+`catppuccin`, `dracula`, `nord`, and `gruvbox`. If that theme sets the ANSI palette to Atom One Dark values, code
+blocks already show One Dark colors through the terminal. This does not depend on any Claude Code setting.
 
-**Palette used** (verified against the upstream
-[`atom/one-dark-syntax`](https://github.com/atom/one-dark-syntax) source —
-each hex below was recomputed from that repo's `colors.less` HSL
-variables and matches exactly):
+**This repo could not verify the exact ANSI hex values of herdr.** herdr is a compiled binary, and it has no theme
+JSON that you can read. If the code-block colors still look wrong after this change, check the herdr palette. Do
+not check Claude Code.
+
+This theme file controls these items reliably: the Claude Code accent color, the success, error, and warning
+text, the mode-indicator borders (plan mode, auto-accept, bash mode), and the diff line backgrounds and word
+highlights. The file sets them to Atom One Dark colors. The Claude chrome then matches the pane around it.
+
+**Palette used** (checked against the upstream [`atom/one-dark-syntax`](https://github.com/atom/one-dark-syntax)
+source). Each hex below was recomputed from the HSL variables in `colors.less` of that repo, and it matches
+exactly:
 
 | Role | Hex | Source variable |
 | --- | --- | --- |
@@ -133,38 +120,33 @@ variables and matches exactly):
 | magenta | `#c678dd` | `@hue-3` |
 | cyan | `#56b6c2` | `@hue-1` |
 
-The four diff-background tokens (`diffAdded`, `diffRemoved`,
-`diffAddedDimmed`, `diffRemovedDimmed`) are **not** upstream values —
-this repo's own 20%/10% blends of green/red toward the background color,
-so a saturated green/red doesn't overwhelm the diff text. `diffAddedWord`
-/ `diffRemovedWord` use the pure green/red instead, since those are small
-word-level highlights.
+The four diff-background tokens (`diffAdded`, `diffRemoved`, `diffAddedDimmed`, `diffRemovedDimmed`) are **not**
+upstream values. They are blends of green or red with the background color, at 20% and 10%. This repo made them.
+A full green or red color would be too strong behind the diff text. `diffAddedWord` and `diffRemovedWord` use the
+full green and red, because they mark only small word-level changes.
 
 ## How to change a color
 
 1. Edit the palette entry in the source file (e.g. fzf colors → edit
    `configurations/themes/fzf/catppuccin-mocha.sh`).
-2. Reload the consuming app. Most reload paths:
+2. Reload the app that uses the file. These are the reload commands:
    - shell-sourced files: `exec $SHELL -l` (or `reload`).
    - tmux: `<prefix> r` (binding in tmux.conf) or `tmux source-file ~/.config/tmux/tmux.conf`.
    - dunst: `dunst --reload` or restart the service.
    - bat: `bat cache --build` (driven by `scripts/update-dotfiles` and
      the `setup.sh` plugin-bootstrap step).
-3. If the color is set in `configurations/zsh/exports.sh` (env vars
-   like `EZA_COLORS`, `MANPAGER`), open a new shell to pick it up.
+3. If `configurations/zsh/exports.sh` sets the color (env vars such as `EZA_COLORS` and `MANPAGER`), open a new
+   shell.
 
 ## Related
 
-- `configurations/zsh/exports.sh` — sets `MANPAGER` so the entire
-  pager stack picks up the bat palette, plus `EZA_COLORS`.
-- `configurations/themes/eza/catppuccin-mocha.yml` — the YML file is
-  the human-readable reference; the actual `EZA_COLORS` value is
-  exported from `exports.sh` so it ends up in the session
-  environment without an extra source step.
-- `configurations/tmux/tmux.conf` — pinning of the catppuccin/tmux
-  plugin happens via TPM; the flavour selector is set before TPM
-  sources the plugin file.
-- `configurations/themes/claude/one-dark.json` — the Claude Code custom
-  theme file, see "Claude Code — One Dark theme" above.
-- `configurations/herdr/config.toml` — sets herdr's own `one-dark` theme,
-  which is the actual lever for Claude Code's code-block syntax colors.
+- `configurations/zsh/exports.sh` — sets `MANPAGER`, so the whole pager stack uses the bat palette. It also sets
+  `EZA_COLORS`.
+- `configurations/themes/eza/catppuccin-mocha.yml` — this YML file is the reference that a person can read.
+  `exports.sh` exports the real `EZA_COLORS` value. The session environment gets it without an extra source step.
+- `configurations/tmux/tmux.conf` — TPM pins the catppuccin/tmux plugin. The file sets the flavour selector before
+  TPM sources the plugin file.
+- `configurations/themes/claude/one-dark.json` — the Claude Code custom theme file. See "Claude Code — One Dark
+  theme" above.
+- `configurations/herdr/config.toml` — sets the `one-dark` theme of herdr. This theme sets the syntax colors of the
+  Claude Code code blocks.

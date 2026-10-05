@@ -1,9 +1,8 @@
 # Documentation index
 
-One doc per significant artifact: the package inventory, the
-theming palette, the per-command and per-hook reference. The
-frontmatter `claude-rule:` on each page is a contract — agents
-edit the doc whenever they edit its source.
+This folder has one doc for each significant artifact: the package inventory, the theming palette, and the
+reference for each command and each hook. The frontmatter `claude-rule:` on each page is a contract. When an agent
+edits the source of a doc, the agent edits the doc too.
 
 ## Architecture at a glance
 
