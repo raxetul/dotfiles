@@ -9,19 +9,18 @@ claude-rule: "The /init-proj-* command family is documented here and MUST be kep
 ## Why this exists
 
 The global Claude config (`~/.claude/CLAUDE.md`) loads into **every**
-session, so anything put there costs context on **every** task,
-including ones where it's irrelevant. To keep that footprint small,
-per-project standards are **not** global. Instead, a family of slash
-commands writes the right rules into each **project's own
-`./CLAUDE.md`**, which Claude Code loads only when you work inside that
-project.
+session. Each rule in it uses context on **every** task, also when the
+rule is not relevant. To keep this cost small, per-project standards are
+**not** global. A family of slash commands writes the correct rules into
+each **project's own `./CLAUDE.md`**. Claude Code loads that file only
+when you work in that project.
 
-One command scaffolds a project — git, hooks, conventional commits,
-test skeleton — **and** pins its engineering rules, so a fresh checkout
-on any machine is initialized the same way. The commands live in
-`configurations/claude/commands/` and are symlinked into
-`~/.claude/commands/`, so they travel with the dotfiles to every
-computer.
+One command sets up a project: git, hooks, conventional commits, and a
+test skeleton. The same command **also** pins the engineering rules of
+the project. A fresh checkout on any machine is therefore initialized in
+the same way. The commands are in `configurations/claude/commands/`. The
+setup links them into `~/.claude/commands/`, so they go with the
+dotfiles to every computer.
 
 ## Layering
 
@@ -36,17 +35,19 @@ computer.
 building blocks            /logging   /rfc9457   /backend-stack   /rust-config
 ```
 
-- A **type** command always runs **`/init-proj-common`** first, then
-  layers its type-specific rules and scaffolding.
-- Rules that already have a standalone command (`/logging`,
-  `/rfc9457`, `/backend-stack`, `/rust-config`) are **invoked** as
-  building blocks, so each rule's text is defined in exactly one place.
-- **`/init-proj-monorepo`** asks which types to include, lays the
-  baseline once at the root, and runs each type command per package.
+- A **type** command always runs **`/init-proj-common`** first. Then it
+  adds its type-specific rules and scaffolding.
+- Some rules have a standalone command (`/logging`, `/rfc9457`,
+  `/backend-stack`, `/rust-config`). The type commands **invoke** these
+  commands as building blocks. Each rule text is therefore defined in
+  one place only.
+- **`/init-proj-monorepo`** asks which types to include. It applies the
+  baseline one time at the root. Then it runs each type command for each
+  package.
 
 ## Two layers: scaffolded rules + auto-loading skills
 
-Each building block delivers its convention in **two layers**:
+Each building block gives its convention in **two layers**:
 
 | Layer | Where it lives | Loads | Guarantee |
 | --- | --- | --- | --- |
@@ -60,51 +61,56 @@ Each building block delivers its convention in **two layers**:
 /rust-config    → rule in ./CLAUDE.md   (rule only, no matching skill)
 ```
 
-The **rule** is a strict decision that must always hold, so it's written down —
-deterministic, and visible to humans and other tools. The **skill** carries the
-evolving know-how (per-stack recipes, examples); it auto-loads when you write the
-relevant code, is maintained in one place, and so never goes stale across
-projects. Skills are symlinked **per-skill** into `~/.claude/skills/` by
-`scripts/symlinks.sh` — that folder also holds third-party skills, so they are
-linked individually, never as a whole directory.
+The **rule** is a strict decision that must always hold. It is written
+down, so it is deterministic, and humans and other tools can see it. The
+**skill** holds the know-how that changes (per-stack recipes, examples).
+It loads automatically when you write the relevant code. It is kept in
+one place, so it does not become old across projects. `scripts/symlinks.sh`
+links the skills **one by one** into `~/.claude/skills/`. That folder also
+holds third-party skills. Link each skill alone. Do not link the whole
+directory.
 
 ## The common baseline — `/init-proj-common`
 
 | Step | What it does |
 | --- | --- |
-| git | `git init` if not already a repo (skipped inside a monorepo) |
+| git | `git init` if the directory is not a repo yet (skipped inside a monorepo) |
 | lefthook | `lefthook.yml` with a conventional-commit `commit-msg` hook + a `pre-commit` lint/test hook, then `lefthook install` |
 | rules → `./CLAUDE.md` | **Dependency injection**, **Unit testing**, **Conventional commits**, **Diagram layout**, **Pre-CLI-command briefs** |
 | logging | invokes `/logging` (centralized multi-writer logging) |
 | project commands | `./.claude/commands/` gets a lefthook-aware `/commit` and a `/check` |
 | tests | a conventional test dir + one placeholder test |
 
-The five common rules in one line each:
+These are the five common rules, one line for each:
 
-- **Dependency injection** — modules take collaborators through an
-  abstraction wired at a composition root; tests inject in-memory
-  fakes, production injects the real thing.
-- **Unit testing** — fast, hermetic, deterministic tests through that
-  DI seam; new behavior lands with tests.
-- **Conventional commits** — enforced by the lefthook `commit-msg`
-  regex.
-- **Diagram layout** — draw.io connectors route orthogonally and are
-  **preferably fully separate lines** (a shared **common horizontal trunk**
-  only as a fallback when space is tight), with **spaced verticals** (never
-  overlapping, ≥20px) and an **item-specific horizontal leg** centered on
-  each box carrying the edge label. One-to-many fans out from the source;
-  many-to-one is the mirror into the target. Edges labeled at **both ends**
-  (ER cardinalities — one-to-many, many-to-many) are drawn on their own
-  separate path, each label on the leg next to its own entity.
-- **Pre-CLI-command briefs** — before running shell commands, print a
-  table (`# | Command | Action brief | Effect`) of what will run.
+- **Dependency injection** — modules get their collaborators through an
+  abstraction. A composition root connects them. Tests inject in-memory
+  fakes. Production injects the real parts.
+- **Unit testing** — fast, hermetic, deterministic tests that use that
+  DI seam. New behavior comes with tests.
+- **Conventional commits** — the lefthook `commit-msg` regex enforces
+  them.
+- **Diagram layout** — draw.io connectors use orthogonal routes. They
+  are **preferably fully separate lines**. Use a shared **common
+  horizontal trunk** only when space is tight. The **vertical** lines are
+  **spaced** (never overlapping, ≥20px). Each box has an
+  **item-specific horizontal leg** in its center, and the leg carries the
+  edge label. A one-to-many edge fans out from the source. A many-to-one
+  edge is the mirror image into the target. An edge that has labels at
+  **both ends** (ER cardinalities — one-to-many, many-to-many) is drawn
+  on its own separate path. Each label is on the leg next to its own
+  entity.
+- **Pre-CLI-command briefs** — before you run shell commands, print a
+  table (`# | Command | Action brief | Effect`) of the commands that
+  will run.
 
 ### Overridable features
 
-The baseline features are **named** and **overridable**: a command that
-invokes `/init-proj-common` can pass an override list to **disable** the
-parts that don't fit that project type, then supply its own replacement.
-Defaults are all on, so a bare `/init-proj-common` applies everything.
+The baseline features have **names** and you can **override** them. A
+command that invokes `/init-proj-common` can pass an override list. The
+list **disables** the parts that do not fit the project type. The
+command then supplies its own replacement. All features are on by
+default, so a bare `/init-proj-common` applies everything.
 
 | Key | Overridable | Disabled by |
 | --- | --- | --- |
@@ -119,10 +125,10 @@ Defaults are all on, so a bare `/init-proj-common` applies everything.
 | `pre-cli-briefs` | **no** (always applied) | — |
 
 Example: `/init-proj-kernel-driver` runs `/init-proj-common` with
-`logging=off, dependency-injection=off, unit-testing=off`, because
-kernel space uses `pr_*` logging, `ops`-struct/function-pointer seams,
-and KUnit — not the userland forms. It then writes those kernel-native
-rules itself. `git` and conventional commits stay on.
+`logging=off, dependency-injection=off, unit-testing=off`. Kernel space
+uses `pr_*` logging, `ops`-struct/function-pointer seams, and KUnit.
+It does not use the userland forms. The command then writes these
+kernel-native rules itself. `git` and conventional commits stay on.
 
 ## Type commands
 
@@ -138,30 +144,38 @@ rules itself. `git` and conventional commits stay on.
 
 ## Monorepo — `/init-proj-monorepo`
 
-Asks (via a prompt) which project kinds to include and a layout dir
-(`packages/` or `apps/`). Git + lefthook are installed **once at the
-root**; each package gets its own nested `CLAUDE.md` from the matching
-type command. Because `/init-proj-common` is idempotent, its
-per-package run finds the root git/lefthook and skips them — no nested
-repos, no duplicated hooks. Root rules apply everywhere; package rules
-load only inside that package.
+The command asks (with a prompt) which project kinds to include. It also
+asks for a layout dir (`packages/` or `apps/`). It installs Git and
+lefthook **one time at the root**. Each package gets its own nested
+`CLAUDE.md` from the matching type command. `/init-proj-common` is
+idempotent. When it runs for a package, it finds the root git and
+lefthook and skips them. This gives no nested repos and no duplicated
+hooks. Root rules apply everywhere. Package rules load only in that
+package.
 
 ## Re-applying to an existing project — `/apply-updated-init`
 
-The `/init-proj-*` commands **initialize** a fresh project. When the
-scaffolding later gains a new rule (or an existing one changes),
+The `/init-proj-*` commands **initialize** a fresh project. Sometimes the
+scaffolding gets a new rule, or an existing rule changes. Then
 `/apply-updated-init` **re-applies** the current scaffolding to an
-**already-initialized** project so it catches up without a manual redo.
+**already-initialized** project. The project catches up and you do not
+need to redo the work by hand.
 
-It (1) detects the project's type(s) — including monorepo root + each
-package, (2) re-invokes the matching `/init-proj-*` command(s), whose
-**idempotency** appends only the missing/changed `./CLAUDE.md` sections,
-and (3) — the part a plain re-scaffold doesn't do — **conforms the
-project's existing artifacts** to each new/changed rule (e.g. a new
-*Diagram layout* rule → regenerate the diagrams via the project's own
-generator and verify), keeping living docs/requirements in sync. Same
-family contract: idempotent, pre-CLI briefs, confirm before writing,
-never auto-commit.
+The command does three things:
+
+1. It detects the type(s) of the project, including the monorepo root
+   and each package.
+2. It runs the matching `/init-proj-*` command(s) again. These commands
+   are **idempotent**, so they add only the `./CLAUDE.md` sections that
+   are missing or changed.
+3. It **conforms the existing artifacts** of the project to each new or
+   changed rule. A plain re-scaffold does not do this. Example: for a
+   new *Diagram layout* rule, regenerate the diagrams with the own
+   generator of the project and verify them.
+
+The command also keeps the living docs and requirements in sync. It
+follows the same contract as the rest of the family: idempotent,
+pre-CLI briefs, confirm before it writes, never commit automatically.
 
 ```
 /init-proj-*        initialize a new project
@@ -171,19 +185,19 @@ never auto-commit.
 
 ## Contract shared by every command
 
-- **Idempotent** — re-running skips work already done (existing
-  `.git`, hook, or `CLAUDE.md` section).
-- **Pre-CLI briefs** — CLI steps are previewed in a table before they
-  run.
-- **Confirm destructive/outward-facing steps** before executing.
+- **Idempotent** — when you run a command again, it skips the work that
+  is done (existing `.git`, hook, or `CLAUDE.md` section).
+- **Pre-CLI briefs** — a table shows the CLI steps before they run.
+- **Confirm destructive and outward-facing steps** before the command
+  runs them.
 - **Never commit automatically** — each command reports what it wrote
   and suggests a Conventional Commit.
 - **Writes stay in the project** (`./CLAUDE.md`, `./.claude/`,
-  `lefthook.yml`, test dirs) — nothing lands in the global config.
+  `lefthook.yml`, test dirs). Nothing goes into the global config.
 
 ## Applying on another machine
 
-Clone the dotfiles and run the setup so `configurations/claude/` is
-symlinked into `~/.claude/`. Every `/init-proj-*` command is then
-available in Claude Code, identically to this machine. Run the one that
-matches the project you're starting.
+Clone the dotfiles. Run the setup, so that it links `configurations/claude/`
+into `~/.claude/`. Then every `/init-proj-*` command is available in
+Claude Code, the same as on this machine. Run the command that matches
+the project you start.
