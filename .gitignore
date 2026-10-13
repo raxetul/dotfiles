@@ -32,3 +32,4 @@ configurations/claude/skills/
 
 # manim render cache (doc/animations/README.md)
 media/
+__pycache__/
