@@ -80,6 +80,17 @@ global one, see [doc/agentic-promotion.md](doc/agentic-promotion.md).
    release binaries are last-resort fallbacks, recorded in the
    *Fallback* column of [`doc/packages-native.md`](doc/packages-native.md).
    **Flatpak is intentionally out of scope** — don't propose it.
+   The lane order applies to **every install**: permanent or ad-hoc,
+   by anyone, agents included (example: `brew install manim` to
+   render docs).
+   1. Native package manager first: `brew`, `pacman -S`, `apt`, `dnf`.
+   2. Secondary channel only when native lacks the package: AUR
+      (after `pacman -S`), Snap (after `apt`/`dnf`).
+   3. Script or repo installs last: `curl | sh`, upstream release
+      binaries, `git clone` builds, `cargo install`, `go install`,
+      `uv`, `pipx`, `pip`, `npx`.
+
+   "Ephemeral" is not a reason to skip a higher lane.
 7. **Package install lists live in `packages/` at repo root, not
    under `configurations/`.** `configurations/<app>/` is for app
    config files the user edits live (symlinked into `~/.config/`).
