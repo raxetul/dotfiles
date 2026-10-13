@@ -15,6 +15,8 @@ graph TD
     B -->|"install.sh --attach --light (no root)"| B2["setup.sh --light — LIGHT_LINKS only<br/>no packages, no root ever"]
 ```
 
+![Install lifecycle: install.sh, then each setup.sh step; --light skips the package steps](animations/install.gif)
+
 ## Where things live
 
 | What | Where | Owner |
@@ -95,6 +97,8 @@ usermod -aG dotfiles <user>
 ```
 
 ## `scripts/migrate-to-opt.sh` — moving an existing install
+
+![Migration: dev checkout to /opt/dotfiles](animations/migrate-to-opt.gif)
 
 Use this script for a host that already has a plain `${HOME}/gel-ort/dotfiles` (or
 `$DOTFILES_DIR`) checkout and must move to the shared layout.

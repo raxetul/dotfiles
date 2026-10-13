@@ -10,6 +10,8 @@ claude-rule: "Update this doc whenever the source changes."
 This command runs `scripts/update-dotfiles`. It makes this host current with the checked-in files. It refreshes
 the native packages and the configurations layer (symlinks, hooks, theme caches).
 
+![Update lifecycle: the packages layer, then the configurations layer with plugin reconcile](../animations/update.gif)
+
 ## Flags
 
 The command forwards the flags without change to `scripts/update-dotfiles`:
