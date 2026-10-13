@@ -676,6 +676,11 @@ _ext_add() {
   if [ -z "${name}" ]; then
     name="$(basename "${url}" .git | tr '[:upper:]_' '[:lower:]-')"
   fi
+  # The name becomes a path that _ext_rollback may rm -rf: keep it to one plain dir name.
+  case "${name}" in
+    .|..) die "invalid external skill name: ${name}" ;;
+  esac
+  [[ "${name}" =~ ^[a-z0-9][a-z0-9._-]*$ ]] || die "invalid external skill name: ${name} (allowed: a-z 0-9 . _ -)"
   [ ! -e "${AGENT_SKILLS_DIR}/${name}" ] || die "${name} already exists in ${AGENT_SKILLS_DIR}"
 
   if _dry; then
