@@ -19,6 +19,11 @@
 #   scripts/agent-skills list                 # list skills currently in the repo
 #   scripts/agent-skills vendor [--check] [--force] [<name>…]
 #                                              # sync vendored skills from vendor.tsv upstreams
+#   scripts/agent-skills external add <url> [name] [--ref <sha|branch>]
+#                                              # pin an upstream skill repo as a git submodule (stages, no commit)
+#   scripts/agent-skills external check [name…]  # show pinned vs upstream commits, change nothing
+#   scripts/agent-skills external bump [name…]   # move the pin to upstream (stages the gitlink, no commit)
+#   scripts/agent-skills external init           # check out the PINNED commits (never upstream)
 #
 # Env:
 #   AGENT_SKILLS_DIR         the repo itself (default: ${HOME}/gel-ort/agent-skills)
@@ -41,7 +46,7 @@ SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
 die() { printf 'agent-skills: %s\n' "$*" >&2; exit 1; }
 say() { printf '==> %s\n' "$*"; }
 warn() { printf 'WARNING: %s\n' "$*" >&2; }
-usage() { sed -n '2,29p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,34p' "$0" | sed 's/^# \{0,1\}//'; }
 
 _dry() { [ "${DRY_RUN:-0}" = "1" ]; }
 
@@ -400,6 +405,7 @@ cmd_restore() {
   git -C "${AGENT_SKILLS_DIR}" branch -D __agent-skills-restore__ >/dev/null 2>&1 || true
 
   say "restored ${AGENT_SKILLS_DIR} from ${bundle} (branch: ${head_branch})"
+  cmd_external init
   local origin_url
   origin_url="$(git -C "${AGENT_SKILLS_DIR}" remote get-url origin 2>/dev/null || true)"
   if [ -n "${origin_url}" ]; then
@@ -550,6 +556,8 @@ cmd_vendor() {
         upstream_sha="$(git -C "${tmp}/src" rev-parse --short HEAD 2>/dev/null || echo unknown)"
 
         cp -R "${src}/." "${staged}/"
+        # Whole-repo skill: the upstream .git is history, not skill content.
+        [ "${subpath}" = "." ] && rm -rf "${staged}/.git"
         if [ -n "${extra}" ] && [ "${extra}" != "-" ]; then
           local f extras
           IFS=',' read -r -a extras <<< "${extra}"
@@ -608,6 +616,191 @@ cmd_vendor() {
   return 0
 }
 
+# === External (pinned) skills ===
+#
+# A pinned external skill is a git submodule of the agent-skills repo. The
+# gitlink records ONE commit, so the skill text cannot change until the user
+# bumps the pin and commits it. Contrast with `vendor`, which copies upstream
+# text and re-syncs on every run. Only `bump` moves a pin; `init` never does.
+
+# _ext_names — print the path of every declared submodule, one per line.
+_ext_names() {
+  [ -f "${AGENT_SKILLS_DIR}/.gitmodules" ] || return 0
+  git -C "${AGENT_SKILLS_DIR}" config -f .gitmodules --get-regexp '^submodule\..*\.path$' \
+    | awk '{print $2}'
+}
+
+# _ext_select <name…> — print the wanted submodule paths (all when none given).
+# Dies on a name that is not a declared submodule.
+_ext_select() {
+  local all n w hit
+  all="$(_ext_names)"
+  if [ $# -eq 0 ]; then
+    [ -z "${all}" ] || printf '%s\n' "${all}"
+    return 0
+  fi
+  for w in "$@"; do
+    hit=0
+    while IFS= read -r n; do [ "${n}" = "${w}" ] && hit=1; done <<<"${all}"
+    [ "${hit}" = 1 ] || die "not an external skill (submodule): ${w}"
+    printf '%s\n' "${w}"
+  done
+}
+
+# _ext_branch <name> — tracked branch from .gitmodules; main when unset.
+_ext_branch() {
+  git -C "${AGENT_SKILLS_DIR}" config -f .gitmodules "submodule.$1.branch" 2>/dev/null || echo main
+}
+
+# _ext_pinned <name> — the commit the index records for the submodule.
+_ext_pinned() {
+  git -C "${AGENT_SKILLS_DIR}" ls-files -s -- "$1" | awk 'NR==1 {print $2}'
+}
+
+_ext_add() {
+  local url="" name="" ref="" branch
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --ref) [ $# -ge 2 ] || die "--ref needs a value"; ref="$2"; shift 2 ;;
+      -*)    die "unknown external add argument: $1" ;;
+      *)
+        if [ -z "${url}" ]; then url="$1"
+        elif [ -z "${name}" ]; then name="$1"
+        else die "too many arguments to external add"
+        fi
+        shift
+        ;;
+    esac
+  done
+  [ -n "${url}" ] || die "usage: agent-skills external add <url> [name] [--ref <sha|branch>]"
+  if [ -z "${name}" ]; then
+    name="$(basename "${url}" .git | tr '[:upper:]_' '[:lower:]-')"
+  fi
+  [ ! -e "${AGENT_SKILLS_DIR}/${name}" ] || die "${name} already exists in ${AGENT_SKILLS_DIR}"
+
+  if _dry; then
+    printf 'DRY-RUN: git submodule add %s %s (ref: %s); stage .gitmodules and %s; no commit\n' \
+      "${url}" "${name}" "${ref:-default branch}" "${name}"
+    return 0
+  fi
+
+  git -C "${AGENT_SKILLS_DIR}" submodule add "${url}" "${name}" \
+    || die "git submodule add failed for ${url}"
+  local sub="${AGENT_SKILLS_DIR}/${name}"
+
+  # Default branch of the upstream; fall back to main when origin/HEAD is unset.
+  branch="$(git -C "${sub}" symbolic-ref --short -q refs/remotes/origin/HEAD 2>/dev/null || true)"
+  branch="${branch#origin/}"
+  [ -n "${branch}" ] || branch="main"
+
+  if [ -n "${ref}" ]; then
+    if git -C "${sub}" rev-parse --verify -q "refs/remotes/origin/${ref}" >/dev/null; then
+      branch="${ref}"
+    fi
+    if ! git -C "${sub}" checkout --quiet "${ref}"; then
+      _ext_rollback "${name}"
+      die "cannot check out ${ref} in ${name}"
+    fi
+  fi
+
+  if [ ! -f "${sub}/SKILL.md" ]; then
+    _ext_rollback "${name}"
+    die "${name}/SKILL.md is missing — not a skill repo; submodule removed"
+  fi
+
+  git -C "${AGENT_SKILLS_DIR}" config -f .gitmodules "submodule.${name}.branch" "${branch}"
+  git -C "${AGENT_SKILLS_DIR}" add .gitmodules "${name}"
+  say "${name}: pinned at $(git -C "${sub}" rev-parse --short HEAD) (tracks ${branch}); staged, not committed"
+}
+
+# _ext_rollback <name> — undo a half-finished `submodule add`.
+_ext_rollback() {
+  local name="$1"
+  git -C "${AGENT_SKILLS_DIR}" submodule deinit -q -f -- "${name}" >/dev/null 2>&1 || true
+  git -C "${AGENT_SKILLS_DIR}" rm -q -f -- "${name}" >/dev/null 2>&1 || true
+  rm -rf "${AGENT_SKILLS_DIR}/.git/modules/${name}" "${AGENT_SKILLS_DIR:?}/${name}"
+}
+
+_ext_check() {
+  local name branch pinned upstream sub
+  local names=()
+  while IFS= read -r name; do [ -n "${name}" ] && names+=("${name}"); done < <(_ext_select "$@")
+  if [ "${#names[@]}" -eq 0 ]; then
+    say "no external skills declared"
+    return 0
+  fi
+  for name in "${names[@]}"; do
+    sub="${AGENT_SKILLS_DIR}/${name}"
+    if ! git -C "${sub}" rev-parse --git-dir >/dev/null 2>&1; then
+      warn "${name}: submodule not checked out — run 'scripts/agent-skills external init'"
+      continue
+    fi
+    branch="$(_ext_branch "${name}")"
+    pinned="$(_ext_pinned "${name}")"
+    if ! git -C "${sub}" fetch --quiet origin "${branch}" 2>/dev/null; then
+      warn "${name}: cannot fetch ${branch} (network down?) — skipped"
+      continue
+    fi
+    upstream="$(git -C "${sub}" rev-parse FETCH_HEAD)"
+    say "${name}: pinned ${pinned:0:7}, upstream ${upstream:0:7} (${branch})"
+    if [ "${pinned}" = "${upstream}" ]; then
+      printf '  up to date\n'
+      continue
+    fi
+    printf '  new commits:\n'
+    git -C "${sub}" log --oneline "${pinned}..${upstream}" | sed 's/^/    /' || true
+    printf '  files changed:\n'
+    git -C "${sub}" diff --stat "${pinned}" "${upstream}" | sed 's/^/    /' || true
+  done
+}
+
+_ext_bump() {
+  local name
+  local names=()
+  while IFS= read -r name; do [ -n "${name}" ] && names+=("${name}"); done < <(_ext_select "$@")
+  if [ "${#names[@]}" -eq 0 ]; then
+    say "no external skills declared"
+    return 0
+  fi
+  for name in "${names[@]}"; do
+    if _dry; then
+      printf 'DRY-RUN: git submodule update --remote %s; stage the gitlink; no commit\n' "${name}"
+      continue
+    fi
+    git -C "${AGENT_SKILLS_DIR}" submodule update --remote -- "${name}" \
+      || die "${name}: bump failed"
+    git -C "${AGENT_SKILLS_DIR}" add -- "${name}"
+    say "${name}: pin moved to $(_ext_pinned "${name}" | cut -c1-7); staged, not committed"
+  done
+}
+
+# _ext_init — check out the PINNED commits. A network failure only warns: the
+# skills already on disk stay usable.
+_ext_init() {
+  [ -f "${AGENT_SKILLS_DIR}/.gitmodules" ] || return 0
+  if _dry; then
+    printf 'DRY-RUN: git submodule update --init --recursive in %s\n' "${AGENT_SKILLS_DIR}"
+    return 0
+  fi
+  if ! git -C "${AGENT_SKILLS_DIR}" submodule update --init --recursive; then
+    warn "external skills: submodule init failed (network down?) — pinned skills may be missing"
+  fi
+  return 0
+}
+
+cmd_external() {
+  _require_repo
+  local verb="${1:-}"
+  [ $# -eq 0 ] || shift
+  case "${verb}" in
+    add)   _ext_add "$@" ;;
+    check) _ext_check "$@" ;;
+    bump)  _ext_bump "$@" ;;
+    init)  _ext_init ;;
+    *)     die "usage: agent-skills external <add|check|bump|init> …" ;;
+  esac
+}
+
 # === Dispatch ===
 
 case "${1:-}" in
@@ -621,6 +814,7 @@ case "${1:-}" in
   link)          cmd_link ;;
   list)          cmd_list ;;
   vendor)        shift; cmd_vendor "$@" ;;
+  external)      shift; cmd_external "$@" ;;
   *)
     usage
     die "unknown subcommand: $1"

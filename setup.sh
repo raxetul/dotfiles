@@ -416,6 +416,10 @@ if [ "${PROFILE}" != "light" ]; then
 # with the local skills present and the vendored ones missing.
 "${DIR}/scripts/agent-skills" vendor
 
+# Pinned external skills (git submodules of the agent-skills repo) are checked
+# out at their PINNED commits only — never bumped here. `/update-skills` bumps.
+"${DIR}/scripts/agent-skills" external init
+
 # ------------------------------------------------------------------
 fi
 
