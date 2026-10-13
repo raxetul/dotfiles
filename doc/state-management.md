@@ -90,6 +90,8 @@ When `DRY_RUN=1` is set, the script prints the intended record to stderr. It doe
 
 ## How `uninstall.sh` consumes it
 
+![Uninstall lifecycle: the ledger drives each removal step](animations/uninstall.gif)
+
 `scripts/uninstall.sh` reads the reduced ledger. It then reverses the exact
 realized set:
 

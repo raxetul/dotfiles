@@ -23,6 +23,8 @@ The script does these steps:
 6. Switch the login shell to zsh.
 7. Install the lefthook git hooks for this repo.
 
+![Install lifecycle: install.sh, then each setup.sh step; --light skips the package steps](doc/animations/install.gif)
+
 You can run the script again safely. Every step is idempotent. To refresh the packages and configurations on a host
 that is already set up, run `scripts/update-dotfiles`.
 
@@ -86,6 +88,8 @@ Edits in `configurations/` take effect immediately. The live tree points at the 
 again when you add a new mapping. Run it also when you want to update a new host.
 
 ## Uninstall
+
+![Uninstall lifecycle: the ledger drives each removal step](doc/animations/uninstall.gif)
 
 ```sh
 ./scripts/uninstall.sh            # remove every user-scope artifact:

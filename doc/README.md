@@ -94,6 +94,7 @@ graph TD
 | Topic              | Doc                                                                                                 |
 | ------------------ | --------------------------------------------------------------------------------------------------- |
 | Shared install      | [opt-dotfiles-install.md](opt-dotfiles-install.md) — `/opt/dotfiles`, `install.sh`, group provisioning, migration. |
+| Animations         | [animations/README.md](animations/README.md) — lifecycle GIFs (install, update, uninstall, migrate) and how to render them. |
 | Theming            | [theming.md](theming.md) — Catppuccin Mocha palette + per-app mapping.                              |
 | Shell history      | [atuin.md](atuin.md) — atuin's three search surfaces, all pinned to global (non-session) scope.     |
 | Project init       | [init-proj.md](init-proj.md) — the `/init-proj-*` command family and how per-project standards layer. |

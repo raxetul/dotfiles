@@ -29,3 +29,6 @@ configurations/claude/skills/
 !/.wrongstack/
 /.wrongstack/*
 !/.wrongstack/project.json
+
+# manim render cache (doc/animations/README.md)
+media/
