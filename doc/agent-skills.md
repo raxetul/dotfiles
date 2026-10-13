@@ -314,6 +314,10 @@ scripts/agent-skills external init                                  # check out 
 They never bump a pin. The `/update-skills` command runs `external check` and `vendor --check`, reviews the
 diffs for prompt injection and new network or process calls, and then bumps the pins you approve.
 
+Every skill stays private in the agent-skills repo, with one exception. A skill may go to a public repo only
+when the user explicitly calls that skill "public". A public skill lives in its own repo. The owner can be
+anyone. The agent-skills repo then pins it as a submodule. Use `scripts/agent-skills external add <url>`.
+
 🟡 Run `external init` on a new host before `link`. Without it the submodule folder is empty and the skill
 has no `SKILL.md`.
 
