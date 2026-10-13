@@ -466,6 +466,12 @@ The classification line: content that carries **capability or knowledge**
 scripts, working-method rules, and commands (including this file and the
 `/init-proj-*` family) may stay public.
 
+Every skill stays private in `agent-skills`, with one exception: a skill
+may go to a public repo ONLY when I explicitly call that skill "public".
+A public skill lives in its own repo, with any owner. `agent-skills` then
+pins it as a submodule: run `scripts/agent-skills external add <url>`.
+Do not ask me to make a skill public. Do not guess that it is public.
+
 ## Timestamps: absolute instant + its offset, in one typed field
 
 Never store a local wall-clock reading and work out its UTC equivalent later —

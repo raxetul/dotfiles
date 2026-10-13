@@ -281,6 +281,46 @@ the script committed an upstream change to a *security* skill by itself, a compr
 enter without review. Pin `ref` to a commit SHA, not a branch, when this risk is more important than
 being current.
 
+## Pinned external skills (submodules)
+
+A third-party skill can be **pinned** instead of vendored. A pinned skill is a git submodule of the
+agent-skills repo. The submodule records one commit, so the skill text cannot change until you move the pin
+and commit it.
+
+| | Vendored (`vendor.tsv`) | Pinned (submodule) |
+| --- | --- | --- |
+| Storage | A copy of the upstream text in the repo | A gitlink to one upstream commit |
+| Change source | Every `vendor` run replaces the copy | Only `external bump` moves the pin |
+| Review point | The uncommitted diff after `vendor` | The commit range shown by `external check` |
+| Use when | You want the newest text (a generated skill) | You want a reviewed, fixed version |
+
+The `scripts/agent-skills external` subcommand has four verbs:
+
+```sh
+scripts/agent-skills external add <url> [name] [--ref <sha|branch>]  # pin a new skill; stages, no commit
+scripts/agent-skills external check [name…]                         # pinned vs upstream; changes nothing
+scripts/agent-skills external bump [name…]                          # move the pin to upstream; stages, no commit
+scripts/agent-skills external init                                  # check out the PINNED commits
+```
+
+- `add` uses the repo basename as the name (lowercase, `_` becomes `-`). It sets `branch` in `.gitmodules`.
+  It refuses the repo and removes the submodule when `<name>/SKILL.md` is missing.
+- `check` fetches the tracked branch. For each skill it prints the pinned SHA, the upstream SHA, the new
+  commits and the `diff --stat`. It prints `up to date` when there is no difference.
+- `bump` runs `git submodule update --remote` and stages the gitlink. You commit it.
+- `init` never uses `--remote`. A network failure gives a warning, not an error.
+
+`setup.sh`, `scripts/update-dotfiles` (`--only=agent-skills-external`) and `restore` all run `external init`.
+They never bump a pin. The `/update-skills` command runs `external check` and `vendor --check`, reviews the
+diffs for prompt injection and new network or process calls, and then bumps the pins you approve.
+
+Every skill stays private in the agent-skills repo, with one exception. A skill may go to a public repo only
+when the user explicitly calls that skill "public". A public skill lives in its own repo. The owner can be
+anyone. The agent-skills repo then pins it as a submodule. Use `scripts/agent-skills external add <url>`.
+
+🟡 Run `external init` on a new host before `link`. Without it the submodule folder is empty and the skill
+has no `SKILL.md`.
+
 ## Bundle backup discipline
 
 `scripts/agent-skills bundle` runs `git bundle create <dir>/agent-skills-<YYYY-MM-DD>.bundle --all`
