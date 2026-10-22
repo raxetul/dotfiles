@@ -5,8 +5,9 @@
 # Two jobs:
 #
 #   1. Fallback install on Debian/Ubuntu/Mint. atuin is in
-#      packages/Brewfile, pacman.list and dnf.list (brew/pacman/dnf
-#      provide it), but not in apt repos. The upstream installer drops
+#      packages/Brewfile, pacman.list, dnf.list and apt.list. Older apt
+#      releases (before Debian 13 / Ubuntu 23.10) have no candidate, so
+#      setup.sh skips it there and this fallback runs. The upstream installer drops
 #      the binary in ~/.atuin/bin (NOT ~/.local/bin), and we pass
 #      ATUIN_NO_MODIFY_PATH=1 so it doesn't edit the shell rc files —
 #      .path owns PATH, not the installer.

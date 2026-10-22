@@ -45,7 +45,7 @@ setup.sh does six package-related steps:
 3. fallbacks — `aur.list` on Arch, `snap.list` on the other distros.
 4. `custom-install/*/after.sh` — provision toolchains
    (`rustup default stable`), install release-binary fallbacks when
-   the native repo does not have the tool (starship/atuin/claude/lefthook),
+   the native repo does not have the tool (claude/lefthook; starship/atuin on apt releases that lack them),
    and set the PATH of each tool with a `.path` segment.
 5. `script-install.list` — tools that only an upstream
    `curl … | sh` installer ships, and that no package manager has. This step runs
@@ -95,8 +95,8 @@ For the hook contract, see [`packages/custom-install/README.md`](../packages/cus
 |---|---|---|---|---|---|
 | zsh | zsh | zsh | zsh | zsh | — |
 | bash | bash | bash | bash | bash | preinstalled everywhere |
-| starship | starship | starship | starship | starship | apt fallback via `custom-install/starship/after.sh`: `curl -sS https://starship.rs/install.sh \| sh -s -- --bin-dir ~/.local/bin --yes` |
-| atuin | atuin | atuin (23.10+) | atuin | atuin | apt fallback via `custom-install/atuin/after.sh`: upstream installer → `~/.atuin/bin` (NOT `~/.local/bin`); PATH added via the `atuin` segment in `.path` |
+| starship | starship | starship (Debian 13+) | starship | starship | for apt releases without the package, `custom-install/starship/after.sh`: `curl -sS https://starship.rs/install.sh \| sh -s -- --bin-dir ~/.local/bin --yes` |
+| atuin | atuin | atuin (Debian 13+, Ubuntu 23.10+) | atuin | atuin | for apt releases without the package, `custom-install/atuin/after.sh`: upstream installer → `~/.atuin/bin` (NOT `~/.local/bin`); PATH added via the `atuin` segment in `.path` |
 | zsh-autosuggestions | zsh-autosuggestions | zsh-autosuggestions | zsh-autosuggestions | zsh-autosuggestions | git clone → `~/.config/zsh-plugins/` |
 | zsh-syntax-highlighting | zsh-syntax-highlighting | zsh-syntax-highlighting | zsh-syntax-highlighting | zsh-syntax-highlighting | git clone |
 | zsh-history-substring-search | zsh-history-substring-search | zsh-syntax-highlighting (split) | zsh-history-substring-search | zsh-history-substring-search | git clone |

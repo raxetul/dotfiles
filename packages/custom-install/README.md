@@ -198,8 +198,8 @@ and which hooks changed something.
 | Folder       | Package  | `before.sh` | `after.sh`                                      |
 | ------------ | -------- | ----------- | ----------------------------------------------- |
 | `rustup/`    | rustup   | no-op stub  | toolchain + CARGO_CRATES                        |
-| `starship/`  | starship | no-op stub  | apt release-binary fallback → `~/.local/bin`    |
-| `atuin/`     | atuin    | no-op stub  | apt fallback → `~/.atuin/bin` + `.path` segment |
+| `starship/`  | starship | no-op stub  | fallback for old apt releases → `~/.local/bin`  |
+| `atuin/`     | atuin    | no-op stub  | old-apt fallback → `~/.atuin/bin` + `.path` segment |
 | `claude/`    | claude   | no-op stub  | upstream installer → `~/.local/bin` (all OSes)  |
 | `lefthook/`  | lefthook | no-op stub  | apt/dnf release-binary fallback → `~/.local/bin`|
 | `opencode/`  | opencode | macOS: tap + trust `anomalyco/tap` | Linux: upstream installer → `~/.opencode/bin` + `.path` segment |

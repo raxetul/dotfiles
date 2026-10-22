@@ -3,8 +3,9 @@
 # manager step.
 #
 # starship is in packages/Brewfile, pacman.list and dnf.list, so
-# brew/pacman/dnf already installed it. Only apt (Debian/Ubuntu/Mint)
-# lacks it — there we fall back to the upstream release-binary
+# brew/pacman/dnf already installed it. apt has it on Debian 13+; only
+# older apt releases (no candidate, skipped by setup.sh) lack it — there
+# we fall back to the upstream release-binary
 # installer, dropping the binary into ~/.local/bin. That dir is already
 # on PATH via .load's bootstrap, so starship needs NO .path segment.
 #
