@@ -10,6 +10,9 @@ graph TD
     A -->|"install.sh (root)<br/>default: hard"| A1["clone/update + group setup<br/>+ packages (via the invoking user)"]
     A -->|"install.sh --light (root)"| A2["clone/update + group setup only<br/>no packages, no attach"]
 
+    H["HOME lane — private copy"]
+    H -->|"install.sh --home [--light] (no root)"| H1["clone/update ~/gel-ort/dotfiles<br/>+ dotfiles-dir segment in load<br/>+ setup.sh"]
+
     B["AXIS 2 — each user's attach<br/>to the shared repo"]
     B -->|"install.sh --attach (no root)"| B1["setup.sh — full symlink set<br/>+ packages (needs this user's own sudo)"]
     B -->|"install.sh --attach --light (no root)"| B2["setup.sh --light — LIGHT_LINKS only<br/>no packages, no root ever"]
@@ -21,7 +24,7 @@ graph TD
 
 | What | Where | Owner |
 | --- | --- | --- |
-| The repo itself | `/opt/dotfiles` (or `${HOME}/gel-ort/dotfiles` for a plain dev checkout) | `root:dotfiles`, group-readable, setgid |
+| The repo itself | `/opt/dotfiles` (or `${HOME}/gel-ort/dotfiles` for a plain dev checkout or the `--home` lane) | `/opt/dotfiles`: group is ALWAYS `dotfiles`, group-readable, setgid. Owner is root or the admin user. |
 | Per-user shell-init (`load`, `path`) | `$HOME/.dotfiles/` | that user |
 | Realized-state ledger | `$HOME/.local/state/dotfiles/` | that user — no change, it was already per-user |
 
@@ -30,6 +33,11 @@ order: explicit env var → `/opt/dotfiles` if it exists → `${HOME}/gel-ort/do
 Every script sources this file and does not repeat the expression. The two rc
 files contain an inline copy. At shell startup, the rc files do not yet know where the repo is
 (see the comment there).
+
+The `--home` lane must win over an existing `/opt/dotfiles`. The rc stub resolves
+`DOTFILES_DIR` first, and then sources `load`. So `install.sh --home` writes a
+`dotfiles-dir` segment at the **top** of `$HOME/.dotfiles/load`, before `load` uses the
+variable. The segment overrides the rc value for all later lines of `load`.
 
 ## `install.sh` — the one-line installer
 
@@ -42,6 +50,10 @@ curl -fsSL https://raw.githubusercontent.com/raxetul/dotfiles/<SHA>/install.sh \
 # Machine half, light — just the shared repo + group, no packages, no attach:
 curl -fsSL https://raw.githubusercontent.com/raxetul/dotfiles/<SHA>/install.sh \
   | sudo sh -s -- --light
+
+# Home lane (no root, never /opt) — private checkout in ~/gel-ort/dotfiles:
+curl -fsSL https://raw.githubusercontent.com/raxetul/dotfiles/<SHA>/install.sh \
+  | sh -s -- --home [--light]
 
 # Per-user half (no root, ever) — attach THIS account:
 curl -fsSL https://raw.githubusercontent.com/raxetul/dotfiles/<SHA>/install.sh \
@@ -64,6 +76,7 @@ any other tool, bash included.
 | --- | --- | --- |
 | Machine (default / "hard") | yes | clone or fast-forward `/opt/dotfiles` → `scripts/provision-shared-group.sh` (group, ownership, setgid) → `sudo -u "$SUDO_USER" /opt/dotfiles/setup.sh` (packages + full attach for the invoking user) |
 | Machine `--light` | yes | clone or fast-forward + group setup only — stops there |
+| Home (`--home`) | no | clone or fast-forward `${HOME}/gel-ort/dotfiles` (pinned to `INSTALL_PIN_SHA` on first clone) → write the `dotfiles-dir` segment at the top of `$HOME/.dotfiles/load` (old segment stripped first, so re-runs are safe) → `setup.sh` (`--light` if given). Cannot be combined with `--attach`. |
 | Attach (`--attach`) | no | `setup.sh` on an already-provisioned `/opt/dotfiles` (full symlink set; needs this account's own sudo for packages) |
 | Attach `--light` (`--attach --light`) | no | `setup.sh --light` — `LIGHT_LINKS` only, never touches packages |
 
@@ -118,14 +131,28 @@ scripts/migrate-to-opt.sh --yes        # no prompts
    into the shared tree.
 3. The script relocates the repo. When it is safe, the script does a `mv` on the same device
    to `/opt/dotfiles`. To create `/opt/dotfiles` the first time, the script needs root.
-   If it cannot, it tells you the exact `sudo mkdir + chown` to run first.
+   If it cannot, it prints the command to run first:
+   `sudo groupadd -f dotfiles && sudo install -d -o "$(id -un)" -g dotfiles -m 2775 /opt/dotfiles`.
    When a move is not safe, the script does a fresh `git clone` from the old checkout
    and leaves the old directory in place. A move is not safe when
    `/opt/dotfiles` already exists, or when the move is across devices.
-4. The script runs `scripts/symlinks.sh install` again, so that each symlink points to
+   An existing **empty**, writable `/opt/dotfiles` (made by the command above) gets a clone.
+   `mv` cannot replace an existing directory. `rmdir` + `mv` would lose the group and setgid
+   bit that the command set. An existing directory that is not empty and has no `.git` stops the script.
+   After a clone, the script does these steps:
+   - It sets `origin` of the new repo to the `origin` URL of the old checkout
+     (the clone has the local path as `origin`).
+   - It warns about local branches that are not on `origin`. They stay in the old checkout.
+   - It warns about ignored files that a clone does not copy
+     (`.leak-guard-patterns`, `.claude/settings.local.json`).
+   - It reminds you to run `lefthook install` and `git fetch origin` in the new checkout.
+4. The script checks that `/opt/dotfiles` has group `dotfiles` (`stat -c %G`, Linux only).
+   If not, it exits with an error and prints
+   `sudo /opt/dotfiles/scripts/provision-shared-group.sh <user>`. Run it, then run the migration again.
+5. The script runs `scripts/symlinks.sh install` again, so that each symlink points to
    the new location. It then checks that there are **zero dangling links**
    and reports the count (`N/N links resolve; 0 dangling`).
-5. The script **never deletes the old directory**. The user decides this
+6. The script **never deletes the old directory**. The user decides this
    after they confirm that the new location works.
 
 Group and ownership setup (`provision-shared-group.sh`) is a separate step.

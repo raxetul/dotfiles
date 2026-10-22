@@ -292,9 +292,11 @@ global one, see [doc/agentic-promotion.md](doc/agentic-promotion.md).
       and every destructive one is confirmed before running. New types
       follow this layering; new command files are committed (rule #12).
 15. **Two axes: the shared repo, and each user's attachment to it.**
-    The repo itself lives at `/opt/dotfiles`, owned `root:dotfiles`
-    (group-readable, setgid so new files inherit the group — see
-    `scripts/provision-shared-group.sh`), installed either "light"
+    The repo itself lives at `/opt/dotfiles` and ALWAYS has group
+    `dotfiles` (group-readable, setgid so new files inherit the group —
+    see `scripts/provision-shared-group.sh`); the owner may be root or
+    the admin user. `scripts/migrate-to-opt.sh` exits non-zero when the
+    group is wrong. It is installed either "light"
     (config only) or "hard" (default: + packages) — `setup.sh` without
     `--light` is "hard"; there is no `--hard` flag. Independently, each
     user attaches their shell to that repo, again light or hard.
@@ -303,7 +305,12 @@ global one, see [doc/agentic-promotion.md](doc/agentic-promotion.md).
     `$HOME/.local/state/dotfiles/` (the realized-state ledger). A dev
     checkout that never migrates to `/opt/dotfiles` keeps working: every
     reader falls back to `${HOME}/gel-ort/dotfiles` and the legacy
-    in-repo `.load`/`.path` pair. See
+    in-repo `.load`/`.path` pair. `install.sh` has three lanes: root
+    default (`/opt/dotfiles`), `--attach` (an existing repo), and
+    `--home` (a private checkout in `${HOME}/gel-ort/dotfiles`, never
+    root, never `/opt`; it pins that choice in a `dotfiles-dir` segment
+    at the top of `$HOME/.dotfiles/load`, so it wins over an existing
+    `/opt/dotfiles`). See
     [`doc/opt-dotfiles-install.md`](doc/opt-dotfiles-install.md) (the
     `install.sh` one-liner and `scripts/migrate-to-opt.sh`) and
     [`doc/light-profile.md`](doc/light-profile.md) (the light/hard

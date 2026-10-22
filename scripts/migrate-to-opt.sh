@@ -11,9 +11,13 @@
 #   3. Relocate the repo to /opt/dotfiles: a same-device `mv` when
 #      that's safe (needs root to create /opt/dotfiles the first
 #      time), or a fresh `git clone` from the old checkout — keeping
-#      the old directory in place — when a move isn't safe (already
-#      exists at /opt/dotfiles, cross-device, or not root). States
-#      which one it did.
+#      the old directory in place — when a move isn't safe (an empty
+#      /opt/dotfiles already exists, cross-device, or not root).
+#      States which one it did. After a clone it points `origin` at
+#      the old checkout's origin URL and warns about local-only
+#      branches and ignored files left behind. Then it checks that
+#      /opt/dotfiles has group `dotfiles`; if not, it exits non-zero
+#      with the provision-shared-group.sh command to run.
 #   4. Re-run scripts/symlinks.sh install so every symlink repoints at
 #      the new location. Verifies zero dangling links afterward and
 #      reports the count.
@@ -38,7 +42,7 @@ for arg in "$@"; do
     case "${arg}" in
         --dry-run) DRY_RUN=1 ;;
         --yes)     YES=1 ;;
-        -h|--help) sed -n '2,26p' "$0"; exit 0 ;;
+        -h|--help) sed -n '2,31p' "$0"; exit 0 ;;
         *) printf 'ERR: unknown argument: %s\n' "${arg}" >&2; exit 1 ;;
     esac
 done
@@ -110,15 +114,77 @@ migrate_one "${SRC}/.load" "${PER_USER_DIR}/load"
 migrate_one "${SRC}/.path" "${PER_USER_DIR}/path"
 
 # === Step 3 — relocate the repo to /opt/dotfiles ====================
+# /opt/dotfiles must ALWAYS end up with group `dotfiles` (setgid). The
+# printed hint creates the dir that way, and the check after this step
+# enforces it. Owner may be root or the admin user.
+# shellcheck disable=SC2016  # literal command for the user to run, not for expansion here
+HINT_GROUP='sudo groupadd -f dotfiles && sudo install -d -o "$(id -un)" -g dotfiles -m 2775 /opt/dotfiles'
+
+post_clone_notes() {
+    # After a clone from the local checkout: undo what a local clone gets
+    # wrong and list what a clone cannot carry over. DRY_RUN prints only.
+    local origin_url local_only ignored_left f
+    if origin_url="$(git -C "${SRC}" remote get-url origin 2>/dev/null)"; then
+        run git -C "${SHARED_ROOT}" remote set-url origin "${origin_url}"
+        printf '  origin of the new repo: %s (was the local path)\n' "${origin_url}"
+    else
+        printf '  WARN: %s has no origin remote — the new repo keeps the local path as origin.\n' "${SRC}"
+    fi
+    local_only="$(comm -23 \
+        <(git -C "${SRC}" for-each-ref --format='%(refname:short)' refs/heads | sort) \
+        <(git -C "${SRC}" for-each-ref --format='%(refname:short)' refs/remotes/origin | sed 's|^origin/||' | sort))"
+    if [ -n "${local_only}" ]; then
+        printf '  WARN: local branches that are NOT on origin (they stay only in %s):\n' "${SRC}"
+        while IFS= read -r f; do printf '    %s\n' "${f}"; done <<< "${local_only}"
+    fi
+    ignored_left=""
+    for f in .leak-guard-patterns .claude/settings.local.json; do
+        [ -e "${SRC}/${f}" ] && ignored_left="${ignored_left} ${f}"
+    done
+    if [ -n "${ignored_left}" ]; then
+        printf '  WARN: ignored files NOT copied to the new checkout:%s\n' "${ignored_left}"
+    fi
+    # shellcheck disable=SC2016  # literal commands for the user to run
+    printf '  TODO in the new checkout: run `lefthook install` (git hooks are not cloned),\n'
+    # shellcheck disable=SC2016  # literal commands for the user to run
+    printf '        and `git fetch origin` (remote branches are stale until then).\n'
+}
+
+clone_into_shared() {
+    # git clone into an existing EMPTY dir is fine. `mv` onto an existing
+    # dir is not, and rmdir + mv would drop the group + setgid the hint set.
+    if confirm "  git clone ${SRC} -> ${SHARED_ROOT}?"; then
+        run git clone --quiet "${SRC}" "${SHARED_ROOT}"
+        printf '  cloned fresh: %s -> %s (old checkout left in place)\n' "${SRC}" "${SHARED_ROOT}"
+        post_clone_notes
+    else
+        printf '  skipped by user — nothing cloned.\n'
+    fi
+}
+
 say "repo relocation: ${SRC} -> ${SHARED_ROOT}"
 if [ -d "${SHARED_ROOT}/.git" ]; then
     printf '  %s already exists — leaving %s in place, untouched.\n' "${SHARED_ROOT}" "${SRC}"
     printf '  (nothing to relocate: this host already has the shared repo;\n'
     printf '   %s is now a redundant checkout you may remove by hand.)\n' "${SRC}"
+elif [ -d "${SHARED_ROOT}" ] && [ -n "$(ls -A "${SHARED_ROOT}" 2>/dev/null)" ]; then
+    printf 'ERR: %s exists, is not empty, and is not a git repo — not touching it.\n' "${SHARED_ROOT}" >&2
+    exit 1
+elif [ -d "${SHARED_ROOT}" ]; then
+    # Empty dir (made by the hint). Needs write access: root, or the owner/group.
+    if [ "$(id -u)" != "0" ] && [ ! -w "${SHARED_ROOT}" ]; then
+        printf '  %s exists but you cannot write to it. Run:\n' "${SHARED_ROOT}"
+        # shellcheck disable=SC2016  # literal command for the user to run
+        printf '    sudo chown "$(id -un)" %s && sudo chgrp dotfiles %s && sudo chmod 2775 %s\n' \
+            "${SHARED_ROOT}" "${SHARED_ROOT}" "${SHARED_ROOT}"
+        printf '  then re-run this script. Left %s in place — nothing moved.\n' "${SRC}"
+    else
+        printf '  %s exists, is empty and is writable — cloning into it.\n' "${SHARED_ROOT}"
+        clone_into_shared
+    fi
 elif [ "$(id -u)" != "0" ] && [ ! -w "$(dirname "${SHARED_ROOT}")" ]; then
-    printf '  cannot create %s without root — re-run as:\n' "${SHARED_ROOT}"
-    # shellcheck disable=SC2016  # literal example command, not for expansion here
-    printf '    sudo mkdir -p %s && sudo chown "$(id -u):$(id -g)" %s\n' "${SHARED_ROOT}" "${SHARED_ROOT}"
+    printf '  cannot create %s without root — run:\n' "${SHARED_ROOT}"
+    printf '    %s\n' "${HINT_GROUP}"
     printf '  then re-run this script (it will pick up the now-writable dir).\n'
     printf '  Left %s in place — nothing moved.\n' "${SRC}"
 else
@@ -137,12 +203,23 @@ else
         fi
     else
         printf '  cross-device (mv unsafe) — cloning fresh from %s instead.\n' "${SRC}"
-        if confirm "  git clone ${SRC} -> ${SHARED_ROOT}?"; then
-            run git clone --quiet "${SRC}" "${SHARED_ROOT}"
-            printf '  cloned fresh: %s -> %s (old checkout left in place)\n' "${SRC}" "${SHARED_ROOT}"
-        else
-            printf '  skipped by user — nothing cloned.\n'
+        clone_into_shared
+    fi
+fi
+
+# === Step 3b — the group of /opt/dotfiles must be `dotfiles` ========
+if [ -d "${SHARED_ROOT}/.git" ] && [ "$(uname)" = "Linux" ]; then
+    say "checking group of ${SHARED_ROOT}"
+    if [ "${DRY_RUN}" = "1" ]; then
+        printf '  [dry-run] stat -c %%G %s  (must print: dotfiles)\n' "${SHARED_ROOT}"
+    else
+        group="$(stat -c %G "${SHARED_ROOT}")"
+        if [ "${group}" != "dotfiles" ]; then
+            printf 'ERR: %s has group "%s", not "dotfiles". Run:\n' "${SHARED_ROOT}" "${group}" >&2
+            printf '  sudo %s/scripts/provision-shared-group.sh %s\n' "${SHARED_ROOT}" "$(id -un)" >&2
+            exit 1
         fi
+        printf '  group is dotfiles\n'
     fi
 fi
 
