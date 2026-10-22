@@ -1,7 +1,7 @@
 ---
 status: source-of-truth
 maintainer: raxetul@gmail.com
-claude-rule: "This doc MUST be kept in lockstep with scripts/dc-image-update — any change to its scan/mark/apply behavior, menu keys, state schema, or exit codes is a doc change in the same commit."
+claude-rule: "This doc MUST be kept in lockstep with scripts/dc-image-update — any change to its scan/mark/apply behavior, TUI or line-menu keys, state schema, or exit codes is a doc change in the same commit."
 ---
 
 # dc-image-update — docker compose image pull/recreate helper
@@ -36,7 +36,7 @@ flowchart TD
     F --> G["load .dc-image-update.json<br/>from scan root"]
     G --> H["merge: known marks restored,<br/>unseen images -> '' + ← new,<br/>vanished images kept, not shown"]
     H --> I["docker ps --format image<br/>-> ▶running marker"]
-    I --> J[render menu]
+    I --> J[render menu: TUI or line menu]
     J -->|invalid key| J
     J -->|Enter / s / --yes| K["write state atomically<br/>tmp file + mv"]
     J -->|q| Z["exit, no write"]
@@ -78,7 +78,85 @@ The recreate scope is the **running containers** on purpose. The script finds th
 `com.docker.compose.*` labels. It does not use every service in the compose file. A compose file can define
 services that are not up. The script does not change those services.
 
-## Menu keys
+## Full-screen TUI
+
+On a terminal, the script shows a full-screen list. You move a cursor and mark rows with single keys. The TUI is
+pure zsh. It needs no new dependency.
+
+```text
+ dc-image-update  ~/stacks            [P]ull [R]ecreate
+ ┌────────────────────────────────────────────────┐
+ │   [P] postgres:16            db, db-replica     │
+ │ > [R] nginx:1.27             proxy              │
+ │   [ ] redis:7                cache              │
+ │   [P] ghcr.io/x/app:latest   app (running)      │
+ └────────────────────────────────────────────────┘
+ ↑↓ move  Space cycle  p/r/x row  P/R/X all  s save  Enter apply  q quit
+```
+
+The cursor row is shown in reverse video. A `*` in the header means you changed marks that you did not save. The
+list scrolls when it is taller than the terminal. The bottom border then shows the visible range, for example
+`33-40 of 40`. Long image names are cut from the middle to fit the width.
+
+| Key                | Effect                                                                 |
+| ------------------ | ----------------------------------------------------------------------- |
+| `↑` `↓`, `k` `j`   | move the cursor one row                                                  |
+| `PgUp` `PgDn`      | move the cursor one page                                                 |
+| `Home` `End`, `g` `G` | first row, last row                                                   |
+| `Space`            | cycle the current row: `[ ]` → `[P]` → `[R]` → `[ ]`                     |
+| `p` `r` `x`        | set the current row to `[P]`, `[R]`, `[ ]`                               |
+| `P` `R` `X`        | set **all** rows to `[P]`, `[R]`, `[ ]`                                  |
+| `Enter`            | save marks, then apply                                                   |
+| `s`                | save marks only, do not apply                                            |
+| `q`                | quit without saving; asks `[y/N]` first if you changed marks              |
+| `Ctrl-C`           | quit at once, nothing saved                                              |
+
+The save, apply, and quit actions are the same as in the line menu. Marks, state file, and exit codes do not change.
+
+### When the TUI is used
+
+The script uses the TUI only when all three conditions are true:
+
+- stdin is a TTY.
+- stdout is a TTY.
+- `TERM` is set and is not `dumb`.
+
+Otherwise it uses the line menu. Pipes, `--yes`, and EOF handling do not change. Use `--no-tui` to force the line
+menu on a terminal.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Select
+    Select --> TUI: stdin+stdout are TTY,<br/>TERM not dumb, no --no-tui
+    Select --> LineMenu: pipe, TERM=dumb, or --no-tui
+    TUI --> TUI: move / Space / p r x / P R X
+    LineMenu --> LineMenu: n, p<spec>, r<spec>, x<spec>, a, c
+    TUI --> Apply: Enter
+    LineMenu --> Apply: empty line
+    TUI --> Save: s
+    LineMenu --> Save: s or EOF
+    TUI --> Confirm: q (marks changed)
+    LineMenu --> Confirm: q (marks changed)
+    Confirm --> Quit: y
+    Confirm --> TUI: n
+    TUI --> Quit: q (no changes)
+    LineMenu --> Quit: q (no changes)
+    Apply --> [*]: save state, pull, recreate
+    Save --> [*]: save state
+    Quit --> [*]: no write
+```
+
+### Terminal safety
+
+The TUI uses the alternate screen (`ESC[?1049h`) and hides the cursor. It always restores the terminal: normal
+exit, `Ctrl-C`, `SIGTERM`, `SIGHUP`, and an `EXIT` trap all show the cursor, leave the alternate screen, and restore
+the `stty` settings. `Ctrl-Z` gives the terminal back, stops the script, and draws the TUI again after `fg`. A
+terminal resize (`SIGWINCH`) redraws the screen within 0.25 seconds.
+
+## Line menu keys
+
+The line menu is the fallback. It reads typed commands.
+
 
 | Input          | Effect                                                              |
 | -------------- | -------------------------------------------------------------------- |
@@ -116,7 +194,7 @@ strings), atomically (temp file + `mv`):
 ## Flags
 
 ```
-dc-image-update [DIR] [--dry-run] [--yes|-y] [--help]
+dc-image-update [DIR] [--dry-run] [--yes|-y] [--no-tui] [--help]
 ```
 
 | Flag              | Behavior                                                                          |
@@ -124,6 +202,7 @@ dc-image-update [DIR] [--dry-run] [--yes|-y] [--help]
 | `DIR`             | scan root; defaults to `$PWD`                                                      |
 | `--dry-run`       | print the plan; never runs `docker pull`/`docker compose up`; never writes state, even on Enter/`s` (env `DRY_RUN=1` is equivalent, matching the `packages/custom-install/*` hook convention) |
 | `--yes` / `-y`    | skip the menu, apply whatever marks are already on disk (cron/automation)           |
+| `--no-tui`        | use the line menu even on a terminal (see [Full-screen TUI](#full-screen-tui))      |
 | `--help` / `-h`   | usage + this reference                                                             |
 
 **Non-interactive stdin:** if stdin is not a TTY and you did not pass `--yes`, the menu reads commands from stdin,

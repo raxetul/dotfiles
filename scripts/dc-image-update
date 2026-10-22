@@ -7,7 +7,7 @@
 # pulls the marked images and recreates only the RUNNING containers that
 # use an image whose digest actually changed.
 #
-# Usage: dc-image-update [DIR] [--dry-run] [--yes|-y] [--help]
+# Usage: dc-image-update [DIR] [--dry-run] [--yes|-y] [--no-tui] [--help]
 # See `dc-image-update --help` for the full reference (marks, keys, state
 # schema, exit codes) and doc/dc-image-update.md for the diagrammed version.
 #
@@ -67,7 +67,7 @@ print_help() {
 dc-image-update — scan docker compose files, mark images, pull/recreate.
 
 Usage:
-  dc-image-update [DIR] [--dry-run] [--yes|-y] [--help]
+  dc-image-update [DIR] [--dry-run] [--yes|-y] [--no-tui] [--help]
 
   DIR             directory to scan recursively (default: $PWD).
                   Every dot-directory is pruned (except DIR itself), plus
@@ -81,6 +81,7 @@ Usage:
                   custom-install-hook convention.)
   --yes, -y       skip the interactive menu; apply whatever marks are
                   already on disk (for cron/automation).
+  --no-tui        use the line menu even on a terminal (see "Line-menu keys").
   --help, -h      this text.
 
 Non-interactive stdin: if stdin is not a TTY and --yes was not given, the
@@ -99,7 +100,23 @@ Marks (assigned per image, never per compose service):
         listed in a compose file.
   [ ]   do nothing
 
-Menu keys:
+Full-screen TUI: when stdin AND stdout are TTYs and TERM is not "dumb", the
+menu is a full-screen list with a cursor. Otherwise (pipes, --no-tui) the line
+menu below is used, unchanged.
+
+TUI keys:
+  Up/Down, k/j       move the cursor
+  PgUp/PgDn          move one page
+  Home/End, g/G      first / last row
+  Space              cycle the current row:  [ ] -> [P] -> [R] -> [ ]
+  p / r / x          set the current row to [P] / [R] / [ ]
+  P / R / X          set ALL rows to [P] / [R] / [ ]
+  Enter              save marks, then apply (pull/recreate)
+  s                  save marks only, do not apply
+  q                  quit without saving (confirms if there are unsaved changes)
+  Ctrl-C             quit at once, nothing saved; the terminal is restored
+
+Line-menu keys:
   <n>          cycle row n's mark:  [ ] -> [P] -> [R] -> [ ]
   p<spec>      set rows in <spec> to [P]     e.g. p3, p1-4, p1,3,5
   r<spec>      set rows in <spec> to [R]
@@ -138,6 +155,7 @@ parse_args() {
   OPT_DIR=""
   OPT_DRY_RUN=0
   OPT_YES=0
+  OPT_NO_TUI=0
   OPT_HELP=0
   [[ "${DRY_RUN:-0}" == "1" ]] && OPT_DRY_RUN=1
 
@@ -147,6 +165,7 @@ parse_args() {
       --help|-h) OPT_HELP=1 ;;
       --dry-run) OPT_DRY_RUN=1 ;;
       --yes|-y) OPT_YES=1 ;;
+      --no-tui) OPT_NO_TUI=1 ;;
       -*)
         warn "unknown option: $arg"
         return 2
@@ -604,6 +623,303 @@ run_menu() {
 }
 
 # ---------------------------------------------------------------------
+# Full-screen TUI (used instead of run_menu on a real terminal)
+# ---------------------------------------------------------------------
+
+typeset -gi TUI_ACTIVE=0         # 1 while the alternate screen is on
+typeset -gi TUI_CUR=0            # cursor row, 1-based (0 = no rows)
+typeset -gi TUI_TOP=1            # first visible row
+typeset -gi TUI_VIS=10           # visible rows, set by tui_render
+typeset -gi TUI_CHANGED=0        # 1 once a mark was edited
+typeset -g TUI_ROOT=""
+typeset -g TUI_STTY=""
+typeset -g TUI_PROMPT=""         # replaces the footer while set
+typeset -g TUI_RESULT=""         # "" | apply | save | quit | confirm-quit
+typeset -g KEY=""                # last key from tui_read_key
+zmodload zsh/datetime            # EPOCHREALTIME, bundled with zsh
+
+# TUI only on a real terminal: stdin AND stdout TTYs, TERM set and not "dumb".
+use_tui() {
+  (( OPT_NO_TUI )) && return 1
+  [[ -t 0 && -t 1 ]] || return 1
+  [[ -n "${TERM:-}" && "${TERM}" != dumb ]]
+}
+
+# Escape sequence (the bytes after ESC) -> key name in KEY. "" is a lone ESC.
+tui_map_seq() {
+  case "$1" in
+    '[A'|'OA'|'[1;'*A) KEY=UP ;;
+    '[B'|'OB'|'[1;'*B) KEY=DOWN ;;
+    '[H'|'OH'|'[1~'|'[7~') KEY=HOME ;;
+    '[F'|'OF'|'[4~'|'[8~') KEY=END ;;
+    '[5~') KEY=PGUP ;;
+    '[6~') KEY=PGDN ;;
+    '') KEY=ESC ;;
+    *) KEY=UNKNOWN ;;
+  esac
+}
+
+# Read one key from stdin into KEY. Names: UP DOWN PGUP PGDN HOME END ENTER SPACE ESC CTRL_C CTRL_Z UNKNOWN,
+# or the literal character. Returns 1 on EOF (KEY=EOF).
+tui_read_key() {
+  local c seq="" t0
+  KEY=""
+  # zsh runs pending traps only after an external command, so poll with a short timeout: a SIGWINCH
+  # redraw then waits at most one tick. A failure faster than the timeout is a real EOF, not a timeout.
+  while true; do
+    t0=$EPOCHREALTIME
+    IFS= read -rsk 1 -t 0.25 c && break
+    command true    # an external command is what lets zsh run pending traps (SIGWINCH)
+    if (( EPOCHREALTIME - t0 < 0.2 )); then KEY=EOF; return 1; fi
+  done
+  case "$c" in
+    $'\x03') KEY=CTRL_C ;;
+    $'\x1a') KEY=CTRL_Z ;;
+    $'\e')
+      if IFS= read -rsk 1 -t 0.05 c; then
+        seq="$c"
+        if [[ "$c" == '[' || "$c" == O ]]; then
+          while IFS= read -rsk 1 -t 0.05 c; do
+            seq+="$c"
+            [[ "$c" == [A-Za-z~] ]] && break
+          done
+        fi
+      fi
+      tui_map_seq "$seq"
+      ;;
+    $'\n'|$'\r') KEY=ENTER ;;
+    ' ') KEY=SPACE ;;
+    *) KEY="$c" ;;
+  esac
+  return 0
+}
+
+# Keep the cursor inside the window [TUI_TOP, TUI_TOP+vis-1] and the window inside [1, count].
+# Args: cursor vis count. Updates TUI_TOP.
+tui_clamp_top() {
+  local cur="$1" vis="$2" count="$3"
+  (( cur < TUI_TOP )) && TUI_TOP=$cur
+  (( cur > TUI_TOP + vis - 1 )) && TUI_TOP=$(( cur - vis + 1 ))
+  local max=$(( count - vis + 1 ))
+  (( max < 1 )) && max=1
+  (( TUI_TOP > max )) && TUI_TOP=$max
+  (( TUI_TOP < 1 )) && TUI_TOP=1
+  return 0
+}
+
+# Apply one key to the TUI state (cursor, marks, TUI_CHANGED, TUI_RESULT). No terminal I/O.
+tui_handle_key() {
+  local key="$1" img
+  TUI_RESULT=""
+  case "$key" in
+    UP|k) (( TUI_CUR > 1 )) && (( TUI_CUR-- )) ;;
+    DOWN|j) (( TUI_CUR < ROW_COUNT )) && (( TUI_CUR++ )) ;;
+    PGUP)
+      TUI_CUR=$(( TUI_CUR - TUI_VIS ))
+      (( TUI_CUR < 1 )) && TUI_CUR=$(( ROW_COUNT > 0 ? 1 : 0 ))
+      ;;
+    PGDN)
+      TUI_CUR=$(( TUI_CUR + TUI_VIS ))
+      (( TUI_CUR > ROW_COUNT )) && TUI_CUR=$ROW_COUNT
+      ;;
+    HOME|g) TUI_CUR=$(( ROW_COUNT > 0 ? 1 : 0 )) ;;
+    END|G) TUI_CUR=$ROW_COUNT ;;
+    SPACE)
+      if (( TUI_CUR >= 1 )); then
+        cycle_row "$TUI_CUR" && TUI_CHANGED=1
+      fi
+      ;;
+    p|r|x)
+      if (( TUI_CUR >= 1 )); then
+        img="${IMG_ROW[$TUI_CUR]}"
+        case "$key" in
+          p) MARKS[$img]=P ;;
+          r) MARKS[$img]=R ;;
+          x) MARKS[$img]="" ;;
+        esac
+        TUI_CHANGED=1
+      fi
+      ;;
+    P) mark_all P; TUI_CHANGED=1 ;;
+    R) mark_all R; TUI_CHANGED=1 ;;
+    X) mark_all ""; TUI_CHANGED=1 ;;
+    ENTER) TUI_RESULT=apply ;;
+    s) TUI_RESULT=save ;;
+    q) if (( TUI_CHANGED )); then TUI_RESULT=confirm-quit; else TUI_RESULT=quit; fi ;;
+  esac
+  return 0
+}
+
+# Print one full frame for a W x H terminal on stdout (plain escapes, one string, no trailing newline).
+# Reads TUI_CUR/TUI_TOP/TUI_CHANGED/TUI_PROMPT and the row/mark globals; updates TUI_TOP and TUI_VIS.
+tui_render() {
+  local w="$1" h="$2" root_disp="${3/#$HOME/~}"
+  (( w < 24 )) && w=24
+  (( h < 6 )) && h=6
+  local esc=$'\e' el=$'\e[K'
+  local inner=$(( w - 3 ))                  # " │" + inner + "│"
+  local rest_w=$(( inner - 8 ))             # 7 columns of prefix, 1 of suffix
+  local vis=$(( h - 4 ))                    # header, 2 borders, footer
+  TUI_VIS=$vis
+  tui_clamp_top "$TUI_CUR" "$vis" "$ROW_COUNT"
+  local shown=$(( ROW_COUNT - TUI_TOP + 1 ))
+  (( shown > vis )) && shown=$vis
+  (( shown < 0 )) && shown=0
+
+  local i img_w=0 img
+  local -a imgs=()
+  for (( i = 1; i <= ROW_COUNT; i++ )); do imgs+=("${IMG_ROW[$i]}"); done
+  img_w="$(compute_image_width "${imgs[@]}")"
+  (( img_w > rest_w * 2 / 3 )) && img_w=$(( rest_w * 2 / 3 ))
+  (( img_w < 4 )) && img_w=4
+
+  local left=" dc-image-update  ${root_disp}"
+  (( TUI_CHANGED )) && left+="  *"
+  local right="[P]ull [R]ecreate "
+  local lmax=$(( w - ${#right} - 1 ))
+  left="${left[1,$lmax]}"
+
+  local out="${esc}[H"
+  out+="${esc}[1m${(r:$(( w - ${#right} )):)left}${esc}[0m${right}${el}"$'\n'
+  out+=" ┌${(l:$inner::─:)}┐${el}"$'\n'
+
+  local row mark m svcs usage_disp rest lead e
+  local -a entries names
+  for (( i = TUI_TOP; i < TUI_TOP + shown; i++ )); do
+    img="${IMG_ROW[$i]}"
+    mark="${MARKS[$img]:-}"
+    m="${mark:- }"
+    entries=("${(f)IMG_USAGE[$img]}")
+    names=()
+    for e in "${entries[@]}"; do names+=("${e#*$'\t'}"); done
+    svcs="${(j:, :)${(u)names[@]}}"
+    (( ${+RUNNING_IMAGES[$img]} )) && svcs+=" (running)"
+    rest="${(r:$img_w:)$(truncate_image "$img" "$img_w")}  ${svcs}"
+    rest="${rest[1,$rest_w]}"
+    rest="${(r:$rest_w:)rest}"
+    if (( i == TUI_CUR )); then
+      row="${esc}[7m > [${m}] ${rest} ${esc}[0m"
+    else
+      case "$m" in
+        R) m="${esc}[1;32mR${esc}[0m" ;;
+        P) m="${esc}[33mP${esc}[0m" ;;
+      esac
+      row="   [${m}] ${rest} "
+    fi
+    out+=" │${row}│${el}"$'\n'
+  done
+
+  local label=""
+  (( ROW_COUNT > vis )) && label=" ${TUI_TOP}-$(( TUI_TOP + shown - 1 )) of ${ROW_COUNT} "
+  out+=" └${(l:$inner::─:)label}┘${el}"$'\n'
+
+  local footer=" ↑↓ move  Space cycle  p/r/x row  P/R/X all  s save  Enter apply  q quit"
+  (( w < 74 )) && footer=" ↑↓ move  Space cycle  P/R/X all  Enter apply  q quit"
+  (( w < 54 )) && footer=" ↑↓  Space  P/R/X  s  Enter  q"
+  [[ -n "$TUI_PROMPT" ]] && footer=" ${TUI_PROMPT}"
+  out+="${footer[1,$w]}${el}${esc}[J"
+  print -rn -- "$out"
+}
+
+tui_size() {
+  local sz rows cols
+  sz="$(stty size 2>/dev/null)"
+  rows="${sz% *}"
+  cols="${sz#* }"
+  [[ "$rows" == <1-> ]] || rows="${LINES:-24}"
+  [[ "$cols" == <1-> ]] || cols="${COLUMNS:-80}"
+  print -r -- "$cols $rows"
+}
+
+tui_draw() {
+  local size
+  size="$(tui_size)"
+  tui_render "${size% *}" "${size#* }" "$TUI_ROOT"
+}
+
+tui_enter() {
+  (( TUI_ACTIVE )) && return 0
+  TUI_ACTIVE=1
+  TUI_STTY="$(stty -g 2>/dev/null)"
+  # TRAPxxx functions, defined only while the TUI is on, so Ctrl-C keeps its default behaviour in the
+  # line menu and during apply. `emulate -L` implies local_traps, so run_tui turns that off.
+  TRAPINT() { _tui_on_exit 130 }
+  TRAPTERM() { _tui_on_exit 143 }
+  TRAPHUP() { _tui_on_exit 129 }
+  TRAPWINCH() { _tui_on_winch }
+  TRAPTSTP() { _tui_on_tstp }
+  printf '\e[?1049h\e[?25l\e[2J'
+}
+
+# Idempotent: safe to call from the EXIT trap and from signal handlers.
+tui_leave() {
+  (( TUI_ACTIVE )) || return 0
+  TUI_ACTIVE=0
+  unfunction TRAPINT TRAPTERM TRAPHUP TRAPWINCH TRAPTSTP 2>/dev/null
+  printf '\e[?25h\e[?1049l'
+  if [[ -n "$TUI_STTY" ]]; then
+    stty "$TUI_STTY" 2>/dev/null || stty sane 2>/dev/null
+  else
+    stty sane 2>/dev/null
+  fi
+  return 0
+}
+
+_tui_on_exit() { tui_leave; exit "$1" }
+_tui_on_winch() { (( TUI_ACTIVE )) && tui_draw; return 0 }
+# Ctrl-Z: give the terminal back, stop, and take it again on resume.
+_tui_on_tstp() {
+  tui_leave
+  kill -STOP $$
+  tui_enter
+  tui_draw
+}
+
+run_tui() {
+  local root="$1"
+  setopt local_options no_local_traps
+  TUI_ROOT="$root"
+  TUI_CHANGED=0
+  TUI_TOP=1
+  TUI_PROMPT=""
+  TUI_CUR=$(( ROW_COUNT > 0 ? 1 : 0 ))
+
+  tui_enter
+  tui_draw
+  while true; do
+    if ! tui_read_key; then
+      ACTION=quit
+      break
+    fi
+    # `read -k` leaves ISIG off on some ttys, so Ctrl-C/Ctrl-Z can arrive as plain keys.
+    case "$KEY" in
+      CTRL_C) _tui_on_exit 130 ;;
+      CTRL_Z) _tui_on_tstp; continue ;;
+    esac
+    tui_handle_key "$KEY"
+    case "$TUI_RESULT" in
+      apply|save|quit)
+        ACTION="$TUI_RESULT"
+        break
+        ;;
+      confirm-quit)
+        TUI_PROMPT="discard unsaved mark changes and quit? [y/N] "
+        tui_draw
+        tui_read_key
+        TUI_PROMPT=""
+        if [[ "$KEY" == y || "$KEY" == Y ]]; then
+          ACTION=quit
+          break
+        fi
+        ;;
+    esac
+    tui_draw
+  done
+  tui_leave
+  return 0
+}
+
+# ---------------------------------------------------------------------
 # Apply: pull + recreate
 # ---------------------------------------------------------------------
 
@@ -796,7 +1112,11 @@ main() {
     print_scan_summary "$root"
     ACTION=apply
   else
-    run_menu "$root"
+    if use_tui; then
+      run_tui "$root"
+    else
+      run_menu "$root"
+    fi
   fi
 
   case "$ACTION" in
@@ -828,4 +1148,5 @@ main() {
   esac
 }
 
+trap tui_leave EXIT
 main "$@"
