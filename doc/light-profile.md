@@ -78,6 +78,20 @@ would widen the light profile without notice. The profile must keep a small,
 reviewed set of links. To add an entry to the light profile, edit `LIGHT_LINKS`
 and this doc in the same change.
 
+## Binaries come from the system
+
+`--light` plants config only. It does not install a program. A light user relies
+on system-wide binaries that the admin installs with a hard install (`setup.sh` or
+`/update`). Example binaries: `starship`, `atuin`, `zoxide`, `fzf`, `bat`.
+
+- Debian 13 and later ship `starship` and `atuin` in apt. The hard install puts
+  them in `/usr/bin`, so every user finds them on PATH.
+- On older releases, the fallback hooks install them into the admin's `~/.local/bin`.
+  A light user does not see that directory.
+- Without the binary, `load` skips `starship init` and `atuin init`. The prompt stays plain.
+- The prompt uses Nerd Font glyphs. Set a Nerd Font in the terminal emulator of the
+  light user. If you do not, the prompt shows empty boxes.
+
 ## Why not reuse `--server`
 
 `PROFILE` already defaults to `"server"`, so `--server` today means "the normal
