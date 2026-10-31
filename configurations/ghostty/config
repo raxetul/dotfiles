@@ -65,17 +65,19 @@ clipboard-paste-protection = true
 # Treat the left Option key as Alt so Meta-based bindings (readline M-b/M-f,
 # tmux prefix, etc.) work. Use `right` instead if you still want Option for
 # typing accented characters.
-macos-option-as-alt = left
+# macos-option-as-alt = left
 # Non-native fullscreen keeps the menu bar reachable and avoids the slow
 # Spaces animation.
-macos-non-native-fullscreen = true
+# macos-non-native-fullscreen = true
+macos-titlebar-style = native
 # Wider gamut on P3 displays — makes the Mocha palette noticeably richer.
-window-colorspace = display-p3
+# window-colorspace = display-p3
 # macOS app auto-updates itself; `check` notifies without forcing. On Linux
 # this is ignored since the package manager owns updates.
 auto-update = check
 # Restore windows/tabs after a restart (macOS session state).
 window-save-state = always
+
 
 # ─── Linux / GTK-only ───────────────────────────────────────────────────────
 # One process for all windows: faster new-window spawns and shared state.
