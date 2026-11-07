@@ -51,6 +51,22 @@ Use one rule: add `alt` to go one layer out.
 | `next_tab` / `previous_tab` | `ctrl+alt+n` / `ctrl+alt+p` | 🟡 untested |
 | `next_workspace` / `previous_workspace` | `ctrl+alt+.` / `ctrl+alt+,` | 🟡 untested |
 | `switch_tab` (indexed) | `ctrl+alt+1..9` | 🟡 untested |
+| `copy_mode` — keyboard scrollback | `prefix+[` (`ctrl+b` then `[`) | 🟢 verified on phone (ConnectBot), 2026-11-07 |
+
+### Scroll on a phone (ConnectBot)
+
+ConnectBot does not send a swipe to the server. It scrolls only its own local
+buffer, and that buffer is empty because herdr uses the alternate screen. A
+test with mouse tracking on (`printf '\e[?1000h\e[?1006h'; cat -v`) printed
+nothing during a swipe. Desktop terminals send the wheel as mouse events, so
+they scroll herdr panes. herdr is not at fault.
+
+On the phone, scroll with keys:
+
+| Key | Action |
+| --- | --- |
+| `ctrl+b` then `[` | `copy_mode`: scroll in the pane. Not in `herdr --default-config`; bound here. |
+| `ctrl+b` then `e` | `edit_scrollback`: open the scrollback in `$EDITOR` (herdr default) |
 
 > 🔴 **The `ctrl+alt` layer does not reach herdr.** `herdr server
 > reload-config` reports `status: applied` with zero diagnostics. This shows
